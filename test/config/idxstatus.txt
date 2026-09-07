@@ -1,0 +1,8 @@
+phase = 6
+docsdone = 0
+filesdone = 4
+fileerrors = 0
+dbtotdocs = 4
+totfiles = 4
+fn = 
+hasmonitor = 0

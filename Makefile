@@ -1,0 +1,73 @@
+NAME := recoll-modern-ui
+IMAGE := tenasi/$(NAME)
+VERSION := 0.3.0
+BUILD_PATH := ./build
+CONTAINER_NAME := recoll
+PORT := 8080
+
+.PHONY: build run test stop release clean
+
+build:
+	podman build \
+		--build-arg APP_VERSION=$(VERSION) \
+		--platform linux/amd64 \
+		--tag $(IMAGE):$(VERSION) \
+		.
+	podman tag $(IMAGE):$(VERSION) $(IMAGE):latest
+
+run:
+	@echo "Starting container $(CONTAINER_NAME)..."
+	podman rm -f $(CONTAINER_NAME) 2>/dev/null || true
+	podman run -d \
+		--name $(CONTAINER_NAME) \
+		--restart unless-stopped \
+		-p $(PORT):8080 \
+		-v "$(CURDIR)/test/data:/data:ro" \
+		-v "$(CURDIR)/test/config:/root/.recoll" \
+		-e RECOLL_CONFDIR=/root/.recoll \
+		-e RECOLL_LOGLEVEL=INFO \
+		$(IMAGE):$(VERSION)
+	@echo "Container $(CONTAINER_NAME) started on http://localhost:$(PORT)"
+
+test:
+	@echo "Running tests against container $(CONTAINER_NAME)..."
+	@if ! podman ps --filter "name=$(CONTAINER_NAME)" --filter "status=running" --format "{{.Names}}" | grep -q "^$(CONTAINER_NAME)$$"; then \
+		echo "Error: Container $(CONTAINER_NAME) is not running. Start it with 'make run' first." >&2; \
+		exit 1; \
+	fi
+	@echo "[1/4] Waiting for Web UI readiness..."
+	@for i in $$(seq 1 30); do \
+		if curl -s -f http://127.0.0.1:$(PORT)/ >/dev/null 2>&1; then \
+			echo "      Web UI is responding (attempt $$i)"; \
+			break; \
+		fi; \
+		if [ $$i -eq 30 ]; then \
+			echo "Error: Web UI failed to respond within 30 seconds." >&2; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done
+	@echo "[2/4] Testing HTML UI root endpoint..."
+	@curl -s -f http://127.0.0.1:$(PORT)/ | grep -q "Recoll" || { echo "Error: Root endpoint response did not contain expected content." >&2; exit 1; }
+	@echo "      Root endpoint OK (contains Recoll UI)"
+	@echo "[3/4] Testing Static Assets delivery..."
+	@curl -s -f http://127.0.0.1:$(PORT)/static/style.css >/dev/null || { echo "Error: Failed to fetch static CSS." >&2; exit 1; }
+	@echo "      Static assets OK"
+	@echo "[4/4] Testing JSON API and Search Query..."
+	@curl -s -f "http://127.0.0.1:$(PORT)/json?query=000" | grep -q '"results"' || { echo "Error: JSON API query failed." >&2; exit 1; }
+	@echo "      JSON search endpoint OK"
+	@echo "All tests passed successfully!"
+
+stop:
+	@echo "Stopping container $(CONTAINER_NAME)..."
+	podman stop $(CONTAINER_NAME) 2>/dev/null || true
+	podman rm $(CONTAINER_NAME) 2>/dev/null || true
+	@echo "Container $(CONTAINER_NAME) stopped and removed."
+
+release: build
+	@HASH=$$(podman inspect --format='{{.Id}}' "$(IMAGE):$(VERSION)" | sed 's/sha256://'); \
+	podman save -o $(BUILD_PATH)/$(NAME)-$${HASH}.tar $(IMAGE):$(VERSION)
+
+clean: stop
+	podman manifest rm $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
+	podman image rm $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
