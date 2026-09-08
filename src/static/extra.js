@@ -73,6 +73,7 @@ function initRecollApp() {
     initFilesDownload();
     initCustomSelects();
     initCustomDatepicker();
+    initMainQueryEditor();
 }
 
 if (document.readyState === 'loading') {
@@ -313,7 +314,7 @@ function initAdvancedSearch() {
         if (!activeForm || !fieldsContainer) return '';
         const compiled = compileQueryFromForm(activeForm, fieldsContainer);
         if (previewEl) {
-            previewEl.textContent = compiled || '<empty>';
+            previewEl.innerHTML = compiled ? highlightQuerySyntax(compiled) : '&lt;empty&gt;';
         }
         return compiled;
     }
@@ -323,6 +324,7 @@ function initAdvancedSearch() {
         const query = updateCompiledQuery();
         if (mainQueryInput && query) {
             mainQueryInput.value = query;
+            mainQueryInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
         safeStorageSet('sessionStorage', 'recoll_adv_open', '1');
         if (searchForm) {
@@ -338,6 +340,7 @@ function initAdvancedSearch() {
                 const query = updateCompiledQuery();
                 if (mainQueryInput && query) {
                     mainQueryInput.value = query;
+                    mainQueryInput.dispatchEvent(new Event('input', { bubbles: true }));
                 }
                 safeStorageSet('sessionStorage', 'recoll_adv_open', '1');
             }
@@ -392,6 +395,7 @@ function initAdvancedSearch() {
             // Clear main query input and preview
             if (mainQueryInput) {
                 mainQueryInput.value = '';
+                mainQueryInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
             renderActiveForm('default');
             updateCompiledQuery();
@@ -652,12 +656,18 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     // Wrap in .query-editor-wrap
     const wrap = document.createElement('div');
     wrap.className = 'query-editor-wrap';
+    if (inputEl.classList.contains('query-input')) {
+        wrap.classList.add('main-query-editor-wrap');
+    }
     inputEl.parentNode.insertBefore(wrap, inputEl);
     wrap.appendChild(inputEl);
 
     // Backdrop for real-time syntax highlighting
     const backdrop = document.createElement('div');
     backdrop.className = 'query-highlight-backdrop';
+    if (inputEl.classList.contains('query-input')) {
+        backdrop.classList.add('main-query-highlight-backdrop');
+    }
     backdrop.setAttribute('aria-hidden', 'true');
     wrap.insertBefore(backdrop, inputEl);
 
@@ -694,6 +704,10 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         const parentRow = wrap.closest('.options-table tr');
         if (parentRow && !parentRow.querySelector('.query-autocomplete-dropdown')) {
             parentRow.classList.remove('has-active-dropdown');
+        }
+        const parentQueryInputWrap = wrap.closest('.query-input-wrap');
+        if (parentQueryInputWrap && !parentQueryInputWrap.querySelector('.query-autocomplete-dropdown')) {
+            parentQueryInputWrap.classList.remove('has-active-dropdown');
         }
         activeIdx = -1;
         currentContext = null;
@@ -847,7 +861,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     function renderDropdown(ctx) {
         currentContext = ctx;
         currentMatches = ctx.matches;
-        activeIdx = currentMatches.length > 0 ? 0 : -1;
+        activeIdx = -1;
 
         if (!dropdown || !dropdown.isConnected) {
             dropdown = document.createElement('div');
@@ -860,6 +874,8 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         if (parentCard) parentCard.classList.add('has-active-dropdown');
         const parentRow = wrap.closest('.options-table tr');
         if (parentRow) parentRow.classList.add('has-active-dropdown');
+        const parentQueryInputWrap = wrap.closest('.query-input-wrap');
+        if (parentQueryInputWrap) parentQueryInputWrap.classList.add('has-active-dropdown');
 
         const rect = wrap.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
@@ -892,6 +908,11 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
                 <span class="query-suggestion-snippet">${item.badgeHtml}</span>
                 <span class="query-suggestion-desc">${escapeHtml(item.desc)}</span>
             `;
+
+            row.addEventListener('mouseenter', () => {
+                activeIdx = idx;
+                updateSelectedRow();
+            });
 
             row.addEventListener('mousedown', (e) => {
                 e.preventDefault(); // prevent blur
@@ -973,14 +994,22 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             if (currentMatches.length > 0) {
-                activeIdx = (activeIdx - 1 + currentMatches.length) % currentMatches.length;
+                activeIdx = activeIdx <= 0 ? currentMatches.length - 1 : activeIdx - 1;
                 updateSelectedRow();
             }
-        } else if (e.key === 'Enter' || e.key === 'Tab') {
+        } else if (e.key === 'Enter') {
             if (activeIdx >= 0 && activeIdx < currentMatches.length) {
                 e.preventDefault();
                 e.stopPropagation();
                 selectSuggestion(currentMatches[activeIdx]);
+            } else {
+                closeDropdown();
+            }
+        } else if (e.key === 'Tab') {
+            if (currentMatches.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                selectSuggestion(currentMatches[activeIdx >= 0 ? activeIdx : 0]);
             }
         } else if (e.key === 'Escape') {
             e.preventDefault();
@@ -1002,6 +1031,13 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             closeDropdown();
         }
     });
+}
+
+function initMainQueryEditor() {
+    const mainQueryInput = document.querySelector('input.query-input');
+    if (mainQueryInput) {
+        setupQueryFieldEditor(mainQueryInput, 'general');
+    }
 }
 
 // ============================================================================

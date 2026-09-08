@@ -237,6 +237,13 @@ header.app-header {
     align-items: center;
 }
 
+.query-input-wrap:focus-within,
+.query-input-wrap:has(.query-autocomplete-dropdown),
+.query-input-wrap.has-active-dropdown {
+    position: relative;
+    z-index: 1000;
+}
+
 .query-input-icon {
     position: absolute;
     left: 14px;
@@ -244,6 +251,7 @@ header.app-header {
     pointer-events: none;
     width: 18px;
     height: 18px;
+    z-index: 3;
 }
 
 .query-input {
@@ -2504,6 +2512,24 @@ input.form-control-query:active {
     box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28), 0 0 14px rgba(139, 92, 246, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
+.query-editor-wrap.main-query-editor-wrap {
+    background: rgba(15, 19, 34, 0.85);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    min-height: 48px;
+    box-shadow: none;
+    transition: all 0.25s ease;
+}
+
+.query-editor-wrap.main-query-editor-wrap:focus-within,
+.query-editor-wrap.main-query-editor-wrap:has(.query-autocomplete-dropdown),
+.query-editor-wrap.main-query-editor-wrap.has-active-dropdown {
+    z-index: 1000;
+    border-color: var(--accent);
+    background: rgba(15, 19, 34, 0.95);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2), 0 4px 16px var(--glow-color);
+}
+
 .query-highlight-backdrop {
     position: absolute;
     top: 0;
@@ -2523,6 +2549,14 @@ input.form-control-query:active {
     user-select: none;
     border: 1px solid transparent;
     z-index: 1;
+}
+
+.main-query-highlight-backdrop {
+    padding: 13px 16px 13px 44px;
+    min-height: 48px;
+    font-size: 1.02rem;
+    line-height: 20px;
+    letter-spacing: 0.025em;
 }
 
 .options-table .query-highlight-backdrop {
@@ -2545,6 +2579,48 @@ input.form-control-query:active {
     width: 100%;
     border-radius: 8px;
     outline: none !important;
+}
+
+.main-query-editor-wrap input.query-input {
+    position: relative;
+    z-index: 2;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    caret-color: #38bdf8 !important;
+    padding: 13px 16px 13px 44px !important;
+    min-height: 48px !important;
+    line-height: 20px !important;
+    font-size: 1.02rem !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    letter-spacing: 0.025em !important;
+    width: 100%;
+    border-radius: 12px;
+    outline: none !important;
+    -webkit-appearance: none;
+}
+
+.main-query-editor-wrap input.query-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    display: none;
+}
+
+.main-query-editor-wrap input.query-input::placeholder {
+    color: var(--text-muted) !important;
+    font-family: inherit !important;
+    font-style: normal !important;
+    letter-spacing: normal !important;
+}
+
+.main-query-editor-wrap input.query-input::selection {
+    background: rgba(139, 92, 246, 0.45);
+    color: transparent;
+}
+
+.main-query-editor-wrap .query-autocomplete-dropdown {
+    top: calc(100% + 8px);
+    border-radius: 12px;
 }
 
 .options-table .query-editor-wrap input.form-control-query {
