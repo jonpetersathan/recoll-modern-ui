@@ -152,11 +152,8 @@ function initAdvancedSearch() {
 
     const forms = getStoredForms();
     const formSelector = document.getElementById('active-form-selector');
-    const formDesc = document.getElementById('active-form-desc');
     const fieldsContainer = document.getElementById('advanced-fields-container');
     const previewEl = document.getElementById('advanced-query-preview');
-    const clearBtn = document.getElementById('btn-clear-advanced');
-    const submitBtn = document.getElementById('btn-submit-advanced');
     const searchForm = document.getElementById('search-form');
     const mainQueryInput = document.querySelector('input[name="query"]');
 
@@ -208,10 +205,6 @@ function initAdvancedSearch() {
     function renderActiveForm(formId) {
         activeForm = forms.find(f => f.id === formId) || forms[0];
         if (!activeForm) return;
-
-        if (formDesc) {
-            formDesc.textContent = activeForm.description || '';
-        }
 
         const savedValues = loadActiveFormValues(activeForm.id);
         fieldsContainer.innerHTML = '';
@@ -335,21 +328,6 @@ function initAdvancedSearch() {
         });
     }
 
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            const inputs = fieldsContainer.querySelectorAll('.advanced-field-input');
-            inputs.forEach(input => {
-                if (input.type === 'checkbox') input.checked = false;
-                else input.value = '';
-            });
-            if (activeForm) {
-                safeStorageSet('localStorage', `recoll_adv_values_${activeForm.id}`, '{}');
-            }
-            updateCompiledQuery();
-            if (mainQueryInput) mainQueryInput.value = '';
-        });
-    }
-
     const resetBtn = document.getElementById('btn-reset-query') || document.querySelector('a[title="Reset Search Query"]');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -383,13 +361,6 @@ function initAdvancedSearch() {
             }
             renderActiveForm('default');
             updateCompiledQuery();
-        });
-    }
-
-    if (submitBtn) {
-        submitBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            executeFormSearch();
         });
     }
 }

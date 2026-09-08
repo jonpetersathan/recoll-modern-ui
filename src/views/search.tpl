@@ -74,23 +74,11 @@
                 <!-- Injected dynamically by client JS based on selected form -->
             </div>
 
-            <!-- Query Preview and Actions Bar -->
+            <!-- Query Preview Bar -->
             <div class="advanced-bottom-bar">
                 <div class="query-preview-wrap">
                     <span class="query-preview-label">Compiled Query:</span>
                     <code id="advanced-query-preview" class="query-preview-code">&lt;empty&gt;</code>
-                </div>
-                <div class="advanced-action-buttons">
-                    <button type="button" id="btn-clear-advanced" class="btn btn-secondary btn-sm" title="Clear all advanced fields">
-                        Clear Fields
-                    </button>
-                    <button type="button" id="btn-submit-advanced" class="btn btn-primary btn-sm" title="Execute search with compiled query">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <span>Search with Form</span>
-                    </button>
                 </div>
             </div>
         </div>
