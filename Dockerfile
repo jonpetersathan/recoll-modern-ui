@@ -35,6 +35,8 @@ RUN echo topdirs = /data >> /root/.recoll/recoll.conf && \
     chmod 666 /root/.recoll/recoll.conf
 
 # Copy modern web UI application
+ARG CACHEBUST=1
+RUN echo "Context sync: ${CACHEBUST}"
 COPY . /app
 WORKDIR /app
 

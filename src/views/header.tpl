@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <title>Recoll Search{{title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.3.13">
-    <script type="text/javascript" src="/static/extra.js?v=0.3.13" defer></script>
+    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.3.18">
+    <script type="text/javascript" src="/static/extra.js?v=0.3.18" defer></script>
+    <link rel="icon" href="/logo">
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="icon" type="image/png" href="/static/recoll.png">
     <link rel="search" type="application/opensearchdescription+xml" title="recoll" href="/osd.xml">
@@ -17,7 +18,7 @@
         <header class="app-header">
             <div class="header-brand">
                 <a href="./" class="header-logo-link" title="Recoll Home">
-                    <img src="/static/logo.svg" alt="Recoll Logo" class="header-logo" height="48">
+                    <img src="/logo" alt="Recoll Logo" class="header-logo" height="48">
                 </a>
                 <div class="header-title">
                     <h1><a href="./">Recoll Search</a></h1>

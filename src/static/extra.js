@@ -30,8 +30,27 @@ function initRecollApp() {
                 queryInput.select();
             }
         }
-        // Press 'Escape' to blur active input or close open modals
+        // Press 'Escape' to close open datepickers, open dropdowns, open modals, or blur active inputs
         if (e.key === 'Escape') {
+            const openDatepickers = document.querySelectorAll('.custom-datepicker-popover.is-open');
+            if (openDatepickers.length > 0) {
+                openDatepickers.forEach(p => p.classList.remove('is-open', 'drop-up'));
+                return;
+            }
+
+            const openDropdowns = document.querySelectorAll('.custom-select-wrapper.is-open');
+            if (openDropdowns.length > 0) {
+                openDropdowns.forEach(w => {
+                    w.classList.remove('is-open', 'drop-up');
+                    const trg = w.querySelector('.custom-select-trigger');
+                    if (trg) {
+                        trg.setAttribute('aria-expanded', 'false');
+                        trg.focus();
+                    }
+                });
+                return;
+            }
+
             const openModals = document.querySelectorAll('.modal-backdrop');
             openModals.forEach(m => {
                 if (m.style.display !== 'none') m.style.display = 'none';
@@ -42,10 +61,12 @@ function initRecollApp() {
         }
     });
 
-    // Initialize Advanced Search Panel, Settings Form Manager, & Files Download
+    // Initialize Advanced Search Panel, Settings Form Manager, Files Download, Custom Selects, & Datepicker
     initAdvancedSearch();
     initSettingsFormManager();
     initFilesDownload();
+    initCustomSelects();
+    initCustomDatepicker();
 }
 
 if (document.readyState === 'loading') {
@@ -274,6 +295,7 @@ function initAdvancedSearch() {
         });
 
         updateCompiledQuery();
+        initCustomSelects(fieldsContainer);
     }
 
     function updateCompiledQuery() {
@@ -757,6 +779,7 @@ function initSettingsFormManager() {
         });
 
         builderFieldsContainer.appendChild(card);
+        initCustomSelects(card);
     }
 
     window.openNewFormBuilder = function(e) {
@@ -1059,4 +1082,916 @@ function initFilesDownload() {
         }
     });
 }
+
+/**
+ * Custom Glassmorphic Select Component
+ * Enhances native <select class="form-control"> into a luxury glassmorphic dropdown
+ * with animated rotating chevron, glowing highlights, checkmarks, and keyboard navigation.
+ */
+function initCustomSelects(root = document) {
+    let selects = [];
+    if (root.matches && root.matches('select.form-control:not([data-customized])')) {
+        selects = [root];
+    } else if (root.querySelectorAll) {
+        selects = Array.from(root.querySelectorAll('select.form-control:not([data-customized])'));
+    }
+
+    selects.forEach(select => {
+        select.dataset.customized = 'true';
+
+        // Check if already inside a wrapper
+        let wrapper = select.closest('.custom-select-wrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.className = 'custom-select-wrapper';
+            if (select.classList.contains('form-preset-select')) {
+                wrapper.classList.add('form-preset-select');
+            }
+            select.parentNode.insertBefore(wrapper, select);
+            wrapper.appendChild(select);
+        }
+
+        // Create Trigger Button
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'custom-select-trigger';
+        trigger.setAttribute('role', 'combobox');
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+
+        const label = document.createElement('span');
+        label.className = 'custom-select-label';
+
+        const arrow = document.createElement('span');
+        arrow.className = 'custom-select-arrow';
+        arrow.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+        trigger.appendChild(label);
+        trigger.appendChild(arrow);
+        wrapper.appendChild(trigger);
+
+        // Create Menu Popover
+        const menu = document.createElement('div');
+        menu.className = 'custom-select-menu';
+        menu.setAttribute('role', 'listbox');
+        wrapper.appendChild(menu);
+
+        let highlightedIndex = -1;
+        let typeAheadBuffer = '';
+        let typeAheadTimer = null;
+
+        function renderOptions() {
+            menu.innerHTML = '';
+            const selectedOpt = select.options[select.selectedIndex] || select.options[0];
+            if (selectedOpt) {
+                label.textContent = selectedOpt.textContent.trim();
+            } else {
+                label.textContent = '';
+            }
+
+            Array.from(select.options).forEach((opt, idx) => {
+                const optEl = document.createElement('div');
+                optEl.className = 'custom-select-option';
+                optEl.setAttribute('role', 'option');
+                optEl.dataset.index = idx;
+                optEl.dataset.value = opt.value;
+                if (opt.selected) {
+                    optEl.classList.add('is-selected');
+                    optEl.setAttribute('aria-selected', 'true');
+                }
+                if (opt.disabled) {
+                    optEl.classList.add('is-disabled');
+                }
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'custom-select-option-text';
+
+                // Preserve folder hierarchy indentation if non-breaking spaces are present
+                if (opt.innerHTML && opt.innerHTML.includes('&nbsp;')) {
+                    textSpan.innerHTML = opt.innerHTML;
+                } else {
+                    textSpan.textContent = opt.textContent.trim();
+                }
+
+                const checkSpan = document.createElement('span');
+                checkSpan.className = 'custom-select-check';
+                checkSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+                optEl.appendChild(textSpan);
+                optEl.appendChild(checkSpan);
+
+                optEl.addEventListener('mouseenter', () => {
+                    setHighlighted(idx);
+                });
+
+                optEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (opt.disabled) return;
+                    selectOption(idx);
+                });
+
+                menu.appendChild(optEl);
+            });
+        }
+
+        function openMenu() {
+            // Close any other open dropdowns
+            document.querySelectorAll('.custom-select-wrapper.is-open').forEach(w => {
+                if (w !== wrapper) {
+                    w.classList.remove('is-open', 'drop-up');
+                    const trg = w.querySelector('.custom-select-trigger');
+                    if (trg) trg.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            // Calculate viewport position for drop-up if near bottom
+            const rect = trigger.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 260 && rect.top > 260) {
+                wrapper.classList.add('drop-up');
+            } else {
+                wrapper.classList.remove('drop-up');
+            }
+
+            wrapper.classList.add('is-open');
+            trigger.setAttribute('aria-expanded', 'true');
+
+            highlightedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
+            updateHighlightScroll();
+        }
+
+        function closeMenu() {
+            wrapper.classList.remove('is-open', 'drop-up');
+            trigger.setAttribute('aria-expanded', 'false');
+            highlightedIndex = -1;
+            clearHighlight();
+        }
+
+        function selectOption(index) {
+            if (index < 0 || index >= select.options.length) return;
+            const opt = select.options[index];
+            if (opt.disabled) return;
+
+            select.selectedIndex = index;
+            label.textContent = opt.textContent.trim();
+
+            menu.querySelectorAll('.custom-select-option').forEach((el, idx) => {
+                if (idx === index) {
+                    el.classList.add('is-selected');
+                    el.setAttribute('aria-selected', 'true');
+                } else {
+                    el.classList.remove('is-selected');
+                    el.removeAttribute('aria-selected');
+                }
+            });
+
+            closeMenu();
+            trigger.focus();
+
+            // Dispatch events to trigger native form and search listeners
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function setHighlighted(index) {
+            highlightedIndex = index;
+            const items = menu.querySelectorAll('.custom-select-option');
+            items.forEach((item, idx) => {
+                item.classList.toggle('is-highlighted', idx === highlightedIndex);
+            });
+        }
+
+        function clearHighlight() {
+            menu.querySelectorAll('.custom-select-option').forEach(item => {
+                item.classList.remove('is-highlighted');
+            });
+        }
+
+        function updateHighlightScroll() {
+            setHighlighted(highlightedIndex);
+            const items = menu.querySelectorAll('.custom-select-option');
+            const highlightedItem = items[highlightedIndex];
+            if (highlightedItem) {
+                highlightedItem.scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        // Trigger Click
+        trigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (wrapper.classList.contains('is-open')) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
+        });
+
+        // Keyboard Navigation
+        trigger.addEventListener('keydown', (e) => {
+            const isOpen = wrapper.classList.contains('is-open');
+            const optionCount = select.options.length;
+
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                if (isOpen) {
+                    if (highlightedIndex >= 0) {
+                        selectOption(highlightedIndex);
+                    } else {
+                        closeMenu();
+                    }
+                } else {
+                    openMenu();
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isOpen) {
+                    openMenu();
+                } else {
+                    highlightedIndex = (highlightedIndex + 1) % optionCount;
+                    updateHighlightScroll();
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!isOpen) {
+                    openMenu();
+                } else {
+                    highlightedIndex = (highlightedIndex - 1 + optionCount) % optionCount;
+                    updateHighlightScroll();
+                }
+            } else if (e.key === 'Home') {
+                if (isOpen) {
+                    e.preventDefault();
+                    highlightedIndex = 0;
+                    updateHighlightScroll();
+                }
+            } else if (e.key === 'End') {
+                if (isOpen) {
+                    e.preventDefault();
+                    highlightedIndex = optionCount - 1;
+                    updateHighlightScroll();
+                }
+            } else if (e.key === 'Escape') {
+                if (isOpen) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeMenu();
+                    trigger.focus();
+                }
+            } else if (e.key === 'Tab') {
+                if (isOpen) {
+                    closeMenu();
+                }
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                // Type-ahead jump
+                if (!isOpen) openMenu();
+                clearTimeout(typeAheadTimer);
+                typeAheadBuffer += e.key.toLowerCase();
+                typeAheadTimer = setTimeout(() => { typeAheadBuffer = ''; }, 500);
+
+                for (let i = 0; i < select.options.length; i++) {
+                    const text = select.options[i].textContent.trim().toLowerCase();
+                    if (text.startsWith(typeAheadBuffer)) {
+                        highlightedIndex = i;
+                        updateHighlightScroll();
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Sync when native select is changed programmatically
+        function syncFromNative() {
+            const currentSelected = select.options[select.selectedIndex];
+            if (currentSelected) {
+                label.textContent = currentSelected.textContent.trim();
+            }
+            menu.querySelectorAll('.custom-select-option').forEach((el, idx) => {
+                if (idx === select.selectedIndex) {
+                    el.classList.add('is-selected');
+                    el.setAttribute('aria-selected', 'true');
+                } else {
+                    el.classList.remove('is-selected');
+                    el.removeAttribute('aria-selected');
+                }
+            });
+        }
+
+        select.addEventListener('change', syncFromNative);
+
+        // Intercept programmatic value & selectedIndex setters on this select
+        const proto = HTMLSelectElement.prototype;
+        const valDesc = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (valDesc && valDesc.set) {
+            Object.defineProperty(select, 'value', {
+                get() {
+                    return valDesc.get.call(this);
+                },
+                set(val) {
+                    valDesc.set.call(this, val);
+                    syncFromNative();
+                },
+                configurable: true
+            });
+        }
+
+        const selIdxDesc = Object.getOwnPropertyDescriptor(proto, 'selectedIndex');
+        if (selIdxDesc && selIdxDesc.set) {
+            Object.defineProperty(select, 'selectedIndex', {
+                get() {
+                    return selIdxDesc.get.call(this);
+                },
+                set(idx) {
+                    selIdxDesc.set.call(this, idx);
+                    syncFromNative();
+                },
+                configurable: true
+            });
+        }
+
+        // MutationObserver to update options if DOM children change
+        const observer = new MutationObserver(() => {
+            renderOptions();
+            syncFromNative();
+        });
+        observer.observe(select, { childList: true, subtree: true });
+
+        // Initial render
+        renderOptions();
+    });
+
+    // Close any open custom select when clicking outside (registered once)
+    if (!window._customSelectGlobalClickRegistered) {
+        window._customSelectGlobalClickRegistered = true;
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-wrapper')) {
+                document.querySelectorAll('.custom-select-wrapper.is-open').forEach(w => {
+                    w.classList.remove('is-open', 'drop-up');
+                    const trg = w.querySelector('.custom-select-trigger');
+                    if (trg) trg.setAttribute('aria-expanded', 'false');
+                });
+            }
+        });
+    }
+}
+
+/**
+ * Custom Glassmorphic Datepicker Component
+ * Enhances date range inputs (name="after" and name="before") with an interactive
+ * calendar popover, month/year navigation, quick presets, and keyboard accessibility.
+ */
+function initCustomDatepicker() {
+    const dateRanges = document.querySelectorAll('.date-range');
+    if (!dateRanges.length) return;
+
+    const MONTH_NAMES = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const WEEKDAY_NAMES = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+    dateRanges.forEach(rangeContainer => {
+        const afterInput = rangeContainer.querySelector('input[name="after"]');
+        const beforeInput = rangeContainer.querySelector('input[name="before"]');
+        if (!afterInput || !beforeInput) return;
+
+        // Prevent duplicate initialization
+        if (rangeContainer.dataset.datepickerInit === 'true') return;
+        rangeContainer.dataset.datepickerInit = 'true';
+
+        // Wrap inputs in .date-input-wrapper if not already wrapped
+        [afterInput, beforeInput].forEach(input => {
+            if (!input.parentNode.classList.contains('date-input-wrapper')) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'date-input-wrapper';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+
+                const iconBtn = document.createElement('button');
+                iconBtn.type = 'button';
+                iconBtn.className = 'date-picker-icon-btn';
+                iconBtn.title = 'Open date picker';
+                iconBtn.setAttribute('aria-label', `Choose date for ${input.placeholder || 'date'}`);
+                iconBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
+                wrapper.appendChild(iconBtn);
+
+                iconBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleDatepicker(input);
+                });
+
+                input.addEventListener('focus', () => {
+                    openDatepicker(input);
+                });
+            }
+        });
+
+        // Create Shared Popover Element inside rangeContainer
+        const popover = document.createElement('div');
+        popover.className = 'custom-datepicker-popover';
+        popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-modal', 'true');
+        rangeContainer.appendChild(popover);
+
+        let activeInput = null;
+        let viewYear = new Date().getFullYear();
+        let viewMonth = new Date().getMonth();
+        let viewMode = 'days'; // 'days' or 'years'
+        let yearGridStart = Math.floor(viewYear / 12) * 12;
+
+        function parseInputDate(str) {
+            if (!str) return null;
+            const parts = str.trim().split('-');
+            if (parts.length === 3) {
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                const d = parseInt(parts[2], 10);
+                if (!isNaN(y) && !isNaN(m) && !isNaN(d) && m >= 0 && m <= 11 && d >= 1 && d <= 31) {
+                    return { year: y, month: m, day: d };
+                }
+            } else if (parts.length === 2) {
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                if (!isNaN(y) && !isNaN(m) && m >= 0 && m <= 11) {
+                    return { year: y, month: m, day: 1 };
+                }
+            } else if (parts.length === 1 && parts[0].length === 4) {
+                const y = parseInt(parts[0], 10);
+                if (!isNaN(y)) return { year: y, month: 0, day: 1 };
+            }
+            return null;
+        }
+
+        function formatDate(y, m, d) {
+            const mm = String(m + 1).padStart(2, '0');
+            const dd = String(d).padStart(2, '0');
+            return `${y}-${mm}-${dd}`;
+        }
+
+        function renderCalendar() {
+            popover.innerHTML = '';
+
+            const today = new Date();
+            const todayY = today.getFullYear();
+            const todayM = today.getMonth();
+            const todayD = today.getDate();
+            const parsedCurrent = activeInput ? parseInputDate(activeInput.value) : null;
+
+            // 1. Header
+            const header = document.createElement('div');
+            header.className = 'datepicker-header';
+
+            if (viewMode === 'days') {
+                // Left Navigation: Prev Year (<<) and Prev Month (<)
+                const leftNav = document.createElement('div');
+                leftNav.className = 'datepicker-nav-group';
+
+                const prevYearBtn = document.createElement('button');
+                prevYearBtn.type = 'button';
+                prevYearBtn.className = 'datepicker-nav-btn btn-prev-year';
+                prevYearBtn.title = 'Previous year';
+                prevYearBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>`;
+                prevYearBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    viewYear--;
+                    renderCalendar();
+                });
+
+                const prevMonthBtn = document.createElement('button');
+                prevMonthBtn.type = 'button';
+                prevMonthBtn.className = 'datepicker-nav-btn btn-prev-month';
+                prevMonthBtn.title = 'Previous month';
+                prevMonthBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+                prevMonthBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    viewMonth--;
+                    if (viewMonth < 0) {
+                        viewMonth = 11;
+                        viewYear--;
+                    }
+                    renderCalendar();
+                });
+
+                leftNav.appendChild(prevYearBtn);
+                leftNav.appendChild(prevMonthBtn);
+                header.appendChild(leftNav);
+
+                // Center Title: Month label + Clickable Year Button (opens year grid)
+                const titleWrap = document.createElement('div');
+                titleWrap.className = 'datepicker-title-wrap';
+
+                const monthLabel = document.createElement('span');
+                monthLabel.className = 'datepicker-month-label';
+                monthLabel.textContent = MONTH_NAMES[viewMonth];
+
+                const yearBtn = document.createElement('button');
+                yearBtn.type = 'button';
+                yearBtn.className = 'datepicker-year-btn';
+                yearBtn.title = 'Click to switch year';
+                yearBtn.innerHTML = `<span>${viewYear}</span><svg class="datepicker-year-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+                yearBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    yearGridStart = Math.floor(viewYear / 12) * 12;
+                    viewMode = 'years';
+                    renderCalendar();
+                });
+
+                titleWrap.appendChild(monthLabel);
+                titleWrap.appendChild(yearBtn);
+                header.appendChild(titleWrap);
+
+                // Right Navigation: Next Month (>) and Next Year (>>)
+                const rightNav = document.createElement('div');
+                rightNav.className = 'datepicker-nav-group';
+
+                const nextMonthBtn = document.createElement('button');
+                nextMonthBtn.type = 'button';
+                nextMonthBtn.className = 'datepicker-nav-btn btn-next-month';
+                nextMonthBtn.title = 'Next month';
+                nextMonthBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+                nextMonthBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    viewMonth++;
+                    if (viewMonth > 11) {
+                        viewMonth = 0;
+                        viewYear++;
+                    }
+                    renderCalendar();
+                });
+
+                const nextYearBtn = document.createElement('button');
+                nextYearBtn.type = 'button';
+                nextYearBtn.className = 'datepicker-nav-btn btn-next-year';
+                nextYearBtn.title = 'Next year';
+                nextYearBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>`;
+                nextYearBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    viewYear++;
+                    renderCalendar();
+                });
+
+                rightNav.appendChild(nextMonthBtn);
+                rightNav.appendChild(nextYearBtn);
+                header.appendChild(rightNav);
+                popover.appendChild(header);
+
+                // 2. Weekdays
+                const weekdaysRow = document.createElement('div');
+                weekdaysRow.className = 'datepicker-weekdays';
+                WEEKDAY_NAMES.forEach(w => {
+                    const wCell = document.createElement('span');
+                    wCell.className = 'datepicker-weekday';
+                    wCell.textContent = w;
+                    weekdaysRow.appendChild(wCell);
+                });
+                popover.appendChild(weekdaysRow);
+
+                // 3. Days Grid
+                const grid = document.createElement('div');
+                grid.className = 'datepicker-days-grid';
+
+                // Monday as first day of week
+                const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+                const startDayIndex = (firstDayOfMonth + 6) % 7;
+                const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+                const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+                // Previous month days
+                for (let i = startDayIndex - 1; i >= 0; i--) {
+                    const dayNum = daysInPrevMonth - i;
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.className = 'datepicker-day-cell is-other-month';
+                    cell.textContent = dayNum;
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        let m = viewMonth - 1;
+                        let y = viewYear;
+                        if (m < 0) { m = 11; y--; }
+                        selectDate(y, m, dayNum);
+                    });
+                    grid.appendChild(cell);
+                }
+
+                // Current month days
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.className = 'datepicker-day-cell';
+                    cell.textContent = d;
+
+                    if (viewYear === todayY && viewMonth === todayM && d === todayD) {
+                        cell.classList.add('is-today');
+                    }
+
+                    if (parsedCurrent && parsedCurrent.year === viewYear && parsedCurrent.month === viewMonth && parsedCurrent.day === d) {
+                        cell.classList.add('is-selected');
+                    }
+
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectDate(viewYear, viewMonth, d);
+                    });
+
+                    grid.appendChild(cell);
+                }
+
+                // Next month days
+                const totalCells = startDayIndex + daysInMonth;
+                const nextDaysNeeded = (totalCells > 35 ? 42 : 35) - totalCells;
+                for (let n = 1; n <= nextDaysNeeded; n++) {
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.className = 'datepicker-day-cell is-other-month';
+                    cell.textContent = n;
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        let m = viewMonth + 1;
+                        let y = viewYear;
+                        if (m > 11) { m = 0; y++; }
+                        selectDate(y, m, n);
+                    });
+                    grid.appendChild(cell);
+                }
+
+                popover.appendChild(grid);
+
+            } else {
+                // Year Selection Mode (12-year grid)
+                const prevYearsBtn = document.createElement('button');
+                prevYearsBtn.type = 'button';
+                prevYearsBtn.className = 'datepicker-nav-btn';
+                prevYearsBtn.title = 'Previous 12 years';
+                prevYearsBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+                prevYearsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    yearGridStart -= 12;
+                    renderCalendar();
+                });
+
+                const titleWrap = document.createElement('div');
+                titleWrap.className = 'datepicker-title-wrap';
+
+                const yearRangeBtn = document.createElement('button');
+                yearRangeBtn.type = 'button';
+                yearRangeBtn.className = 'datepicker-year-btn is-active';
+                yearRangeBtn.title = 'Return to calendar days';
+                yearRangeBtn.innerHTML = `<span>${yearGridStart} &ndash; ${yearGridStart + 11}</span><svg class="datepicker-year-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+                yearRangeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    viewMode = 'days';
+                    renderCalendar();
+                });
+
+                titleWrap.appendChild(yearRangeBtn);
+
+                const nextYearsBtn = document.createElement('button');
+                nextYearsBtn.type = 'button';
+                nextYearsBtn.className = 'datepicker-nav-btn';
+                nextYearsBtn.title = 'Next 12 years';
+                nextYearsBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+                nextYearsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    yearGridStart += 12;
+                    renderCalendar();
+                });
+
+                header.appendChild(prevYearsBtn);
+                header.appendChild(titleWrap);
+                header.appendChild(nextYearsBtn);
+                popover.appendChild(header);
+
+                // Years Grid (4 columns x 3 rows)
+                const yearsGrid = document.createElement('div');
+                yearsGrid.className = 'datepicker-years-grid';
+
+                for (let y = yearGridStart; y < yearGridStart + 12; y++) {
+                    const yCell = document.createElement('button');
+                    yCell.type = 'button';
+                    yCell.className = 'datepicker-year-cell';
+                    yCell.textContent = y;
+
+                    if (y === todayY) {
+                        yCell.classList.add('is-today');
+                    }
+                    if (y === viewYear) {
+                        yCell.classList.add('is-selected');
+                    }
+
+                    yCell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        viewYear = y;
+                        viewMode = 'days';
+                        renderCalendar();
+                    });
+
+                    yearsGrid.appendChild(yCell);
+                }
+
+                popover.appendChild(yearsGrid);
+            }
+
+            // 4. Quick Presets Row
+            const presetsRow = document.createElement('div');
+            presetsRow.className = 'datepicker-presets-row';
+
+            const presets = [
+                {
+                    label: 'Today',
+                    apply: () => {
+                        const t = new Date();
+                        const str = formatDate(t.getFullYear(), t.getMonth(), t.getDate());
+                        if (activeInput) {
+                            activeInput.value = str;
+                            activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        closeDatepicker();
+                    }
+                },
+                {
+                    label: 'Past 7 Days',
+                    apply: () => {
+                        const now = new Date();
+                        const past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        afterInput.value = formatDate(past.getFullYear(), past.getMonth(), past.getDate());
+                        beforeInput.value = formatDate(now.getFullYear(), now.getMonth(), now.getDate());
+                        [afterInput, beforeInput].forEach(inp => {
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                            inp.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                        closeDatepicker();
+                    }
+                },
+                {
+                    label: 'Past 30 Days',
+                    apply: () => {
+                        const now = new Date();
+                        const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        afterInput.value = formatDate(past.getFullYear(), past.getMonth(), past.getDate());
+                        beforeInput.value = formatDate(now.getFullYear(), now.getMonth(), now.getDate());
+                        [afterInput, beforeInput].forEach(inp => {
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                            inp.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                        closeDatepicker();
+                    }
+                },
+                {
+                    label: 'This Year',
+                    apply: () => {
+                        const y = new Date().getFullYear();
+                        afterInput.value = `${y}-01-01`;
+                        beforeInput.value = `${y}-12-31`;
+                        [afterInput, beforeInput].forEach(inp => {
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                            inp.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                        closeDatepicker();
+                    }
+                },
+                {
+                    label: 'Last Year',
+                    apply: () => {
+                        const y = new Date().getFullYear() - 1;
+                        afterInput.value = `${y}-01-01`;
+                        beforeInput.value = `${y}-12-31`;
+                        [afterInput, beforeInput].forEach(inp => {
+                            inp.dispatchEvent(new Event('input', { bubbles: true }));
+                            inp.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                        closeDatepicker();
+                    }
+                }
+            ];
+
+            presets.forEach(p => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'datepicker-preset-btn';
+                btn.textContent = p.label;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    p.apply();
+                });
+                presetsRow.appendChild(btn);
+            });
+            popover.appendChild(presetsRow);
+
+            // 5. Footer Actions (Clear, Close)
+            const footer = document.createElement('div');
+            footer.className = 'datepicker-footer-actions';
+
+            const clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'datepicker-action-btn datepicker-btn-clear';
+            clearBtn.textContent = 'Clear Field';
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (activeInput) {
+                    activeInput.value = '';
+                    activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                closeDatepicker();
+            });
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'datepicker-action-btn datepicker-btn-close';
+            closeBtn.textContent = 'Close';
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeDatepicker();
+            });
+
+            footer.appendChild(clearBtn);
+            footer.appendChild(closeBtn);
+            popover.appendChild(footer);
+        }
+
+        function selectDate(y, m, d) {
+            if (!activeInput) return;
+            const str = formatDate(y, m, d);
+            activeInput.value = str;
+            activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+            activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+            closeDatepicker();
+            activeInput.focus();
+        }
+
+        function openDatepicker(input) {
+            // Close any custom select dropdowns
+            document.querySelectorAll('.custom-select-wrapper.is-open').forEach(w => {
+                w.classList.remove('is-open', 'drop-up');
+            });
+
+            activeInput = input;
+            viewMode = 'days';
+            const parsed = parseInputDate(input.value);
+            if (parsed) {
+                viewYear = parsed.year;
+                viewMonth = parsed.month;
+            } else {
+                const now = new Date();
+                viewYear = now.getFullYear();
+                viewMonth = now.getMonth();
+            }
+
+            // Position relative to input wrapper
+            const inputWrapper = input.closest('.date-input-wrapper');
+            const rangeRect = rangeContainer.getBoundingClientRect();
+            const wrapperRect = inputWrapper ? inputWrapper.getBoundingClientRect() : rangeRect;
+
+            const offsetLeft = wrapperRect.left - rangeRect.left;
+            popover.style.left = `${Math.max(0, offsetLeft)}px`;
+
+            if (offsetLeft + 320 > rangeRect.width) {
+                popover.style.left = 'auto';
+                popover.style.right = '0px';
+            } else {
+                popover.style.right = 'auto';
+            }
+
+            const spaceBelow = window.innerHeight - wrapperRect.bottom;
+            if (spaceBelow < 340 && wrapperRect.top > 340) {
+                popover.classList.add('drop-up');
+            } else {
+                popover.classList.remove('drop-up');
+            }
+
+            renderCalendar();
+            popover.classList.add('is-open');
+        }
+
+        function closeDatepicker() {
+            popover.classList.remove('is-open', 'drop-up');
+            activeInput = null;
+            viewMode = 'days';
+        }
+
+        function toggleDatepicker(input) {
+            if (popover.classList.contains('is-open') && activeInput === input) {
+                closeDatepicker();
+            } else {
+                openDatepicker(input);
+            }
+        }
+    });
+
+    // Close on click outside (registered once globally)
+    if (!window._datepickerGlobalClickRegistered) {
+        window._datepickerGlobalClickRegistered = true;
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.date-range') && !e.target.closest('.custom-datepicker-popover')) {
+                document.querySelectorAll('.custom-datepicker-popover.is-open').forEach(p => {
+                    p.classList.remove('is-open', 'drop-up');
+                });
+            }
+        });
+    }
+}
+
+
 

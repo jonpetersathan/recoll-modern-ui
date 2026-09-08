@@ -436,6 +436,80 @@ class TestContainerEndpoints(unittest.TestCase):
         s_data = json.loads(s_content)
         self.assertEqual(s_data.get("status"), "cancelled")
 
+    def test_custom_logo_replacement(self):
+        """Verify custom logo replacement with logo.png, logo.jpg, and logo.svg in config dir."""
+        conf_dir = os.environ.get("RECOLL_CONFDIR", "/root/.recoll")
+        self.assertTrue(os.path.isdir(conf_dir), f"Config dir {conf_dir} not found")
+
+        # 1. Verify default logo is served when no custom logo is in config folder
+        req = urllib.request.Request(f"{BASE_URL}/logo")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertIn("image/svg+xml", resp.headers.get("Content-Type", ""))
+            default_content = resp.read()
+            self.assertIn(b"<svg", default_content)
+
+        # 2. Test logo.png replacement
+        png_path = os.path.join(conf_dir, "logo.png")
+        dummy_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82"
+        try:
+            with open(png_path, "wb") as f:
+                f.write(dummy_png)
+
+            with urllib.request.urlopen(f"{BASE_URL}/logo") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertIn("image/png", resp.headers.get("Content-Type", ""))
+                self.assertEqual(resp.read(), dummy_png)
+
+            with urllib.request.urlopen(f"{BASE_URL}/favicon.ico") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertIn("image/png", resp.headers.get("Content-Type", ""))
+                self.assertEqual(resp.read(), dummy_png)
+
+            with urllib.request.urlopen(f"{BASE_URL}/static/logo.svg") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertIn("image/png", resp.headers.get("Content-Type", ""))
+                self.assertEqual(resp.read(), dummy_png)
+        finally:
+            if os.path.exists(png_path):
+                os.remove(png_path)
+
+        # 3. Test logo.jpg replacement
+        jpg_path = os.path.join(conf_dir, "logo.jpg")
+        dummy_jpg = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\xff\xd9"
+        try:
+            with open(jpg_path, "wb") as f:
+                f.write(dummy_jpg)
+
+            with urllib.request.urlopen(f"{BASE_URL}/logo") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertIn("image/jpeg", resp.headers.get("Content-Type", ""))
+                self.assertEqual(resp.read(), dummy_jpg)
+        finally:
+            if os.path.exists(jpg_path):
+                os.remove(jpg_path)
+
+        # 4. Test logo.svg replacement
+        svg_path = os.path.join(conf_dir, "logo.svg")
+        custom_svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="purple"/></svg>'
+        try:
+            with open(svg_path, "wb") as f:
+                f.write(custom_svg)
+
+            with urllib.request.urlopen(f"{BASE_URL}/logo") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertIn("image/svg+xml", resp.headers.get("Content-Type", ""))
+                self.assertEqual(resp.read(), custom_svg)
+        finally:
+            if os.path.exists(svg_path):
+                os.remove(svg_path)
+
+        # 5. Verify fallback restored after removal
+        with urllib.request.urlopen(f"{BASE_URL}/logo") as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertIn("image/svg+xml", resp.headers.get("Content-Type", ""))
+            self.assertEqual(resp.read(), default_content)
+
 
 if __name__ == "__main__":
     unittest.main()

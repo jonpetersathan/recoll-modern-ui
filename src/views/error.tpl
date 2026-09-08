@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}} | Recoll Search</title>
+    <link rel="icon" href="/logo">
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="stylesheet" type="text/css" href="/static/style.css">
     <style>
@@ -173,7 +174,7 @@
     <div class="ambient-glow"></div>
     <div class="error-card">
         <a href="/" class="error-brand" title="Recoll Search">
-            <img src="/static/logo.svg" alt="Recoll Logo" class="error-logo" height="24">
+            <img src="/logo" alt="Recoll Logo" class="error-logo" height="24">
             <span>Recoll Search</span>
         </a>
 

@@ -871,13 +871,76 @@ class RecollSearchEngine:
         return query_obj, db
 
 
+CUSTOM_LOGO_FILENAMES: Tuple[str, ...] = ('logo.png', 'logo.jpg', 'logo.jpeg', 'logo.svg')
+
+
+def get_config_dir() -> str:
+    """Resolve Recoll configuration directory."""
+    conf_dir = os.environ.get('RECOLL_CONFDIR')
+    if conf_dir and os.path.isdir(conf_dir):
+        return conf_dir
+    try:
+        rcl_conf = rclconfig.RclConfig(conf_dir)
+        cd = rcl_conf.getConfDir()
+        if cd and os.path.isdir(cd):
+            return cd
+    except Exception:
+        pass
+    fallback = os.path.expanduser('~/.recoll')
+    return fallback
+
+
+def find_custom_logo(conf_dir: Optional[str] = None) -> Optional[Tuple[str, str]]:
+    """
+    Search configuration directory for a custom logo file (logo.png, logo.jpg, logo.svg).
+    Returns (filename, absolute_path) if found, else None.
+    If multiple candidate files are present, the most recently modified file is chosen.
+    """
+    if not conf_dir:
+        conf_dir = get_config_dir()
+    if not conf_dir or not os.path.isdir(conf_dir):
+        return None
+
+    found: List[Tuple[float, str, str]] = []
+    for fn in CUSTOM_LOGO_FILENAMES:
+        fp = os.path.join(conf_dir, fn)
+        if os.path.isfile(fp):
+            try:
+                mtime = os.path.getmtime(fp)
+            except OSError:
+                mtime = 0
+            found.append((mtime, fn, fp))
+
+    if not found:
+        return None
+
+    found.sort(key=lambda x: x[0], reverse=True)
+    return found[0][1], found[0][2]
+
+
 # ============================================================================
 # Route Handlers
 # ============================================================================
 
+@bottle.route('/logo')
+@bottle.route('/logo.<ext:re:(svg|png|jpe?g)>')
+def serve_logo(ext=None):
+    """Serve custom logo from config dir if present, else default logo."""
+    custom = find_custom_logo()
+    if custom:
+        fn, fp = custom
+        bottle.response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        return bottle.static_file(fn, root=os.path.dirname(fp))
+    return bottle.static_file('logo.svg', root=STATIC_DIR)
+
+
 @bottle.route('/favicon.ico')
 def serve_favicon():
     """Serve favicon image."""
+    custom = find_custom_logo()
+    if custom:
+        bottle.response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        return bottle.static_file(custom[0], root=os.path.dirname(custom[1]))
     for fn in ('logo.svg', 'recoll.png'):
         path = os.path.join(STATIC_DIR, fn)
         if os.path.isfile(path):
@@ -896,6 +959,11 @@ def serve_robots():
 @bottle.route('/static/:path#.+#')
 def serve_static(path: str):
     """Serve static CSS, JS, SVG, and image assets."""
+    if path in ('logo.svg', 'logo.png', 'logo.jpg', 'logo.jpeg'):
+        custom = find_custom_logo()
+        if custom:
+            bottle.response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+            return bottle.static_file(custom[0], root=os.path.dirname(custom[1]))
     return bottle.static_file(path, root=STATIC_DIR)
 
 

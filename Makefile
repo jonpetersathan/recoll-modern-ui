@@ -10,6 +10,7 @@ PORT := 8080
 build:
 	podman build \
 		--build-arg APP_VERSION=$(VERSION) \
+		--build-arg CACHEBUST=$$(date +%s%N) \
 		--platform linux/amd64 \
 		--tag $(IMAGE):$(VERSION) \
 		.
