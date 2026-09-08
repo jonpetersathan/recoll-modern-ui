@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <title>Recoll Search{{title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.3.20">
-    <script type="text/javascript" src="/static/extra.js?v=0.3.20" defer></script>
+    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.3.21">
+    <script type="text/javascript" src="/static/extra.js?v=0.3.21" defer></script>
     <link rel="icon" href="/logo">
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="icon" type="image/png" href="/static/recoll.png">
