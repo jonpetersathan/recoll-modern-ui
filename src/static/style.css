@@ -2953,20 +2953,6 @@ input.form-control-query:active {
     align-items: center;
 }
 
-.query-suggestion-snippet.snippet-bool,
-.query-suggestion-snippet:has(.tok-bool) {
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.12);
-    border-color: rgba(251, 191, 36, 0.3);
-}
-
-.query-suggestion-snippet.snippet-op,
-.query-suggestion-snippet:has(.tok-op:first-child) {
-    color: #c084fc;
-    background: rgba(192, 132, 252, 0.12);
-    border-color: rgba(192, 132, 252, 0.3);
-}
-
 .query-suggestion-snippet .param-placeholder {
     color: #94a3b8 !important;
     font-style: italic;
