@@ -812,7 +812,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             }));
             return {
                 mode: 'mime',
-                header: `QUERY SYNTAX &bull; MIME TYPES`,
+                header: `MIME TYPES`,
                 matches,
                 tokenStart: start,
                 tokenEnd: end
@@ -838,7 +838,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             }));
             return {
                 mode: 'ext',
-                header: `QUERY SYNTAX &bull; FILE EXTENSIONS`,
+                header: `FILE EXTENSIONS`,
                 matches,
                 tokenStart: start,
                 tokenEnd: end
@@ -864,7 +864,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             }));
             return {
                 mode: 'size',
-                header: `QUERY SYNTAX &bull; FILE SIZES`,
+                header: `FILE SIZES`,
                 matches,
                 tokenStart: start,
                 tokenEnd: end
@@ -929,7 +929,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
         return {
             mode: 'top',
-            header: `QUERY SYNTAX SUGGESTIONS`,
+            header: '',
             matches,
             tokenStart: start,
             tokenEnd: end
@@ -938,8 +938,13 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
     function renderDropdown(ctx) {
         currentContext = ctx;
-        currentMatches = ctx.matches;
+        currentMatches = (ctx && ctx.matches) ? ctx.matches : [];
         activeIdx = -1;
+
+        if (currentMatches.length === 0) {
+            closeDropdown();
+            return;
+        }
 
         if (!dropdown || !dropdown.isConnected) {
             dropdown = document.createElement('div');
@@ -969,22 +974,16 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
         dropdown.innerHTML = '';
 
-        const header = document.createElement('div');
-        header.className = 'query-autocomplete-header';
-        header.innerHTML = `<span>${ctx.header}</span>`;
-        dropdown.appendChild(header);
+        if (ctx.header) {
+            const header = document.createElement('div');
+            header.className = 'query-autocomplete-header';
+            header.innerHTML = `<span>${ctx.header}</span>`;
+            dropdown.appendChild(header);
+        }
 
         const listContainer = document.createElement('div');
         listContainer.className = 'query-autocomplete-list';
         dropdown.appendChild(listContainer);
-
-        if (currentMatches.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'query-suggestion-empty';
-            empty.textContent = 'No matching query operators found.';
-            listContainer.appendChild(empty);
-            return;
-        }
 
         currentMatches.forEach((item, idx) => {
             const row = document.createElement('div');
@@ -1020,6 +1019,10 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
     function filterAndShow() {
         const ctx = getActiveContext();
+        if (!ctx || !ctx.matches || ctx.matches.length === 0) {
+            closeDropdown();
+            return;
+        }
         renderDropdown(ctx);
     }
 
