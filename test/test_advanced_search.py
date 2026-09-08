@@ -57,6 +57,15 @@ class TestSearchFormsManager(unittest.TestCase):
         for eid in expected_ids:
             self.assertIn(eid, field_ids, f"Default form missing Recoll operator field: {eid}")
 
+        # Verify CSV and Email (MSG and EML) support in filetype dropdown options
+        filetype_field = next(f for f in default_form["fields"] if f["id"] == "filetype")
+        opt_labels = [o["label"] for o in filetype_field["options"]]
+        opt_queries = [o["query"] for o in filetype_field["options"]]
+        self.assertIn("CSV File (ext:csv)", opt_labels)
+        self.assertIn("ext:csv", opt_queries)
+        self.assertIn("Email (ext:eml OR ext:msg)", opt_labels)
+        self.assertIn("ext:eml OR ext:msg", opt_queries)
+
     def test_readonly_protection(self):
         """Verify that default form cannot be edited or deleted."""
         try:
@@ -173,6 +182,12 @@ class TestSearchFormsManager(unittest.TestCase):
         }
         compiled_custom = SearchFormsManager.compile_query(SAMPLE_CUSTOM_FORM, custom_values)
         self.assertEqual(compiled_custom, "filename:*000* specification title:Summary")
+
+        # Compile default form with CSV and Email filetype options
+        compiled_csv = SearchFormsManager.compile_query(DEFAULT_SEARCH_FORM, {"filetype": "ext:csv"})
+        self.assertEqual(compiled_csv, "ext:csv")
+        compiled_email = SearchFormsManager.compile_query(DEFAULT_SEARCH_FORM, {"filetype": "ext:eml OR ext:msg"})
+        self.assertEqual(compiled_email, "ext:eml OR ext:msg")
 
     def test_static_query_field_lifecycle_and_compilation(self):
         """Verify custom search form with Static Query field persists and compiles correctly."""
@@ -295,6 +310,12 @@ class TestContainerEndpoints(unittest.TestCase):
         default_form = data["forms"][0]
         self.assertEqual(default_form["id"], "default")
         self.assertTrue(default_form["readonly"])
+
+        # Check that filetype options contain CSV and Email
+        filetype_field = next(f for f in default_form["fields"] if f["id"] == "filetype")
+        opt_queries = [o["query"] for o in filetype_field["options"]]
+        self.assertIn("ext:csv", opt_queries)
+        self.assertIn("ext:eml OR ext:msg", opt_queries)
 
     def test_api_form_crud_lifecycle(self):
         """Verify complete CRUD lifecycle through /api/forms and /api/forms/delete."""
@@ -701,6 +722,16 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertEqual(len(res_json["results"]), 1)
         self.assertEqual(res_json["results"][0]["filename"], "000979.doc")
         self.assertEqual(res_json["results"][0]["mtype_label"], "Word Document (mime:application/msword)")
+
+    def test_query_fields_preserve_blue_color_on_focus(self):
+        """Verify CSS preserves blue text color (#38bdf8) when editing query fields in form."""
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        # Verify base query field has blue text color
+        self.assertIn(".form-control-query", content_css)
+        self.assertIn("color: #38bdf8 !important;", content_css)
+        # Verify focus state retains blue text color and does not change to #f8fafc
+        self.assertNotIn("color: #f8fafc !important;", content_css)
 
 
 if __name__ == "__main__":

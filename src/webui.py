@@ -155,9 +155,13 @@ MIME_LABELS: Dict[str, str] = {
     # Spreadsheets & Databases
     'application/vnd.ms-excel': 'Spreadsheet (mime:application/vnd.ms-excel)',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Spreadsheet (mime:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)',
-    'text/x-csv': 'Spreadsheet (mime:text/x-csv)',
-    'text/csv': 'Spreadsheet (mime:text/csv)',
+    'text/x-csv': 'CSV File (mime:text/x-csv)',
+    'text/csv': 'CSV File (mime:text/csv)',
     'application/x-dbf': 'Database File (mime:application/x-dbf)',
+
+    # Emails & Messaging
+    'message/rfc822': 'Email (mime:message/rfc822)',
+    'application/vnd.ms-outlook': 'Email (mime:application/vnd.ms-outlook)',
 
     # Presentations
     'application/vnd.ms-powerpoint': 'Presentation (mime:application/vnd.ms-powerpoint)',
@@ -495,6 +499,8 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
                 {"label": "HTML Document (mime:text/html)", "query": "mime:text/html"},
                 {"label": "Word Document (ext:doc OR ext:docx)", "query": "ext:doc OR ext:docx"},
                 {"label": "Spreadsheet (ext:xls OR ext:xlsx)", "query": "ext:xls OR ext:xlsx"},
+                {"label": "CSV File (ext:csv)", "query": "ext:csv"},
+                {"label": "Email (ext:eml OR ext:msg)", "query": "ext:eml OR ext:msg"},
                 {"label": "Audio / Media (mime:audio/*)", "query": "mime:audio/*"},
             ],
         },
