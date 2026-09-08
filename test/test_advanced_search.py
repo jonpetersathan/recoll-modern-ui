@@ -104,7 +104,7 @@ class TestSearchFormsManager(unittest.TestCase):
         form_id = saved["id"]
 
         # Check file exists on disk
-        forms_file = os.path.join(self.test_dir, "custom_search_forms.json")
+        forms_file = os.path.join(self.test_dir, "forms.json")
         self.assertTrue(os.path.isfile(forms_file))
 
         # Reload from disk
@@ -278,7 +278,7 @@ class TestContainerEndpoints(unittest.TestCase):
         # 4. Search execution with query from this custom form
         status, search_res = self._http_request("/results?query=" + urllib.parse.quote("filename:*000*"))
         self.assertEqual(status, 200)
-        self.assertIn("000.pdf", search_res)
+        self.assertIn("000345.pdf", search_res)
 
         # 5. Delete the custom form
         status, del_content = self._http_request("/api/forms/delete", method="POST", data={"id": form_id})

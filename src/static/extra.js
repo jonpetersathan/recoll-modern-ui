@@ -350,12 +350,39 @@ function initAdvancedSearch() {
         });
     }
 
-    const resetBtn = document.querySelector('a[title="Reset Search Query"]');
+    const resetBtn = document.getElementById('btn-reset-query') || document.querySelector('a[title="Reset Search Query"]');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
-            if (activeForm) {
-                safeStorageSet('localStorage', `recoll_adv_values_${activeForm.id}`, '{}');
+            // Collapse advanced search panel and return UI to simple search
+            safeStorageSet('sessionStorage', 'recoll_adv_open', '0');
+            setPanelVisibility(false);
+
+            // Clear stored form values
+            forms.forEach(f => {
+                safeStorageSet('localStorage', `recoll_adv_values_${f.id}`, '{}');
+            });
+
+            // Reset preset selector to default
+            safeStorageSet('localStorage', 'recoll_active_form_id', 'default');
+            if (formSelector) {
+                formSelector.value = 'default';
             }
+
+            // Clear all field inputs
+            if (fieldsContainer) {
+                const inputs = fieldsContainer.querySelectorAll('.advanced-field-input');
+                inputs.forEach(input => {
+                    if (input.type === 'checkbox') input.checked = false;
+                    else input.value = '';
+                });
+            }
+
+            // Clear main query input and preview
+            if (mainQueryInput) {
+                mainQueryInput.value = '';
+            }
+            renderActiveForm('default');
+            updateCompiledQuery();
         });
     }
 
@@ -491,7 +518,7 @@ function initSettingsFormManager() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                         <span>Duplicate</span>
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm btn-icon-danger" data-action="delete" data-form-id="${escapeHtml(form.id)}" style="margin-left: auto;">
+                    <button type="button" class="btn btn-secondary btn-sm btn-icon-danger" data-action="delete" data-form-id="${escapeHtml(form.id)}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         <span>Delete</span>
                     </button>
@@ -548,13 +575,28 @@ function initSettingsFormManager() {
                     <td><strong>${escapeHtml(f.label)}</strong></td>
                     <td><code>${escapeHtml(f.type)}</code></td>
                     <td><code>${escapeHtml(f.query_format || f.query || (f.options ? f.options.length + ' options' : ''))}</code></td>
-                    <td><small class="gray">${escapeHtml(f.helper || '')}</small></td>
+                    <td><span class="schema-field-helper">${escapeHtml(f.helper || '')}</span></td>
                 </tr>`;
             });
             html += '</tbody></table>';
             tableEl.innerHTML = html;
         }
         schemaOverlay.style.display = 'flex';
+    }
+
+    function updateBuilderEmptyState() {
+        const existingNotice = builderFieldsContainer.querySelector('.builder-empty-state');
+        const cards = builderFieldsContainer.querySelectorAll('.builder-field-card');
+        if (cards.length === 0) {
+            if (!existingNotice) {
+                const notice = document.createElement('div');
+                notice.className = 'builder-empty-state';
+                notice.innerHTML = 'No fields added yet. Click &ldquo;Add Field&rdquo; above to configure fields for this search form.';
+                builderFieldsContainer.appendChild(notice);
+            }
+        } else if (existingNotice) {
+            existingNotice.remove();
+        }
     }
 
     function openBuilderModal(formToEdit = null, isDuplicate = false) {
@@ -574,33 +616,16 @@ function initSettingsFormManager() {
             builderFormName.value = '';
             builderFormDesc.value = '';
             modalTitle.textContent = 'Create Custom Search Form';
-
-            // Add sample dropdown field (Document Type) and keywords field
-            addFieldCard({
-                id: 'doc_type',
-                label: 'Document Type',
-                type: 'select',
-                helper: 'Select predefined document category',
-                options: [
-                    { label: 'All Document Types', query: '' },
-                    { label: 'PDF Documents (mime:pdf)', query: 'mime:application/pdf' },
-                    { label: 'Sample 000 Files (filename:*000*)', query: 'filename:*000*' }
-                ]
-            });
-            addFieldCard({
-                id: 'keywords',
-                label: 'Search Keywords',
-                type: 'text',
-                placeholder: 'Enter keywords...',
-                helper: 'Matches terms in document content',
-                query_format: '{value}'
-            });
         }
 
+        updateBuilderEmptyState();
         builderOverlay.style.display = 'flex';
     }
 
     function addFieldCard(fieldData = {}) {
+        const emptyNotice = builderFieldsContainer.querySelector('.builder-empty-state');
+        if (emptyNotice) emptyNotice.remove();
+
         const card = document.createElement('div');
         card.className = 'builder-field-card';
 
@@ -633,9 +658,9 @@ function initSettingsFormManager() {
                 <div class="settings-field">
                     <label class="settings-label">Field Type</label>
                     <select class="form-control field-type-select">
-                        <option value="select" ${fType === 'select' ? 'selected' : ''}>Dropdown / Select (Predefined Queries)</option>
-                        <option value="text" ${fType === 'text' ? 'selected' : ''}>Text Input (Keyword / Term)</option>
-                        <option value="checkbox" ${fType === 'checkbox' ? 'selected' : ''}>Checkbox Filter (Toggle Query)</option>
+                        <option value="text" ${fType === 'text' ? 'selected' : ''}>Text Input</option>
+                        <option value="select" ${fType === 'select' ? 'selected' : ''}>Dropdown  Filter</option>
+                        <option value="checkbox" ${fType === 'checkbox' ? 'selected' : ''}>Checkbox Filter</option>
                     </select>
                 </div>
             </div>
@@ -683,17 +708,20 @@ function initSettingsFormManager() {
             </div>
 
             <!-- Select Options Config -->
-            <div class="field-select-config" style="${fType === 'select' ? '' : 'display: none;'} margin-top: 0.75rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                    <span class="settings-label" style="font-size: 0.82rem;">Dropdown Options (Label &rarr; Recoll Query)</span>
-                    <button type="button" class="btn btn-secondary btn-sm btn-add-option">+ Add Option</button>
+            <div class="field-select-config" style="${fType === 'select' ? '' : 'display: none;'}">
+                <div class="options-header">
+                    <span class="settings-label">Dropdown Options (Label &rarr; Recoll Query)</span>
+                    <button type="button" class="btn btn-secondary btn-sm btn-add-option">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span>Add Option</span>
+                    </button>
                 </div>
                 <table class="options-table">
                     <thead>
                         <tr>
-                            <th style="width: 45%;">Option Label</th>
-                            <th style="width: 45%;">Recoll Query Snippet</th>
-                            <th style="width: 10%;"></th>
+                            <th style="width: 46%;">Option Label</th>
+                            <th style="width: 44%;">Recoll Query Snippet</th>
+                            <th style="width: 10%; text-align: center;"></th>
                         </tr>
                     </thead>
                     <tbody class="options-tbody">
@@ -743,7 +771,10 @@ function initSettingsFormManager() {
         });
 
         // Reordering and deletion handlers
-        card.querySelector('.btn-del-field').addEventListener('click', () => card.remove());
+        card.querySelector('.btn-del-field').addEventListener('click', () => {
+            card.remove();
+            updateBuilderEmptyState();
+        });
         card.querySelector('.btn-move-up').addEventListener('click', () => {
             const prev = card.previousElementSibling;
             if (prev) builderFieldsContainer.insertBefore(card, prev);

@@ -140,7 +140,7 @@
                 </button>
             </div>
             <p class="settings-helper" style="margin-bottom: 1.25rem;">
-                Design specialized search forms with custom dropdowns (e.g. "Document Type" mapping to filenames or MIME types) and fields. Configurations are persisted to <code>custom_search_forms.json</code> across application restarts.
+                Design specialized search forms with custom dropdowns (e.g. "Document Type" mapping to filenames or MIME types) and fields. Configurations are persisted to <code>forms.json</code> across application restarts.
             </p>
 
             <div id="forms-cards-list" class="forms-management-grid">

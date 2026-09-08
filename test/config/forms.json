@@ -2,13 +2,13 @@
   "forms": [
     {
       "id": "default",
-      "name": "Default Recoll Search",
+      "name": "Advanced",
       "description": "Comprehensive search form supporting all Recoll query language features",
       "readonly": true,
       "fields": [
         {
           "id": "all_terms",
-          "label": "All of these words (AND)",
+          "label": "All of these words",
           "type": "text",
           "placeholder": "e.g. system performance index",
           "helper": "Matches documents containing all specified terms",
@@ -24,7 +24,7 @@
         },
         {
           "id": "any_terms",
-          "label": "Any of these words (OR)",
+          "label": "Any of these words",
           "type": "text",
           "placeholder": "e.g. machine artificial synthetic",
           "helper": "Matches documents containing one or more of these terms",
@@ -32,7 +32,7 @@
         },
         {
           "id": "none_terms",
-          "label": "None of these words (NOT)",
+          "label": "None of these words",
           "type": "text",
           "placeholder": "e.g. deprecated draft temp",
           "helper": "Excludes documents containing any of these terms (-term)",
@@ -49,7 +49,7 @@
         },
         {
           "id": "filename",
-          "label": "File Name / Wildcard (filename:)",
+          "label": "File Name",
           "type": "text",
           "placeholder": "e.g. *.pdf, 000.*, report_*",
           "helper": "Matches document filename with wildcard pattern support",
@@ -57,7 +57,7 @@
         },
         {
           "id": "title",
-          "label": "Document Title (title:)",
+          "label": "Document Title",
           "type": "text",
           "placeholder": "e.g. Specification, Analysis",
           "helper": "Searches document title metadata",
@@ -65,7 +65,7 @@
         },
         {
           "id": "author",
-          "label": "Author / Creator (author:)",
+          "label": "Author",
           "type": "text",
           "placeholder": "e.g. Alice Smith",
           "helper": "Searches author or creator field",
@@ -73,7 +73,7 @@
         },
         {
           "id": "filetype",
-          "label": "File Format (mime: / ext:)",
+          "label": "File Format",
           "type": "select",
           "helper": "Filter documents by MIME type or file extension",
           "options": [
@@ -109,7 +109,7 @@
         },
         {
           "id": "size_min",
-          "label": "Minimum Size (size>)",
+          "label": "Minimum Size",
           "type": "text",
           "placeholder": "e.g. 10k, 1m",
           "helper": "Only files larger than specified size (k, m, g)",
@@ -117,7 +117,7 @@
         },
         {
           "id": "size_max",
-          "label": "Maximum Size (size<)",
+          "label": "Maximum Size",
           "type": "text",
           "placeholder": "e.g. 50m",
           "helper": "Only files smaller than specified size (k, m, g)",
@@ -125,7 +125,7 @@
         },
         {
           "id": "dir_scope",
-          "label": "Directory Path (dir:)",
+          "label": "Directory",
           "type": "text",
           "placeholder": "e.g. /data",
           "helper": "Restrict search to files inside this directory tree",
@@ -144,7 +144,6 @@
           "label": "Document Type",
           "type": "select",
           "helper": "Select a document classification filter",
-          "placeholder": "",
           "options": [
             {
               "label": "All Document Types",
@@ -172,9 +171,17 @@
           "id": "keywords",
           "label": "Search Keywords",
           "type": "text",
-          "helper": "Search text inside documents matching the selected type",
           "placeholder": "Enter search terms...",
-          "query_format": "filename:{value}"
+          "helper": "Search text inside documents matching the selected type",
+          "query_format": "{value}"
+        },
+        {
+          "id": "doc_title",
+          "label": "Title Keyword",
+          "type": "text",
+          "placeholder": "e.g. report",
+          "helper": "Filter by word in title",
+          "query_format": "title:{value}"
         }
       ]
     }

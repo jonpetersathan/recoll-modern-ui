@@ -288,13 +288,13 @@ class ConfigManager:
 
 DEFAULT_SEARCH_FORM: Dict[str, Any] = {
     "id": "default",
-    "name": "Default Recoll Search",
+    "name": "Advanced",
     "description": "Comprehensive search form supporting all Recoll query language features",
     "readonly": True,
     "fields": [
         {
             "id": "all_terms",
-            "label": "All of these words (AND)",
+            "label": "All of these words",
             "type": "text",
             "placeholder": "e.g. system performance index",
             "helper": "Matches documents containing all specified terms",
@@ -310,7 +310,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "any_terms",
-            "label": "Any of these words (OR)",
+            "label": "Any of these words",
             "type": "text",
             "placeholder": "e.g. machine artificial synthetic",
             "helper": "Matches documents containing one or more of these terms",
@@ -318,7 +318,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "none_terms",
-            "label": "None of these words (NOT)",
+            "label": "None of these words",
             "type": "text",
             "placeholder": "e.g. deprecated draft temp",
             "helper": "Excludes documents containing any of these terms (-term)",
@@ -335,7 +335,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "filename",
-            "label": "File Name / Wildcard (filename:)",
+            "label": "File Name",
             "type": "text",
             "placeholder": "e.g. *.pdf, 000.*, report_*",
             "helper": "Matches document filename with wildcard pattern support",
@@ -343,7 +343,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "title",
-            "label": "Document Title (title:)",
+            "label": "Document Title",
             "type": "text",
             "placeholder": "e.g. Specification, Analysis",
             "helper": "Searches document title metadata",
@@ -351,7 +351,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "author",
-            "label": "Author / Creator (author:)",
+            "label": "Author",
             "type": "text",
             "placeholder": "e.g. Alice Smith",
             "helper": "Searches author or creator field",
@@ -359,7 +359,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "filetype",
-            "label": "File Format (mime: / ext:)",
+            "label": "File Format",
             "type": "select",
             "helper": "Filter documents by MIME type or file extension",
             "options": [
@@ -374,7 +374,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "size_min",
-            "label": "Minimum Size (size>)",
+            "label": "Minimum Size",
             "type": "text",
             "placeholder": "e.g. 10k, 1m",
             "helper": "Only files larger than specified size (k, m, g)",
@@ -382,7 +382,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "size_max",
-            "label": "Maximum Size (size<)",
+            "label": "Maximum Size",
             "type": "text",
             "placeholder": "e.g. 50m",
             "helper": "Only files smaller than specified size (k, m, g)",
@@ -390,7 +390,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
         },
         {
             "id": "dir_scope",
-            "label": "Directory Path (dir:)",
+            "label": "Directory",
             "type": "text",
             "placeholder": "e.g. /data",
             "helper": "Restrict search to files inside this directory tree",
@@ -439,9 +439,10 @@ SAMPLE_CUSTOM_FORM: Dict[str, Any] = {
 
 
 class SearchFormsManager:
-    """Manages search form presets, persistence in custom_search_forms.json, and compilation."""
+    """Manages search form presets, persistence in forms.json, and compilation."""
 
-    FORMS_FILENAME = "custom_search_forms.json"
+    FORMS_FILENAME = "forms.json"
+    LEGACY_FORMS_FILENAME = "custom_search_forms.json"
 
     @classmethod
     def get_forms_path(cls, conf_dir: Optional[str] = None) -> str:
@@ -456,6 +457,17 @@ class SearchFormsManager:
     def get_forms(cls, conf_dir: Optional[str] = None) -> List[Dict[str, Any]]:
         path = cls.get_forms_path(conf_dir)
         forms: List[Dict[str, Any]] = []
+
+        if not os.path.isfile(path):
+            legacy_path = os.path.join(os.path.dirname(path), cls.LEGACY_FORMS_FILENAME)
+            if os.path.isfile(legacy_path):
+                try:
+                    with open(legacy_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    with open(path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent=2)
+                except Exception as exc:
+                    logger.warning("Could not migrate legacy forms file %s: %s", legacy_path, exc)
 
         if os.path.isfile(path):
             try:
