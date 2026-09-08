@@ -5,7 +5,7 @@
     <title>Recoll Search{{title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="/static/style.css">
-    <script type="text/javascript" src="/static/extra.js"></script>
+    <script type="text/javascript" src="/static/extra.js?v=0.3.3" defer></script>
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="icon" type="image/png" href="/static/recoll.png">
     <link rel="search" type="application/opensearchdescription+xml" title="recoll" href="/osd.xml">

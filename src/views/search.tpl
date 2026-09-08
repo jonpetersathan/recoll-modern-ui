@@ -25,15 +25,70 @@
                     </svg>
                     <span>Reset</span>
                 </a>
-                %if not config.get('rclc_nosettings', False):
-                <a href="settings" tabindex="-1" class="btn btn-secondary" title="Settings &amp; Preferences">
+                <button type="button" id="btn-toggle-advanced" class="btn btn-secondary" title="Advanced Search Forms" aria-expanded="false" onclick="window.toggleAdvancedSearch(event)">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                     </svg>
-                    <span>Settings</span>
-                </a>
-                %end
+                    <span>Advanced</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Advanced Search Interactive Panel -->
+        <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
+            <div class="advanced-panel-header">
+                <div class="form-preset-group">
+                    <label for="active-form-selector" class="advanced-label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        <span>Form Preset:</span>
+                    </label>
+                    <select id="active-form-selector" class="form-control form-preset-select">
+                        %for f in forms:
+                        <option value="{{f['id']}}">{{f['name']}}{{ ' (Default / Read-Only)' if f.get('readonly') else '' }}</option>
+                        %end
+                    </select>
+                </div>
+                <div class="form-preset-info">
+                    <p id="active-form-desc" class="form-desc-text"></p>
+                    <a href="settings#custom-forms-section" class="btn btn-secondary btn-sm" title="Manage and create custom forms in settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        <span>Manage Forms</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Dynamic Form Fields Container -->
+            <div id="advanced-fields-container" class="advanced-fields-grid">
+                <!-- Injected dynamically by client JS based on selected form -->
+            </div>
+
+            <!-- Query Preview and Actions Bar -->
+            <div class="advanced-bottom-bar">
+                <div class="query-preview-wrap">
+                    <span class="query-preview-label">Compiled Query:</span>
+                    <code id="advanced-query-preview" class="query-preview-code">&lt;empty&gt;</code>
+                </div>
+                <div class="advanced-action-buttons">
+                    <button type="button" id="btn-clear-advanced" class="btn btn-secondary btn-sm" title="Clear all advanced fields">
+                        Clear Fields
+                    </button>
+                    <button type="button" id="btn-submit-advanced" class="btn btn-primary btn-sm" title="Execute search with compiled query">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <span>Search with Form</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -109,4 +164,5 @@
         </div>
         <input type="hidden" name="page" value="1" />
     </form>
+    <script id="recoll-search-forms-data" type="application/json">{{!forms_json}}</script>
 </div>

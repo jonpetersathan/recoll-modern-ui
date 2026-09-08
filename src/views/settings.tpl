@@ -124,6 +124,30 @@
             </div>
         </div>
 
+        <!-- Custom Search Forms Management -->
+        <div class="settings-section" id="custom-forms-section">
+            <div class="settings-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span>Custom Search Forms</span>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-create-form" style="margin-left: auto;" onclick="window.openNewFormBuilder(event)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>New Search Form</span>
+                </button>
+            </div>
+            <p class="settings-helper" style="margin-bottom: 1.25rem;">
+                Design specialized search forms with custom dropdowns (e.g. "Document Type" mapping to filenames or MIME types) and fields. Configurations are persisted to <code>custom_search_forms.json</code> across application restarts.
+            </p>
+
+            <div id="forms-cards-list" class="forms-management-grid">
+                <!-- Populated dynamically from embedded JSON / API -->
+            </div>
+        </div>
+
         <div class="settings-actions">
             <button type="submit" class="btn btn-primary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -139,4 +163,89 @@
         </div>
     </form>
 </div>
+
+<!-- Interactive Form Builder Modal -->
+<div id="form-builder-overlay" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div class="modal-title-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <h3 id="modal-title">Create Custom Search Form</h3>
+            </div>
+            <button type="button" class="modal-close-btn" id="btn-close-modal" title="Close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <input type="hidden" id="builder-form-id" value="">
+
+            <div class="settings-field" style="margin-bottom: 1rem;">
+                <label class="settings-label" for="builder-form-name">Form Name *</label>
+                <span class="settings-helper">Descriptive name displayed in the search form preset selector</span>
+                <input id="builder-form-name" class="form-control" placeholder="e.g. Document Type Classifier" required>
+            </div>
+
+            <div class="settings-field" style="margin-bottom: 1.5rem;">
+                <label class="settings-label" for="builder-form-desc">Form Description</label>
+                <span class="settings-helper">Brief explanation of what this search form is optimized for</span>
+                <input id="builder-form-desc" class="form-control" placeholder="e.g. Search files by pre-defined document categories and keywords">
+            </div>
+
+            <div class="modal-section-title">
+                <span>Form Fields</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-field">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Add Field</span>
+                </button>
+            </div>
+
+            <div id="builder-fields-container" class="builder-fields-container">
+                <!-- Field configuration cards rendered by JS -->
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-save-form">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                </svg>
+                <span>Save Search Form</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- View Schema Modal (for Read-Only Default Form) -->
+<div id="schema-viewer-overlay" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div class="modal-title-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <h3 id="schema-modal-title">Default Search Form Schema</h3>
+            </div>
+            <button type="button" class="modal-close-btn" id="btn-close-schema-modal" title="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="settings-helper" style="margin-bottom: 1rem;">
+                The Default search form is built into the engine and read-only. It covers all Recoll query language operators. You can create custom forms in the section above.
+            </p>
+            <div id="schema-fields-table"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btn-close-schema">Close</button>
+        </div>
+    </div>
+</div>
+
+<script id="recoll-search-forms-data" type="application/json">{{!forms_json}}</script>
 %include("footer")

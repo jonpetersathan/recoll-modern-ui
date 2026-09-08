@@ -1,5 +1,5 @@
 %include('header', title=": " + query['query'] + " (" + str(nres) + ")")
-%include('search', query=query, dirs=dirs, sorts=sorts, config=config)
+%include('search', query=query, dirs=dirs, sorts=sorts, config=config, forms=forms, forms_json=forms_json)
 <div id="status" class="status-bar">
     <div id="found" class="status-found">
         <span class="pulse-dot"></span>

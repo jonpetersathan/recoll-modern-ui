@@ -9,6 +9,7 @@ import datetime
 import glob
 import hashlib
 import io
+import json
 import logging
 import mimetypes
 import os
@@ -16,6 +17,7 @@ import shlex
 import string
 import sys
 import time
+import uuid
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote as urlquote
@@ -284,6 +286,388 @@ class ConfigManager:
         return ['<all>'] + dir_list
 
 
+DEFAULT_SEARCH_FORM: Dict[str, Any] = {
+    "id": "default",
+    "name": "Default Recoll Search",
+    "description": "Comprehensive search form supporting all Recoll query language features",
+    "readonly": True,
+    "fields": [
+        {
+            "id": "all_terms",
+            "label": "All of these words (AND)",
+            "type": "text",
+            "placeholder": "e.g. system performance index",
+            "helper": "Matches documents containing all specified terms",
+            "query_format": "{value}",
+        },
+        {
+            "id": "exact_phrase",
+            "label": "This exact phrase",
+            "type": "text",
+            "placeholder": "e.g. neural network architectures",
+            "helper": "Matches the exact phrase enclosed in quotes",
+            "query_format": '"{value}"',
+        },
+        {
+            "id": "any_terms",
+            "label": "Any of these words (OR)",
+            "type": "text",
+            "placeholder": "e.g. machine artificial synthetic",
+            "helper": "Matches documents containing one or more of these terms",
+            "query_format": "or_terms",
+        },
+        {
+            "id": "none_terms",
+            "label": "None of these words (NOT)",
+            "type": "text",
+            "placeholder": "e.g. deprecated draft temp",
+            "helper": "Excludes documents containing any of these terms (-term)",
+            "query_format": "not_terms",
+        },
+        {
+            "id": "proximity_terms",
+            "label": "Proximity search",
+            "type": "text",
+            "placeholder": "e.g. database query",
+            "helper": "Matches terms appearing within 4 words of each other (\"...\"p4)",
+            "query_format": "proximity",
+            "slack": 4,
+        },
+        {
+            "id": "filename",
+            "label": "File Name / Wildcard (filename:)",
+            "type": "text",
+            "placeholder": "e.g. *.pdf, 000.*, report_*",
+            "helper": "Matches document filename with wildcard pattern support",
+            "query_format": "filename:{value}",
+        },
+        {
+            "id": "title",
+            "label": "Document Title (title:)",
+            "type": "text",
+            "placeholder": "e.g. Specification, Analysis",
+            "helper": "Searches document title metadata",
+            "query_format": "title:{value}",
+        },
+        {
+            "id": "author",
+            "label": "Author / Creator (author:)",
+            "type": "text",
+            "placeholder": "e.g. Alice Smith",
+            "helper": "Searches author or creator field",
+            "query_format": "author:{value}",
+        },
+        {
+            "id": "filetype",
+            "label": "File Format (mime: / ext:)",
+            "type": "select",
+            "helper": "Filter documents by MIME type or file extension",
+            "options": [
+                {"label": "Any Format", "query": ""},
+                {"label": "PDF Document (mime:application/pdf)", "query": "mime:application/pdf"},
+                {"label": "Plain Text (mime:text/plain)", "query": "mime:text/plain"},
+                {"label": "HTML Document (mime:text/html)", "query": "mime:text/html"},
+                {"label": "Word Document (ext:doc OR ext:docx)", "query": "ext:doc OR ext:docx"},
+                {"label": "Spreadsheet (ext:xls OR ext:xlsx)", "query": "ext:xls OR ext:xlsx"},
+                {"label": "Audio / Media (mime:audio/*)", "query": "mime:audio/*"},
+            ],
+        },
+        {
+            "id": "size_min",
+            "label": "Minimum Size (size>)",
+            "type": "text",
+            "placeholder": "e.g. 10k, 1m",
+            "helper": "Only files larger than specified size (k, m, g)",
+            "query_format": "size>{value}",
+        },
+        {
+            "id": "size_max",
+            "label": "Maximum Size (size<)",
+            "type": "text",
+            "placeholder": "e.g. 50m",
+            "helper": "Only files smaller than specified size (k, m, g)",
+            "query_format": "size<{value}",
+        },
+        {
+            "id": "dir_scope",
+            "label": "Directory Path (dir:)",
+            "type": "text",
+            "placeholder": "e.g. /data",
+            "helper": "Restrict search to files inside this directory tree",
+            "query_format": 'dir:"{value}"',
+        },
+    ],
+}
+
+SAMPLE_CUSTOM_FORM: Dict[str, Any] = {
+    "id": "document_types",
+    "name": "Document Classification Search",
+    "description": "Fast categorical search by Document Type and keywords without knowing Recoll syntax",
+    "readonly": False,
+    "fields": [
+        {
+            "id": "document_type",
+            "label": "Document Type",
+            "type": "select",
+            "helper": "Select a document classification filter",
+            "options": [
+                {"label": "All Document Types", "query": ""},
+                {"label": "Sample 000 Files (filename:*000*)", "query": "filename:*000*"},
+                {"label": "Sample 001 Files (filename:*001*)", "query": "filename:*001*"},
+                {"label": "Sample 003 Files (filename:*003*)", "query": "filename:*003*"},
+                {"label": "PDF Documents (mime:pdf)", "query": "mime:application/pdf"},
+            ],
+        },
+        {
+            "id": "keywords",
+            "label": "Search Keywords",
+            "type": "text",
+            "placeholder": "Enter search terms...",
+            "helper": "Search text inside documents matching the selected type",
+            "query_format": "{value}",
+        },
+        {
+            "id": "doc_title",
+            "label": "Title Keyword",
+            "type": "text",
+            "placeholder": "e.g. report",
+            "helper": "Filter by word in title",
+            "query_format": "title:{value}",
+        },
+    ],
+}
+
+
+class SearchFormsManager:
+    """Manages search form presets, persistence in custom_search_forms.json, and compilation."""
+
+    FORMS_FILENAME = "custom_search_forms.json"
+
+    @classmethod
+    def get_forms_path(cls, conf_dir: Optional[str] = None) -> str:
+        base_dir = conf_dir or os.environ.get('RECOLL_CONFDIR', os.path.expanduser('~/.recoll'))
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+            return os.path.join(base_dir, cls.FORMS_FILENAME)
+        except Exception:
+            return os.path.join(TEMP_DIR, cls.FORMS_FILENAME)
+
+    @classmethod
+    def get_forms(cls, conf_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+        path = cls.get_forms_path(conf_dir)
+        forms: List[Dict[str, Any]] = []
+
+        if os.path.isfile(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict) and 'forms' in data:
+                        forms = data['forms']
+                    elif isinstance(data, list):
+                        forms = data
+            except Exception as exc:
+                logger.error("Failed to load forms from %s: %s", path, exc)
+
+        has_default = False
+        sanitized_forms: List[Dict[str, Any]] = []
+
+        for form in forms:
+            if not isinstance(form, dict):
+                continue
+            if form.get('id') == 'default':
+                form_copy = dict(DEFAULT_SEARCH_FORM)
+                sanitized_forms.insert(0, form_copy)
+                has_default = True
+            else:
+                form['readonly'] = False
+                sanitized_forms.append(form)
+
+        if not has_default:
+            sanitized_forms.insert(0, dict(DEFAULT_SEARCH_FORM))
+
+        if len(sanitized_forms) == 1:
+            sanitized_forms.append(dict(SAMPLE_CUSTOM_FORM))
+            cls.save_forms(conf_dir, sanitized_forms)
+
+        return sanitized_forms
+
+    @classmethod
+    def save_forms(cls, conf_dir: Optional[str], forms: List[Dict[str, Any]]) -> bool:
+        path = cls.get_forms_path(conf_dir)
+        try:
+            clean_forms: List[Dict[str, Any]] = [dict(DEFAULT_SEARCH_FORM)]
+            for form in forms:
+                if not isinstance(form, dict) or form.get('id') == 'default':
+                    continue
+                form_copy = dict(form)
+                form_copy['readonly'] = False
+                clean_forms.append(form_copy)
+
+            temp_path = f"{path}.tmp.{os.getpid()}"
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                json.dump({'forms': clean_forms}, f, indent=2, ensure_ascii=False)
+            os.replace(temp_path, path)
+            return True
+        except Exception as exc:
+            logger.error("Failed to save forms to %s: %s", path, exc)
+            return False
+
+    @classmethod
+    def save_custom_form(cls, conf_dir: Optional[str], form_data: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(form_data, dict):
+            raise ValueError("Invalid form payload")
+        form_id = str(form_data.get('id', '')).strip()
+        if form_id == 'default':
+            raise ValueError("The default search form is read-only and cannot be modified.")
+
+        form_name = str(form_data.get('name', '')).strip()
+        if not form_name:
+            raise ValueError("Form name is required.")
+
+        fields = form_data.get('fields', [])
+        if not isinstance(fields, list) or len(fields) == 0:
+            raise ValueError("A form must have at least one field.")
+
+        clean_fields = []
+        for f in fields:
+            if not isinstance(f, dict):
+                continue
+            fid = str(f.get('id', '')).strip() or f"f_{uuid.uuid4().hex[:8]}"
+            flabel = str(f.get('label', '')).strip() or "Unnamed Field"
+            ftype = str(f.get('type', 'text')).strip()
+            clean_field: Dict[str, Any] = {
+                'id': fid,
+                'label': flabel,
+                'type': ftype,
+                'helper': str(f.get('helper', '')).strip(),
+                'placeholder': str(f.get('placeholder', '')).strip(),
+            }
+            if ftype == 'select':
+                raw_options = f.get('options', [])
+                clean_options = []
+                for opt in raw_options:
+                    if isinstance(opt, dict):
+                        clean_options.append({
+                            'label': str(opt.get('label', '')).strip(),
+                            'query': str(opt.get('query', '')).strip(),
+                        })
+                clean_field['options'] = clean_options
+            elif ftype == 'checkbox':
+                clean_field['query'] = str(f.get('query', '')).strip()
+            else:
+                clean_field['type'] = 'text'
+                clean_field['query_format'] = str(f.get('query_format', '{value}')).strip()
+                if clean_field['query_format'] == 'proximity':
+                    try:
+                        clean_field['slack'] = int(f.get('slack', 4))
+                    except Exception:
+                        clean_field['slack'] = 4
+            clean_fields.append(clean_field)
+
+        if not clean_fields:
+            raise ValueError("Form must have valid fields.")
+
+        if not form_id:
+            form_id = f"custom_{uuid.uuid4().hex[:8]}"
+
+        new_form: Dict[str, Any] = {
+            'id': form_id,
+            'name': form_name,
+            'description': str(form_data.get('description', '')).strip(),
+            'readonly': False,
+            'fields': clean_fields,
+        }
+
+        existing_forms = cls.get_forms(conf_dir)
+        updated = False
+        for idx, f in enumerate(existing_forms):
+            if f.get('id') == form_id:
+                existing_forms[idx] = new_form
+                updated = True
+                break
+
+        if not updated:
+            existing_forms.append(new_form)
+
+        if not cls.save_forms(conf_dir, existing_forms):
+            raise IOError("Failed to persist custom search forms to disk.")
+
+        return new_form
+
+    @classmethod
+    def delete_custom_form(cls, conf_dir: Optional[str], form_id: str) -> bool:
+        if form_id == 'default':
+            raise ValueError("The default search form is read-only and cannot be deleted.")
+
+        existing_forms = cls.get_forms(conf_dir)
+        filtered = [f for f in existing_forms if f.get('id') != form_id]
+
+        if len(filtered) == len(existing_forms):
+            raise ValueError(f"Form '{form_id}' not found.")
+
+        if not cls.save_forms(conf_dir, filtered):
+            raise IOError("Failed to update custom search forms on disk.")
+        return True
+
+    @staticmethod
+    def compile_query(form_def: Dict[str, Any], values: Dict[str, Any]) -> str:
+        clauses = []
+        for field in form_def.get('fields', []):
+            fid = field.get('id')
+            val = values.get(fid)
+            ftype = field.get('type', 'text')
+            if val is None or val == '':
+                continue
+            if ftype == 'select':
+                opt_query = ''
+                for opt in field.get('options', []):
+                    if opt.get('query') == val or opt.get('label') == val:
+                        opt_query = opt.get('query', '')
+                        break
+                if not opt_query and isinstance(val, str) and val:
+                    opt_query = val
+                if opt_query.strip():
+                    clauses.append(opt_query.strip())
+            elif ftype == 'checkbox':
+                if val in (True, 1, '1', 'true', 'on', 'yes'):
+                    q = field.get('query', '').strip()
+                    if q:
+                        clauses.append(q)
+            elif ftype == 'text':
+                val_str = str(val).strip()
+                if not val_str:
+                    continue
+                fmt = field.get('query_format', '{value}')
+                if fmt == '{value}':
+                    clauses.append(val_str)
+                elif fmt == '"{value}"':
+                    clean_val = val_str.replace('"', '')
+                    clauses.append(f'"{clean_val}"')
+                elif fmt == 'or_terms':
+                    terms = val_str.split()
+                    if len(terms) > 1:
+                        clauses.append(f"({' OR '.join(terms)})")
+                    elif terms:
+                        clauses.append(terms[0])
+                elif fmt == 'not_terms':
+                    terms = val_str.split()
+                    if terms:
+                        clauses.append(" ".join(f"-{t}" for t in terms))
+                elif fmt == 'proximity':
+                    slack = field.get('slack', 4)
+                    clean_words = val_str.replace('"', '').strip()
+                    clauses.append(f'"{clean_words}"p{slack}')
+                elif '{value}' in fmt:
+                    if (' ' in val_str and not val_str.startswith('"') and not val_str.endswith('"')
+                            and any(fmt.startswith(p) for p in ('filename:', 'title:', 'author:', 'dir:'))):
+                        clauses.append(fmt.replace('{value}', f'"{val_str}"'))
+                    else:
+                        clauses.append(fmt.replace('{value}', val_str))
+                else:
+                    clauses.append(f"{fmt} {val_str}")
+        return " ".join(clauses).strip()
+
+
 class SearchQuery:
     """Parses and formats search parameters from HTTP request."""
 
@@ -508,6 +892,7 @@ def main_page():
     config = ConfigManager.get_config()
     dirs = ConfigManager.get_directory_tree(list(config['dirs'].keys()), config['dirdepth'])
     query_data = SearchQuery.parse(config)
+    forms = SearchFormsManager.get_forms(config['confdir'])
     bottle.response.headers['Vary'] = 'Cookie'
     return bottle.template(
         'main',
@@ -515,6 +900,8 @@ def main_page():
         query=query_data,
         sorts=SORT_OPTIONS,
         config=config,
+        forms=forms,
+        forms_json=json.dumps(forms),
     )
 
 
@@ -559,6 +946,7 @@ def search_results():
         )
 
     dirs = ConfigManager.get_directory_tree(list(config['dirs'].keys()), config['dirdepth'])
+    forms = SearchFormsManager.get_forms(config['confdir'])
     bottle.response.headers['Vary'] = 'Cookie'
     bottle.response.headers['No-Vary-Search'] = 'key-order'
 
@@ -573,6 +961,8 @@ def search_results():
         config=config,
         query_string=bottle.request.query_string,
         nres=total_count,
+        forms=forms,
+        forms_json=json.dumps(forms),
     )
 
 
@@ -813,7 +1203,70 @@ def export_csv():
 @bottle.route('/settings')
 def settings_page():
     """Render configuration and preferences dashboard."""
-    return bottle.template('settings', **ConfigManager.get_config())
+    config = ConfigManager.get_config()
+    forms = SearchFormsManager.get_forms(config['confdir'])
+    settings_vars = dict(config)
+    settings_vars['forms'] = forms
+    settings_vars['forms_json'] = json.dumps(forms)
+    return bottle.template('settings', **settings_vars)
+
+
+@bottle.route('/api/forms', method=['GET'])
+def api_get_forms():
+    """Get all available search forms."""
+    config = ConfigManager.get_config()
+    forms = SearchFormsManager.get_forms(config['confdir'])
+    bottle.response.content_type = 'application/json'
+    return json.dumps({'forms': forms})
+
+
+@bottle.route('/api/forms', method=['POST'])
+def api_save_form():
+    """Create or update a custom search form."""
+    config = ConfigManager.get_config()
+    try:
+        data = bottle.request.json
+        if not data:
+            raw_body = bottle.request.body.read().decode('utf-8')
+            data = json.loads(raw_body) if raw_body else {}
+        saved_form = SearchFormsManager.save_custom_form(config['confdir'], data)
+        bottle.response.content_type = 'application/json'
+        return json.dumps({'success': True, 'form': saved_form})
+    except ValueError as val_err:
+        bottle.response.status = 400
+        bottle.response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(val_err)})
+    except Exception as exc:
+        bottle.response.status = 500
+        bottle.response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(exc)})
+
+
+@bottle.route('/api/forms/delete', method=['POST'])
+def api_delete_form():
+    """Delete a custom search form."""
+    config = ConfigManager.get_config()
+    try:
+        data = bottle.request.json
+        if not data:
+            raw_body = bottle.request.body.read().decode('utf-8')
+            data = json.loads(raw_body) if raw_body else {}
+        form_id = data.get('id') if isinstance(data, dict) else None
+        if not form_id:
+            bottle.response.status = 400
+            bottle.response.content_type = 'application/json'
+            return json.dumps({'success': False, 'error': 'Missing form ID'})
+        SearchFormsManager.delete_custom_form(config['confdir'], form_id)
+        bottle.response.content_type = 'application/json'
+        return json.dumps({'success': True})
+    except ValueError as val_err:
+        bottle.response.status = 400
+        bottle.response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(val_err)})
+    except Exception as exc:
+        bottle.response.status = 500
+        bottle.response.content_type = 'application/json'
+        return json.dumps({'success': False, 'error': str(exc)})
 
 
 @bottle.route('/set')

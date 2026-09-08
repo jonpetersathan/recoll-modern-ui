@@ -56,6 +56,8 @@ test:
 	@echo "[4/4] Testing JSON API and Search Query..."
 	@curl -s -f "http://127.0.0.1:$(PORT)/json?query=000" | grep -q '"results"' || { echo "Error: JSON API query failed." >&2; exit 1; }
 	@echo "      JSON search endpoint OK"
+	@echo "[5/5] Testing Advanced Search, Form Builder, and JSON Persistence..."
+	@podman exec -i -e RECOLL_TEST_URL=http://127.0.0.1:8080 $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
 	@echo "All tests passed successfully!"
 
 stop:
