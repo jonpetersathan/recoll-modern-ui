@@ -569,15 +569,22 @@ input.form-control:focus {
 
 .custom-select-menu::-webkit-scrollbar-track {
     background: transparent;
+    margin: 6px 0;
 }
 
 .custom-select-menu::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
+    border-radius: 9999px;
 }
 
 .custom-select-menu::-webkit-scrollbar-thumb:hover {
     background: rgba(139, 92, 246, 0.45);
+}
+
+.custom-select-menu::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
 /* Custom Select Option Items */
@@ -2250,6 +2257,37 @@ select.form-preset-select:focus {
     gap: 1rem;
 }
 
+@supports not selector(::-webkit-scrollbar) {
+    .modal-body {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+    }
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 8px 0;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 9999px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.6);
+}
+
+.modal-body::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
 .modal-section-title {
     display: flex;
     justify-content: space-between;
@@ -2552,8 +2590,6 @@ input.form-control-query:active {
     max-height: 250px;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(139, 92, 246, 0.45) transparent !important;
     background: rgba(12, 16, 32, 0.97);
     border: 1px solid rgba(139, 92, 246, 0.45);
     border-radius: 10px;
@@ -2567,6 +2603,13 @@ input.form-control-query:active {
     animation: queryDropFade 0.15s ease-out;
 }
 
+@supports not selector(::-webkit-scrollbar) {
+    .query-autocomplete-dropdown {
+        scrollbar-width: thin !important;
+        scrollbar-color: rgba(139, 92, 246, 0.45) transparent !important;
+    }
+}
+
 .query-autocomplete-dropdown::-webkit-scrollbar {
     width: 6px !important;
     height: 0px !important;
@@ -2574,15 +2617,27 @@ input.form-control-query:active {
 
 .query-autocomplete-dropdown::-webkit-scrollbar-track {
     background: transparent !important;
+    margin: 6px 0 !important;
 }
 
 .query-autocomplete-dropdown::-webkit-scrollbar-thumb {
     background: rgba(139, 92, 246, 0.45) !important;
-    border-radius: 4px !important;
+    border-radius: 9999px !important;
 }
 
 .query-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
     background: rgba(139, 92, 246, 0.75) !important;
+}
+
+.query-autocomplete-dropdown::-webkit-scrollbar-button,
+::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.query-autocomplete-dropdown::-webkit-scrollbar-corner {
+    background: transparent !important;
 }
 
 .query-autocomplete-dropdown.drop-up {
