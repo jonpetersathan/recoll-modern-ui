@@ -174,6 +174,67 @@ class TestSearchFormsManager(unittest.TestCase):
         compiled_custom = SearchFormsManager.compile_query(SAMPLE_CUSTOM_FORM, custom_values)
         self.assertEqual(compiled_custom, "filename:*000* specification title:Summary")
 
+    def test_static_query_field_lifecycle_and_compilation(self):
+        """Verify custom search form with Static Query field persists and compiles correctly."""
+        try:
+            from webui import SearchFormsManager
+        except ImportError:
+            self.skipTest("webui cannot be imported in host python")
+
+        form_data = {
+            "name": "PDFs Only Form",
+            "description": "Form with static query restriction",
+            "fields": [
+                {
+                    "id": "sq_pdf",
+                    "label": "PDF Filter",
+                    "type": "static_query",
+                    "query": "mime:application/pdf"
+                },
+                {
+                    "id": "sq_dir",
+                    "label": "Archive Dir",
+                    "type": "static",
+                    "query": "dir:/data"
+                },
+                {
+                    "id": "search_term",
+                    "label": "Keyword",
+                    "type": "text",
+                    "query_format": "{value}"
+                }
+            ]
+        }
+
+        saved = SearchFormsManager.save_custom_form(self.test_dir, form_data)
+        self.assertIn("id", saved)
+        form_id = saved["id"]
+
+        # Reload from disk
+        loaded_forms = SearchFormsManager.get_forms(self.test_dir)
+        found = next((f for f in loaded_forms if f["id"] == form_id), None)
+        self.assertIsNotNone(found)
+        self.assertEqual(len(found["fields"]), 3)
+        self.assertEqual(found["fields"][0]["type"], "static_query")
+        self.assertEqual(found["fields"][0]["query"], "mime:application/pdf")
+        self.assertEqual(found["fields"][1]["type"], "static")
+        self.assertEqual(found["fields"][1]["query"], "dir:/data")
+
+        # Compile with search term provided
+        compiled_with_val = SearchFormsManager.compile_query(found, {"search_term": "invoice"})
+        self.assertEqual(compiled_with_val, "mime:application/pdf dir:/data invoice")
+
+        # Compile with empty values (static query should still be compiled)
+        compiled_empty = SearchFormsManager.compile_query(found, {})
+        self.assertEqual(compiled_empty, "mime:application/pdf dir:/data")
+
+        # Compile with None values
+        compiled_none = SearchFormsManager.compile_query(found, None)
+        self.assertEqual(compiled_none, "mime:application/pdf dir:/data")
+
+        # Clean up
+        SearchFormsManager.delete_custom_form(self.test_dir, form_id)
+
 
 class TestContainerEndpoints(unittest.TestCase):
     """Integration tests running against active container."""
@@ -301,6 +362,58 @@ class TestContainerEndpoints(unittest.TestCase):
         status, content_after = self._http_request("/api/forms")
         data_after = json.loads(content_after)
         self.assertIsNone(next((f for f in data_after["forms"] if f["id"] == form_id), None))
+
+    def test_api_static_query_field_form(self):
+        """Verify creating custom form with Static Query via REST API and embedding in UI."""
+        form_payload = {
+            "name": "PDF Reports Static Search",
+            "description": "Restricted search form with static PDF filter",
+            "fields": [
+                {
+                    "id": "sq_pdf_clause",
+                    "label": "PDF Constraint",
+                    "type": "static_query",
+                    "query": "mime:application/pdf"
+                },
+                {
+                    "id": "query_text",
+                    "label": "Search Terms",
+                    "type": "text",
+                    "query_format": "{value}"
+                }
+            ]
+        }
+
+        # 1. Create form via API
+        status, content = self._http_request("/api/forms", method="POST", data=form_payload)
+        self.assertEqual(status, 200)
+        res = json.loads(content)
+        self.assertTrue(res.get("success"))
+        created = res["form"]
+        form_id = created["id"]
+        self.assertEqual(len(created["fields"]), 2)
+        self.assertEqual(created["fields"][0]["type"], "static_query")
+        self.assertEqual(created["fields"][0]["query"], "mime:application/pdf")
+
+        # 2. Retrieve all forms and check
+        status, get_content = self._http_request("/api/forms")
+        self.assertEqual(status, 200)
+        all_forms = json.loads(get_content)["forms"]
+        match = next((f for f in all_forms if f["id"] == form_id), None)
+        self.assertIsNotNone(match)
+        self.assertEqual(match["name"], "PDF Reports Static Search")
+        self.assertEqual(match["fields"][0]["type"], "static_query")
+
+        # 3. Check that root page embeds this form in recoll-search-forms-data
+        status, html = self._http_request("/")
+        self.assertEqual(status, 200)
+        self.assertIn("PDF Reports Static Search", html)
+        self.assertIn("sq_pdf_clause", html)
+        self.assertIn("static_query", html)
+
+        # 4. Clean up
+        status, del_content = self._http_request("/api/forms/delete", method="POST", data={"id": form_id})
+        self.assertEqual(status, 200)
 
     def test_container_restart_survival(self):
         """Verify custom forms written to disk persist across container restart."""

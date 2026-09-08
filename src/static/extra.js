@@ -211,6 +211,11 @@ function initAdvancedSearch() {
         fieldsContainer.innerHTML = '';
 
         (activeForm.fields || []).forEach(field => {
+            const ftype = String(field.type || 'text').trim().toLowerCase().replace(/[\s-]/g, '_');
+            if (ftype === 'static_query' || ftype === 'static') {
+                return;
+            }
+
             const card = document.createElement('div');
             card.className = 'advanced-field-card';
 
@@ -372,6 +377,13 @@ function compileQueryFromForm(form, container) {
     const fields = form.fields || [];
 
     fields.forEach(field => {
+        const ftype = String(field.type || 'text').trim().toLowerCase().replace(/[\s-]/g, '_');
+        if (ftype === 'static_query' || ftype === 'static') {
+            const q = String(field.query || '').trim();
+            if (q) clauses.push(q);
+            return;
+        }
+
         const input = container.querySelector(`[data-field-id="${field.id}"]`);
         if (!input) return;
 
@@ -633,6 +645,7 @@ function initSettingsFormManager() {
                         <option value="text" ${fType === 'text' ? 'selected' : ''}>Text Input</option>
                         <option value="select" ${fType === 'select' ? 'selected' : ''}>Dropdown  Filter</option>
                         <option value="checkbox" ${fType === 'checkbox' ? 'selected' : ''}>Checkbox Filter</option>
+                        <option value="static_query" ${(fType === 'static_query' || fType === 'static') ? 'selected' : ''}>Static Query</option>
                     </select>
                 </div>
             </div>
@@ -679,6 +692,15 @@ function initSettingsFormManager() {
                 </div>
             </div>
 
+            <!-- Static Query Config -->
+            <div class="field-static-config" style="${(fType === 'static_query' || fType === 'static') ? '' : 'display: none;'} margin-top: 0.5rem;">
+                <div class="settings-field">
+                    <label class="settings-label">Static Recoll Query *</label>
+                    <span class="settings-helper">This query clause is automatically added to searches using this form (not visible in the search form)</span>
+                    <input class="form-control field-static-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. dir:/archive OR mime:application/pdf">
+                </div>
+            </div>
+
             <!-- Select Options Config -->
             <div class="field-select-config" style="${fType === 'select' ? '' : 'display: none;'}">
                 <div class="options-header">
@@ -707,6 +729,7 @@ function initSettingsFormManager() {
         const placeholderWrap = card.querySelector('.field-placeholder-wrap');
         const checkboxConfig = card.querySelector('.field-checkbox-config');
         const selectConfig = card.querySelector('.field-select-config');
+        const staticConfig = card.querySelector('.field-static-config');
         const formatSelect = card.querySelector('.field-format-select');
         const customFormatWrap = card.querySelector('.field-custom-format-wrap');
         const optionsTbody = card.querySelector('.options-tbody');
@@ -732,10 +755,12 @@ function initSettingsFormManager() {
 
         typeSelect.addEventListener('change', () => {
             const selectedType = typeSelect.value;
+            const isStatic = selectedType === 'static_query' || selectedType === 'static';
             textConfig.style.display = selectedType === 'text' ? 'block' : 'none';
             placeholderWrap.style.display = selectedType === 'text' ? 'block' : 'none';
             checkboxConfig.style.display = selectedType === 'checkbox' ? 'block' : 'none';
             selectConfig.style.display = selectedType === 'select' ? 'block' : 'none';
+            staticConfig.style.display = isStatic ? 'block' : 'none';
         });
 
         formatSelect.addEventListener('change', () => {
@@ -802,12 +827,14 @@ function initSettingsFormManager() {
             const fields = [];
             for (const card of fieldCards) {
                 const fId = card.querySelector('.field-id-input').value.trim();
-                const fLabel = card.querySelector('.field-label-input').value.trim();
-                if (!fLabel) {
+                let fLabel = card.querySelector('.field-label-input').value.trim();
+                const fType = card.querySelector('.field-type-select').value;
+                if (!fLabel && (fType === 'static_query' || fType === 'static')) {
+                    fLabel = 'Static Query';
+                } else if (!fLabel) {
                     alert('Every field must have a label.');
                     return;
                 }
-                const fType = card.querySelector('.field-type-select').value;
                 const fHelper = card.querySelector('.field-helper-input').value.trim();
                 const fPlaceholder = card.querySelector('.field-placeholder-input').value.trim();
 
@@ -832,6 +859,8 @@ function initSettingsFormManager() {
                     fieldObj.options = options;
                 } else if (fType === 'checkbox') {
                     fieldObj.query = card.querySelector('.field-checkbox-query-input').value.trim();
+                } else if (fType === 'static_query' || fType === 'static') {
+                    fieldObj.query = card.querySelector('.field-static-query-input').value.trim();
                 } else {
                     const fmtSelect = card.querySelector('.field-format-select').value;
                     if (fmtSelect === 'custom') {
