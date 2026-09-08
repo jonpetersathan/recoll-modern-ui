@@ -138,59 +138,9 @@ class TestSearchFormsManager(unittest.TestCase):
         after_delete = SearchFormsManager.get_forms(self.test_dir)
         self.assertIsNone(next((f for f in after_delete if f["id"] == form_id), None))
 
-    def test_query_compilation(self):
-        """Verify query compiler generates correct Recoll query strings."""
-        try:
-            from webui import SearchFormsManager, DEFAULT_SEARCH_FORM, SAMPLE_CUSTOM_FORM
-        except ImportError:
-            self.skipTest("webui cannot be imported in host python")
 
-        # Compile default form
-        default_values = {
-            "all_terms": "system performance",
-            "exact_phrase": "neural network",
-            "any_terms": "gpu tpu",
-            "none_terms": "deprecated draft",
-            "proximity_terms": "cache memory",
-            "filename": "*.pdf",
-            "title": "Quarterly Report",
-            "author": "Alice Smith",
-            "filetype": "mime:application/pdf",
-            "size_min": "10k",
-            "size_max": "50m",
-            "dir_scope": "/data/reports"
-        }
-        compiled = SearchFormsManager.compile_query(DEFAULT_SEARCH_FORM, default_values)
-        self.assertIn("system performance", compiled)
-        self.assertIn('"neural network"', compiled)
-        self.assertIn("(gpu OR tpu)", compiled)
-        self.assertIn("-deprecated -draft", compiled)
-        self.assertIn('"cache memory"p4', compiled)
-        self.assertIn("filename:*.pdf", compiled)
-        self.assertIn('title:"Quarterly Report"', compiled)
-        self.assertIn('author:"Alice Smith"', compiled)
-        self.assertIn("mime:application/pdf", compiled)
-        self.assertIn("size>10k", compiled)
-        self.assertIn("size<50m", compiled)
-        self.assertIn('dir:"/data/reports"', compiled)
-
-        # Compile custom form with dropdown
-        custom_values = {
-            "document_type": "filename:*000*",
-            "keywords": "specification",
-            "doc_title": "Summary"
-        }
-        compiled_custom = SearchFormsManager.compile_query(SAMPLE_CUSTOM_FORM, custom_values)
-        self.assertEqual(compiled_custom, "filename:*000* specification title:Summary")
-
-        # Compile default form with CSV and Email filetype options
-        compiled_csv = SearchFormsManager.compile_query(DEFAULT_SEARCH_FORM, {"filetype": "ext:csv"})
-        self.assertEqual(compiled_csv, "ext:csv")
-        compiled_email = SearchFormsManager.compile_query(DEFAULT_SEARCH_FORM, {"filetype": "ext:eml OR ext:msg"})
-        self.assertEqual(compiled_email, "ext:eml OR ext:msg")
-
-    def test_static_query_field_lifecycle_and_compilation(self):
-        """Verify custom search form with Static Query field persists and compiles correctly."""
+    def test_static_query_field_lifecycle(self):
+        """Verify custom search form with Static Query field persists correctly."""
         try:
             from webui import SearchFormsManager
         except ImportError:
@@ -235,23 +185,11 @@ class TestSearchFormsManager(unittest.TestCase):
         self.assertEqual(found["fields"][1]["type"], "static")
         self.assertEqual(found["fields"][1]["query"], "dir:/data")
 
-        # Compile with search term provided
-        compiled_with_val = SearchFormsManager.compile_query(found, {"search_term": "invoice"})
-        self.assertEqual(compiled_with_val, "mime:application/pdf dir:/data invoice")
-
-        # Compile with empty values (static query should still be compiled)
-        compiled_empty = SearchFormsManager.compile_query(found, {})
-        self.assertEqual(compiled_empty, "mime:application/pdf dir:/data")
-
-        # Compile with None values
-        compiled_none = SearchFormsManager.compile_query(found, None)
-        self.assertEqual(compiled_none, "mime:application/pdf dir:/data")
-
         # Clean up
         SearchFormsManager.delete_custom_form(self.test_dir, form_id)
 
-    def test_toggle_filter_field_lifecycle_and_compilation(self):
-        """Verify custom search form with Toggle Filter field persists and compiles correctly."""
+    def test_toggle_filter_field_lifecycle(self):
+        """Verify custom search form with Toggle Filter field persists correctly."""
         try:
             from webui import SearchFormsManager
         except ImportError:
@@ -295,18 +233,6 @@ class TestSearchFormsManager(unittest.TestCase):
         self.assertEqual(found["fields"][0]["query"], "mime:application/pdf")
         # Legacy checkbox is normalized to toggle
         self.assertEqual(found["fields"][1]["type"], "toggle")
-
-        # Compile when toggle is on (True / 'true' / 1)
-        compiled_on = SearchFormsManager.compile_query(found, {"pdf_only": True, "legacy_check": "1", "kw": "report"})
-        self.assertIn("mime:application/pdf", compiled_on)
-        self.assertIn("filename:*archive*", compiled_on)
-        self.assertIn("report", compiled_on)
-
-        # Compile when toggle is off (False / 0 / None)
-        compiled_off = SearchFormsManager.compile_query(found, {"pdf_only": False, "legacy_check": 0, "kw": "report"})
-        self.assertNotIn("mime:application/pdf", compiled_off)
-        self.assertNotIn("filename:*archive*", compiled_off)
-        self.assertEqual(compiled_off, "report")
 
         # Clean up
         SearchFormsManager.delete_custom_form(self.test_dir, form_id)

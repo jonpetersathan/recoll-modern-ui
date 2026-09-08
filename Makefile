@@ -4,22 +4,23 @@ VERSION := 0.3.0
 BUILD_PATH := ./build
 CONTAINER_NAME := recoll
 PORT := 8080
+DOCKER ?= podman
 
 .PHONY: build run test stop release clean
 
 build:
-	podman build \
+	$(DOCKER) build \
 		--build-arg APP_VERSION=$(VERSION) \
 		--build-arg CACHEBUST=$$(date +%s%N) \
 		--platform linux/amd64 \
 		--tag $(IMAGE):$(VERSION) \
 		.
-	podman tag $(IMAGE):$(VERSION) $(IMAGE):latest
+	$(DOCKER) tag $(IMAGE):$(VERSION) $(IMAGE):latest
 
 run:
 	@echo "Starting container $(CONTAINER_NAME)..."
-	podman rm -f $(CONTAINER_NAME) 2>/dev/null || true
-	podman run -d \
+	$(DOCKER) rm -f $(CONTAINER_NAME) 2>/dev/null || true
+	$(DOCKER) run -d \
 		--name $(CONTAINER_NAME) \
 		--restart unless-stopped \
 		-p $(PORT):8080 \
@@ -32,7 +33,7 @@ run:
 
 test:
 	@echo "Running tests against container $(CONTAINER_NAME)..."
-	@if ! podman ps --filter "name=$(CONTAINER_NAME)" --filter "status=running" --format "{{.Names}}" | grep -q "^$(CONTAINER_NAME)$$"; then \
+	@if ! $(DOCKER) ps --filter "name=$(CONTAINER_NAME)" --filter "status=running" --format "{{.Names}}" | grep -q "^$(CONTAINER_NAME)$$"; then \
 		echo "Error: Container $(CONTAINER_NAME) is not running. Start it with 'make run' first." >&2; \
 		exit 1; \
 	fi
@@ -58,19 +59,19 @@ test:
 	@curl -s -f "http://127.0.0.1:$(PORT)/json?query=000" | grep -q '"results"' || { echo "Error: JSON API query failed." >&2; exit 1; }
 	@echo "      JSON search endpoint OK"
 	@echo "[5/5] Testing Advanced Search, Form Builder, and JSON Persistence..."
-	@podman exec -i -e RECOLL_TEST_URL=http://127.0.0.1:8080 $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
+	@$(DOCKER) exec -i -e RECOLL_TEST_URL=http://127.0.0.1:$(PORT) $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
 	@echo "All tests passed successfully!"
 
 stop:
 	@echo "Stopping container $(CONTAINER_NAME)..."
-	podman stop $(CONTAINER_NAME) 2>/dev/null || true
-	podman rm $(CONTAINER_NAME) 2>/dev/null || true
+	$(DOCKER) stop $(CONTAINER_NAME) 2>/dev/null || true
+	$(DOCKER) rm $(CONTAINER_NAME) 2>/dev/null || true
 	@echo "Container $(CONTAINER_NAME) stopped and removed."
 
 release: build
-	@HASH=$$(podman inspect --format='{{.Id}}' "$(IMAGE):$(VERSION)" | sed 's/sha256://'); \
-	podman save -o $(BUILD_PATH)/$(NAME)-$${HASH}.tar $(IMAGE):$(VERSION)
+	@HASH=$$($(DOCKER) inspect --format='{{.Id}}' "$(IMAGE):$(VERSION)" | sed 's/sha256://'); \
+	$(DOCKER) save -o $(BUILD_PATH)/$(NAME)-$${HASH}.tar $(IMAGE):$(VERSION)
 
 clean: stop
-	podman manifest rm $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
-	podman image rm $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
+	$(DOCKER) manifest rm $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
+	$(DOCKER) image rm $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true

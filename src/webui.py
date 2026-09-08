@@ -327,13 +327,14 @@ class ConfigManager:
             ("noresultlinks", 1), ("logquery", 1), ("shortenpaths", 1),
             ("permlinks", 1), ("res_permlink", 1), ("queryfrag", 0),
         ]
+        defaults = dict(DEFAULT_CONFIG)
         for key, is_int in fetches:
             val = rcl_conf.getConfParam(f"webui_{key}")
             if val is not None:
-                DEFAULT_CONFIG[key] = int(val) if is_int else val
+                defaults[key] = int(val) if is_int else val
 
         # Load user cookies with fallback to defaults
-        for key, default_val in DEFAULT_CONFIG.items():
+        for key, default_val in defaults.items():
             cookie_val = bottle.request.get_cookie(key)
             if cookie_val is not None and cookie_val not in ("None", ""):
                 try:
@@ -578,11 +579,11 @@ class SearchFormsManager:
 
     @classmethod
     def get_forms_path(cls, conf_dir: Optional[str] = None) -> str:
-        base_dir = conf_dir or os.environ.get('RECOLL_CONFDIR', os.path.expanduser('~/.recoll'))
+        base_dir = conf_dir or get_config_dir()
         try:
             os.makedirs(base_dir, exist_ok=True)
             return os.path.join(base_dir, cls.FORMS_FILENAME)
-        except Exception:
+        except OSError:
             return os.path.join(TEMP_DIR, cls.FORMS_FILENAME)
 
     @classmethod
@@ -647,7 +648,7 @@ class SearchFormsManager:
                 form_copy['readonly'] = False
                 clean_forms.append(form_copy)
 
-            temp_path = f"{path}.tmp.{os.getpid()}"
+            temp_path = f"{path}.tmp.{uuid.uuid4().hex}"
             with open(temp_path, 'w', encoding='utf-8') as f:
                 json.dump({'forms': clean_forms}, f, indent=2, ensure_ascii=False)
             os.replace(temp_path, path)
@@ -757,71 +758,6 @@ class SearchFormsManager:
             raise IOError("Failed to update custom search forms on disk.")
         return True
 
-    @staticmethod
-    def compile_query(form_def: Dict[str, Any], values: Dict[str, Any]) -> str:
-        clauses = []
-        if not values:
-            values = {}
-        for field in form_def.get('fields', []):
-            fid = field.get('id')
-            ftype = str(field.get('type', 'text')).strip()
-            if ftype in ('static_query', 'static') or ftype.lower().replace(' ', '_').replace('-', '_') in ('static_query', 'static'):
-                q = str(field.get('query', '')).strip()
-                if q:
-                    clauses.append(q)
-                continue
-
-            val = values.get(fid)
-            if val is None or val == '':
-                continue
-            if ftype == 'select':
-                opt_query = ''
-                for opt in field.get('options', []):
-                    if opt.get('query') == val or opt.get('label') == val:
-                        opt_query = opt.get('query', '')
-                        break
-                if not opt_query and isinstance(val, str) and val:
-                    opt_query = val
-                if opt_query.strip():
-                    clauses.append(opt_query.strip())
-            elif ftype in ('toggle', 'checkbox'):
-                if val in (True, 1, '1', 'true', 'on', 'yes'):
-                    q = field.get('query', '').strip()
-                    if q:
-                        clauses.append(q)
-            elif ftype == 'text':
-                val_str = str(val).strip()
-                if not val_str:
-                    continue
-                fmt = field.get('query_format', '{value}')
-                if fmt == '{value}':
-                    clauses.append(val_str)
-                elif fmt == '"{value}"':
-                    clean_val = val_str.replace('"', '')
-                    clauses.append(f'"{clean_val}"')
-                elif fmt == 'or_terms':
-                    terms = val_str.split()
-                    if len(terms) > 1:
-                        clauses.append(f"({' OR '.join(terms)})")
-                    elif terms:
-                        clauses.append(terms[0])
-                elif fmt == 'not_terms':
-                    terms = val_str.split()
-                    if terms:
-                        clauses.append(" ".join(f"-{t}" for t in terms))
-                elif fmt == 'proximity':
-                    slack = field.get('slack', 4)
-                    clean_words = val_str.replace('"', '').strip()
-                    clauses.append(f'"{clean_words}"p{slack}')
-                elif '{value}' in fmt:
-                    if (' ' in val_str and not val_str.startswith('"') and not val_str.endswith('"')
-                            and any(fmt.startswith(p) for p in ('filename:', 'title:', 'author:', 'dir:'))):
-                        clauses.append(fmt.replace('{value}', f'"{val_str}"'))
-                    else:
-                        clauses.append(fmt.replace('{value}', val_str))
-                else:
-                    clauses.append(f"{fmt} {val_str}")
-        return " ".join(clauses).strip()
 
 
 class SearchQuery:
@@ -839,16 +775,22 @@ class SearchQuery:
         elif raw_dir in ('/data', 'data'):
             raw_dir = '<all>'
 
+        def safe_int(value, default: int) -> int:
+            try:
+                return int(value or default)
+            except (ValueError, TypeError):
+                return default
+
         query_data = {
             'query': req.get('query', '').strip(),
             'before': req.get('before', '').strip(),
             'after': req.get('after', '').strip(),
             'dir': raw_dir,
             'sort': req.get('sort') or SORT_OPTIONS[def_sort_idx][0],
-            'ascending': int(req.get('ascending', 0) or 0),
-            'page': int(req.get('page', 1) or 1),
-            'highlight': int(req.get('highlight', 1) or 1),
-            'snippets': int(req.get('snippets', 1) or 1),
+            'ascending': safe_int(req.get('ascending', 0), 0),
+            'page': safe_int(req.get('page', 1), 1),
+            'highlight': safe_int(req.get('highlight', 1), 1),
+            'snippets': safe_int(req.get('snippets', 1), 1),
         }
         if req.get('rcludi'):
             query_data['rcludi'] = req.get('rcludi')
@@ -1003,7 +945,7 @@ class RecollSearchEngine:
         if synonyms and synonyms != 'None':
             try:
                 db.setSynonymsFile(synonyms)
-            except Exception:
+            except (AttributeError, OSError):
                 pass
 
         db.setAbstractParams(config.get('maxchars', 500), config.get('context', 30))
@@ -1210,9 +1152,12 @@ def search_results():
     )
 
 
-@bottle.route('/preview/<resnum:int>')
-def preview_document(resnum: int):
-    """Extract document text and render preview with highlighting."""
+def _resolve_document(resnum: int, operation: str):
+    """Shared boilerplate for preview/download/open: init query, bounds-check, fetch doc.
+
+    Returns (query_obj, doc, query_data, config, client_ip) on success,
+    or a rendered error page string on failure (caller should return it directly).
+    """
     config = ConfigManager.get_config()
     query_data = SearchQuery.parse(config)
     client_ip = get_client_ip()
@@ -1220,12 +1165,12 @@ def preview_document(resnum: int):
     try:
         query_obj, db_obj = RecollSearchEngine._init_query(query_data, config)
     except Exception as exc:
-        logger.error("PREVIEW_ERROR: Init query failed for doc #%d: %s (Client: %s)", resnum, exc, client_ip)
+        logger.error("%s_ERROR: Init query failed for doc #%d: %s (Client: %s)", operation, resnum, exc, client_ip)
         bottle.response.status = 500
         return render_error_page(
             code=500,
             title="Search Index Unavailable",
-            desc="Recoll could not open the search index for preview.",
+            desc=f"Recoll could not open the search index for {operation.lower()}.",
             details=str(exc),
             is_warning=False,
         )
@@ -1235,7 +1180,7 @@ def preview_document(resnum: int):
         doc = db_obj.getDoc(rcludi)
     else:
         if resnum >= query_obj.rowcount:
-            logger.warning("PREVIEW_WARN: Doc #%d not found (total: %d) (Client: %s)", resnum, query_obj.rowcount, client_ip)
+            logger.warning("%s_WARN: Doc #%d not found (total: %d) (Client: %s)", operation, resnum, query_obj.rowcount, client_ip)
             bottle.response.status = 404
             return render_error_page(
                 code=404,
@@ -1245,6 +1190,17 @@ def preview_document(resnum: int):
             )
         query_obj.scroll(resnum)
         doc = query_obj.fetchone()
+
+    return query_obj, doc, query_data, config, client_ip
+
+
+@bottle.route('/preview/<resnum:int>')
+def preview_document(resnum: int):
+    """Extract document text and render preview with highlighting."""
+    result = _resolve_document(resnum, "PREVIEW")
+    if isinstance(result, str):
+        return result
+    query_obj, doc, query_data, config, client_ip = result
 
     doc_label = getattr(doc, 'title', None) or getattr(doc, 'filename', None) or '?'
     doc_url = getattr(doc, 'url', '')
@@ -1279,38 +1235,10 @@ def preview_document(resnum: int):
 @bottle.route('/download/<resnum:int>')
 def download_document(resnum: int):
     """Download original document or open matched PDF page."""
-    config = ConfigManager.get_config()
-    query_data = SearchQuery.parse(config)
-    client_ip = get_client_ip()
-
-    try:
-        query_obj, db_obj = RecollSearchEngine._init_query(query_data, config)
-    except Exception as exc:
-        logger.error("DOWNLOAD_ERROR: Init query failed for doc #%d: %s (Client: %s)", resnum, exc, client_ip)
-        bottle.response.status = 500
-        return render_error_page(
-            code=500,
-            title="Search Index Unavailable",
-            desc="Recoll could not open the search index for download.",
-            details=str(exc),
-            is_warning=False,
-        )
-
-    rcludi = query_data.get('rcludi')
-    if rcludi:
-        doc = db_obj.getDoc(rcludi)
-    else:
-        if resnum >= query_obj.rowcount:
-            logger.warning("DOWNLOAD_WARN: Doc #%d not found (total: %d) (Client: %s)", resnum, query_obj.rowcount, client_ip)
-            bottle.response.status = 404
-            return render_error_page(
-                code=404,
-                title="Result Not Found",
-                desc=f"The requested result index {resnum} does not exist.",
-                is_warning=True,
-            )
-        query_obj.scroll(resnum)
-        doc = query_obj.fetchone()
+    result = _resolve_document(resnum, "DOWNLOAD")
+    if isinstance(result, str):
+        return result
+    query_obj, doc, query_data, config, client_ip = result
 
     extractor = rclextract.Extractor(doc)
     doc_path = extractor.idoctofile(doc.ipath, doc.mimetype)
@@ -1327,12 +1255,13 @@ def download_document(resnum: int):
         pass
 
     if config.get('rclc_pdfposition') and pagenum != -1 and getattr(doc, 'mimetype', '') == 'application/pdf':
-        tmp_fn = f"rcltmp{os.getpid()}_{os.path.basename(doc_path)}"
+        tmp_fn = f"rcltmp{uuid.uuid4().hex}_{os.path.basename(doc_path)}"
         tmp_dest = os.path.join(TEMP_DIR, tmp_fn)
         with open(doc_path, 'rb') as src, open(tmp_dest, 'wb') as dst:
             dst.write(src.read())
         pdf_url = f"/staticdoc/{tmp_fn}#page={pagenum}&search={urlquote(term)}"
-        return f'<html><head></head><body><script>window.location.replace("{pdf_url}");</script></body></html>'
+        safe_url = json.dumps(pdf_url)
+        return f'<html><head></head><body><script>window.location.replace({safe_url});</script></body></html>'
 
     bottle.response.content_type = doc.mimetype
     bottle.response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -1340,7 +1269,7 @@ def download_document(resnum: int):
     file_handle = open(doc_path, 'rb')
     try:
         os.unlink(doc_path)
-    except Exception:
+    except OSError:
         pass
     bottle.response.headers['Vary'] = 'Cookie'
     return file_handle
@@ -1349,38 +1278,10 @@ def download_document(resnum: int):
 @bottle.route('/open/<resnum:int>')
 def open_document(resnum: int):
     """Open original document inline in browser."""
-    config = ConfigManager.get_config()
-    query_data = SearchQuery.parse(config)
-    client_ip = get_client_ip()
-
-    try:
-        query_obj, db_obj = RecollSearchEngine._init_query(query_data, config)
-    except Exception as exc:
-        logger.error("OPEN_ERROR: Init query failed for doc #%d: %s (Client: %s)", resnum, exc, client_ip)
-        bottle.response.status = 500
-        return render_error_page(
-            code=500,
-            title="Search Index Unavailable",
-            desc="Recoll could not open the search index for document view.",
-            details=str(exc),
-            is_warning=False,
-        )
-
-    rcludi = query_data.get('rcludi')
-    if rcludi:
-        doc = db_obj.getDoc(rcludi)
-    else:
-        if resnum >= query_obj.rowcount:
-            logger.warning("OPEN_WARN: Doc #%d not found (total: %d) (Client: %s)", resnum, query_obj.rowcount, client_ip)
-            bottle.response.status = 404
-            return render_error_page(
-                code=404,
-                title="Result Not Found",
-                desc=f"The requested result index {resnum} does not exist.",
-                is_warning=True,
-            )
-        query_obj.scroll(resnum)
-        doc = query_obj.fetchone()
+    result = _resolve_document(resnum, "OPEN")
+    if isinstance(result, str):
+        return result
+    query_obj, doc, query_data, config, client_ip = result
 
     extractor = rclextract.Extractor(doc)
     doc_path = extractor.idoctofile(doc.ipath, doc.mimetype)
@@ -1395,7 +1296,7 @@ def open_document(resnum: int):
     file_handle = open(doc_path, 'rb')
     try:
         os.unlink(doc_path)
-    except Exception:
+    except OSError:
         pass
     bottle.response.headers['Vary'] = 'Cookie'
     return file_handle
@@ -1415,7 +1316,6 @@ def export_json():
     bottle.response.headers['Content-Type'] = 'application/json'
     bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.json"'
 
-    import json
     return json.dumps({'query': query_data, 'results': res, 'total': total_count})
 
 
@@ -1424,8 +1324,9 @@ def export_csv():
     """Export document metadata matching query to CSV."""
     config = ConfigManager.get_config()
     query_data = SearchQuery.parse(config)
-    query_data['page'] = 0
+    query_data['page'] = 1
     query_data['snippets'] = 0
+    config['perpage'] = 0  # Export all results, not just one page
     qs = SearchQuery.to_recoll_string(query_data)
     client_ip = get_client_ip()
 
@@ -1870,27 +1771,7 @@ def custom_error_handler(error):
 
 
 def custom_default_error_handler(res):
-    code = getattr(res, 'status_code', 500)
-    details = getattr(res, 'body', None) or getattr(res, 'exception', None)
-    details_str = str(details) if details else None
-    client_ip = get_client_ip()
-
-    if code >= 500:
-        logger.error("HTTP %d Error: %s (Path: %s, Client: %s)", code, details_str or 'Internal Error', bottle.request.path, client_ip)
-        if getattr(res, 'exception', None):
-            exc_str = str(res.exception)
-            if "Can't open index" in exc_str or "xapiandb" in exc_str:
-                return render_error_page(
-                    code=500,
-                    title="Search Index Unavailable",
-                    desc="Recoll could not open the search index at the configured location. Ensure that indexing has been run (e.g. 'recollindex') or that the configuration volume is mounted.",
-                    details=exc_str,
-                    is_warning=False,
-                )
-    elif bottle.request.path not in ('/favicon.ico', '/robots.txt'):
-        logger.warning("HTTP %d Warning: %s (Path: %s, Client: %s)", code, details_str or 'Client Error', bottle.request.path, client_ip)
-
-    return render_error_page(code=code, details=details_str if (getattr(res, 'exception', None) and bottle.DEBUG) else None)
+    return custom_error_handler(res)
 
 
 bottle.default_app().default_error_handler = custom_default_error_handler
