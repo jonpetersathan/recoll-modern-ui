@@ -682,13 +682,22 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     let currentContext = null;
 
     function closeDropdown() {
-        if (dropdown && dropdown.parentNode) {
-            dropdown.parentNode.removeChild(dropdown);
+        if (dropdown) {
+            if (dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
             dropdown = null;
-            activeIdx = -1;
-            currentContext = null;
-            currentMatches = [];
         }
+        wrap.classList.remove('has-active-dropdown');
+        const parentCard = wrap.closest('.builder-field-card');
+        if (parentCard && !parentCard.querySelector('.query-autocomplete-dropdown')) {
+            parentCard.classList.remove('has-active-dropdown');
+        }
+        const parentRow = wrap.closest('.options-table tr');
+        if (parentRow && !parentRow.querySelector('.query-autocomplete-dropdown')) {
+            parentRow.classList.remove('has-active-dropdown');
+        }
+        activeIdx = -1;
+        currentContext = null;
+        currentMatches = [];
     }
 
     function getActiveContext() {
@@ -845,6 +854,12 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             dropdown.className = 'query-autocomplete-dropdown';
             wrap.appendChild(dropdown);
         }
+
+        wrap.classList.add('has-active-dropdown');
+        const parentCard = wrap.closest('.builder-field-card');
+        if (parentCard) parentCard.classList.add('has-active-dropdown');
+        const parentRow = wrap.closest('.options-table tr');
+        if (parentRow) parentRow.classList.add('has-active-dropdown');
 
         const rect = wrap.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
