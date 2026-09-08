@@ -468,53 +468,93 @@ function compileQueryFromForm(form, container) {
 // Query Syntax Autocomplete & Real-Time Highlighting Engine
 // ============================================================================
 
-const QUERY_SUGGESTIONS_TEXT = [
-    { snippet: '{value}', desc: 'Standard search: match all entered words (AND)' },
-    { snippet: '"{value}"', desc: 'Exact phrase search: match terms in exact order' },
-    { snippet: 'filename:*{value}*', desc: 'Filename wildcard search (* matches any text)' },
-    { snippet: 'title:{value}', desc: 'Document title metadata field search' },
-    { snippet: 'author:{value}', desc: 'Author / creator metadata search' },
-    { snippet: 'dir:"{value}"', desc: 'Directory Scope: restrict search to folder path' },
-    { snippet: 'ext:{value}', desc: 'File extension match (e.g. ext:pdf)' },
-    { snippet: 'mime:{value}', desc: 'MIME type filter (e.g. mime:application/pdf)' },
-    { snippet: 'size>{value}', desc: 'Minimum file size threshold (e.g. 500k, 10m)' },
-    { snippet: 'size<{value}', desc: 'Maximum file size threshold (e.g. 1m, 50m)' },
-    { snippet: 'date:{value}', desc: 'Date range filter (e.g. 2026-01-01/2026-12-31)' },
-    { snippet: '"{value}"p4', desc: 'Proximity: match words within 4 words of each other' },
-    { snippet: '-{value}', desc: 'Exclusion / NOT operator (-word)' },
-    { snippet: '({value})', desc: 'Grouping clause: combine OR / AND sub-clauses' }
+const MIME_TYPES_LIST = [
+    { value: 'application/pdf', desc: 'PDF Document (*.pdf)' },
+    { value: 'application/msword', desc: 'Word Document (*.doc)' },
+    { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', desc: 'Word Document (*.docx)' },
+    { value: 'application/vnd.ms-excel', desc: 'Excel Spreadsheet (*.xls)' },
+    { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', desc: 'Excel Spreadsheet (*.xlsx)' },
+    { value: 'application/vnd.ms-powerpoint', desc: 'PowerPoint Presentation (*.ppt)' },
+    { value: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', desc: 'PowerPoint (*.pptx)' },
+    { value: 'application/epub+zip', desc: 'EPUB Electronic Book (*.epub)' },
+    { value: 'application/zip', desc: 'ZIP Compressed Archive (*.zip)' },
+    { value: 'application/x-tar', desc: 'TAR Archive (*.tar)' },
+    { value: 'application/gzip', desc: 'GZIP Compressed File (*.gz)' },
+    { value: 'text/html', desc: 'HTML Web Document (*.html)' },
+    { value: 'text/plain', desc: 'Plain Text File (*.txt)' },
+    { value: 'text/csv', desc: 'CSV Data Spreadsheet (*.csv)' },
+    { value: 'text/markdown', desc: 'Markdown Document (*.md)' },
+    { value: 'message/rfc822', desc: 'Email Message (*.eml, *.msg)' },
+    { value: 'image/jpeg', desc: 'JPEG Image (*.jpg, *.jpeg)' },
+    { value: 'image/png', desc: 'PNG Image (*.png)' },
+    { value: 'image/svg+xml', desc: 'SVG Vector Graphic (*.svg)' },
+    { value: 'image/*', desc: 'All Image Formats' },
+    { value: 'audio/*', desc: 'All Audio Formats' },
+    { value: 'video/*', desc: 'All Video Formats' }
 ];
 
-const QUERY_SUGGESTIONS_GENERAL = [
-    { snippet: 'mime:application/pdf', desc: 'PDF Documents (*.pdf)' },
-    { snippet: 'mime:application/msword', desc: 'Word Documents (*.doc)' },
-    { snippet: 'mime:application/vnd.openxmlformats-officedocument.wordprocessingml.document', desc: 'Word Documents (*.docx)' },
-    { snippet: 'mime:application/vnd.ms-excel', desc: 'Excel Spreadsheets (*.xls)' },
-    { snippet: 'mime:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', desc: 'Excel Spreadsheets (*.xlsx)' },
-    { snippet: 'mime:text/csv', desc: 'CSV Data Spreadsheets (*.csv)' },
-    { snippet: 'mime:text/html', desc: 'HTML Web Documents (*.html)' },
-    { snippet: 'mime:text/plain', desc: 'Plain Text Files (*.txt)' },
-    { snippet: 'mime:message/rfc822', desc: 'Email Messages (*.eml, *.msg)' },
-    { snippet: 'mime:audio/*', desc: 'All Audio & Music Formats' },
-    { snippet: 'mime:image/*', desc: 'All Image Formats (*.png, *.jpg)' },
-    { snippet: 'ext:pdf', desc: 'PDF file extension' },
-    { snippet: 'ext:docx', desc: 'DOCX file extension' },
-    { snippet: 'ext:xlsx', desc: 'XLSX file extension' },
-    { snippet: 'ext:csv', desc: 'CSV file extension' },
-    { snippet: 'ext:eml OR ext:msg', desc: 'Email file extensions' },
-    { snippet: 'dir:/archive', desc: 'Files inside /archive subfolder' },
-    { snippet: 'dir:/documents', desc: 'Files inside /documents subfolder' },
-    { snippet: 'filename:*report*', desc: 'Filename wildcard matching report' },
-    { snippet: 'filename:*INV*', desc: 'Filename wildcard matching invoice INV' },
-    { snippet: 'title:Invoice', desc: 'Document title metadata containing Invoice' },
-    { snippet: 'author:"John Doe"', desc: 'Author metadata field' },
-    { snippet: 'size>10m', desc: 'Files strictly larger than 10 Megabytes' },
-    { snippet: 'size<1m', desc: 'Files strictly smaller than 1 Megabyte' },
-    { snippet: 'NOT mime:application/zip', desc: 'Exclude ZIP compressed archives' },
-    { snippet: 'AND', desc: 'Boolean AND operator (both conditions must match)' },
-    { snippet: 'OR', desc: 'Boolean OR operator (either condition matches)' },
-    { snippet: 'NOT', desc: 'Boolean NOT operator (inverts next condition)' },
-    { snippet: '-', desc: 'Negation prefix to exclude term (e.g. -temp)' }
+const EXTENSIONS_LIST = [
+    { value: 'pdf', desc: 'PDF Document (*.pdf)' },
+    { value: 'docx', desc: 'Word Document (*.docx)' },
+    { value: 'doc', desc: 'Legacy Word Document (*.doc)' },
+    { value: 'xlsx', desc: 'Excel Spreadsheet (*.xlsx)' },
+    { value: 'xls', desc: 'Legacy Excel Spreadsheet (*.xls)' },
+    { value: 'pptx', desc: 'PowerPoint Presentation (*.pptx)' },
+    { value: 'html', desc: 'HTML Web Document (*.html)' },
+    { value: 'csv', desc: 'CSV Spreadsheet (*.csv)' },
+    { value: 'txt', desc: 'Plain Text File (*.txt)' },
+    { value: 'md', desc: 'Markdown File (*.md)' },
+    { value: 'png', desc: 'PNG Image (*.png)' },
+    { value: 'jpg', desc: 'JPEG Image (*.jpg)' },
+    { value: 'zip', desc: 'ZIP Archive (*.zip)' },
+    { value: 'eml', desc: 'Email Message (*.eml)' },
+    { value: 'py', desc: 'Python Source Code (*.py)' },
+    { value: 'json', desc: 'JSON Data File (*.json)' }
+];
+
+const SIZE_LIST = [
+    { value: '<1m', desc: 'Files strictly smaller than 1 Megabyte' },
+    { value: '<10m', desc: 'Files strictly smaller than 10 Megabytes' },
+    { value: '<100k', desc: 'Files strictly smaller than 100 Kilobytes' },
+    { value: '>1m', desc: 'Files strictly larger than 1 Megabyte' },
+    { value: '>10m', desc: 'Files strictly larger than 10 Megabytes' },
+    { value: '>100m', desc: 'Files strictly larger than 100 Megabytes' },
+    { value: '>1g', desc: 'Files strictly larger than 1 Gigabyte' }
+];
+
+// Top-level keywords with parameter placeholder hints
+const TOP_LEVEL_KEYWORDS = [
+    { prefix: 'mime:', placeholder: 'type', desc: 'MIME type filter (prompts MIME types list)', hasSub: true, insertPrefix: 'mime:' },
+    { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter (prompts extensions list)', hasSub: true, insertPrefix: 'ext:' },
+    { prefix: 'dir:', placeholder: 'path', desc: 'Directory scope: restrict search to folder path', insertPrefix: 'dir:"' },
+    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename with wildcards (e.g. *test*)', insertPrefix: 'filename:*' },
+    { prefix: 'title:', placeholder: 'text', desc: 'Document title metadata field search', insertPrefix: 'title:' },
+    { prefix: 'author:', placeholder: 'name', desc: 'Author / creator metadata search', insertPrefix: 'author:' },
+    { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold (prompts size list)', hasSub: true, insertPrefix: 'size:' },
+    { prefix: 'date:', placeholder: 'range', desc: 'Date range filter (YYYY-MM-DD/YYYY-MM-DD)', insertPrefix: 'date:' },
+    { prefix: 'tag:', placeholder: 'keyword', desc: 'Document category or tag keyword', insertPrefix: 'tag:' },
+    { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator (both conditions match)', insertPrefix: 'AND ' },
+    { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator (either condition matches)', insertPrefix: 'OR ' },
+    { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator (inverts next condition)', insertPrefix: 'NOT ' },
+    { prefix: '-', placeholder: 'term', desc: 'Negation prefix to exclude term (e.g. -temp)', insertPrefix: '-' },
+    { prefix: '(', placeholder: 'clause)', desc: 'Grouping clause: parenthesize sub-conditions', insertPrefix: '(' }
+];
+
+// Text Input field specific patterns (using {value} as user input placeholder)
+const TEXT_SNIPPET_PATTERNS = [
+    { prefix: '{value}', placeholder: '', desc: 'Standard search: match all entered words (AND)', insertPrefix: '{value}' },
+    { prefix: '"{value}"', placeholder: '', desc: 'Exact phrase search: match terms in exact order', insertPrefix: '"{value}"' },
+    { prefix: 'filename:*{value}*', placeholder: '', desc: 'Filename wildcard search with user input', insertPrefix: 'filename:*{value}*' },
+    { prefix: 'title:{value}', placeholder: '', desc: 'Document title metadata search with user input', insertPrefix: 'title:{value}' },
+    { prefix: 'author:{value}', placeholder: '', desc: 'Author / creator search with user input', insertPrefix: 'author:{value}' },
+    { prefix: 'dir:"{value}"', placeholder: '', desc: 'Directory Scope with user input', insertPrefix: 'dir:"{value}"' },
+    { prefix: 'ext:{value}', placeholder: '', desc: 'File extension match with user input', insertPrefix: 'ext:{value}' },
+    { prefix: 'mime:{value}', placeholder: '', desc: 'MIME type filter with user input', insertPrefix: 'mime:{value}' },
+    { prefix: 'size>{value}', placeholder: '', desc: 'Minimum file size threshold with user input', insertPrefix: 'size>{value}' },
+    { prefix: 'size<{value}', placeholder: '', desc: 'Maximum file size threshold with user input', insertPrefix: 'size<{value}' },
+    { prefix: 'date:{value}', placeholder: '', desc: 'Date range filter with user input', insertPrefix: 'date:{value}' },
+    { prefix: '"{value}"p4', placeholder: '', desc: 'Proximity: match terms within 4 words', insertPrefix: '"{value}"p4' },
+    { prefix: '-{value}', placeholder: '', desc: 'Exclusion / NOT operator with user input', insertPrefix: '-{value}' }
 ];
 
 function highlightQuerySyntax(raw) {
@@ -525,10 +565,10 @@ function highlightQuerySyntax(raw) {
         .replace(/>/g, '&gt;');
 
     // 1: {value} placeholder
-    // 2: keywords: filename, title, author, mime, dir, ext, size, date, keyword, recipient, AND, OR, NOT
+    // 2: keywords: filename, title, author, mime, dir, ext, size, date, keyword, recipient, tag, AND, OR, NOT, XOR
     // 3: operators: * , / : ( ) " - + &gt; &lt; or p\d+
     // 4: literal strings / words
-    const tokenRegex = /(\{value\})|(\b(?:filename|title|author|mime|dir|ext|size|date|keyword|recipient|AND|OR|NOT)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
+    const tokenRegex = /(\{value\})|(\b(?:filename|title|author|mime|dir|ext|size|date|keyword|recipient|tag|AND|OR|NOT|XOR)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
 
     return escaped.replace(tokenRegex, (match, valPh, kw, op, word) => {
         if (valPh) {
@@ -575,9 +615,9 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     updateHighlight();
 
     // Autocomplete Suggestions Dropdown
-    const suggestionsList = contextType === 'text' ? QUERY_SUGGESTIONS_TEXT : QUERY_SUGGESTIONS_GENERAL;
     let dropdown = null;
     let activeIdx = -1;
+    let currentContext = null;
     let currentMatches = [];
 
     function closeDropdown() {
@@ -585,13 +625,141 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             dropdown.remove();
             dropdown = null;
             activeIdx = -1;
+            currentContext = null;
             currentMatches = [];
         }
     }
 
-    function renderDropdown(matches) {
-        currentMatches = matches;
-        activeIdx = matches.length > 0 ? 0 : -1;
+    function getActiveContext() {
+        const val = inputEl.value;
+        const pos = (typeof inputEl.selectionStart === 'number') ? inputEl.selectionStart : val.length;
+
+        // Find token boundaries around cursor
+        let start = pos;
+        while (start > 0 && !/[\s()]/.test(val[start - 1])) {
+            start--;
+        }
+        let end = pos;
+        while (end < val.length && !/[\s()]/.test(val[end])) {
+            end++;
+        }
+
+        const tokenBeforeCursor = val.slice(start, pos);
+        const tokenLower = tokenBeforeCursor.toLowerCase();
+
+        // 1. Secondary: mime:
+        if (tokenLower.startsWith('mime:')) {
+            const query = tokenBeforeCursor.slice(5).toLowerCase();
+            const matches = MIME_TYPES_LIST.filter(m =>
+                !query || m.value.toLowerCase().includes(query) || m.desc.toLowerCase().includes(query)
+            ).map(m => ({
+                badgeHtml: `<span class="tok-kw">mime</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(m.value)}</span>`,
+                snippetText: `mime:${m.value}`,
+                desc: m.desc,
+                insertValue: `mime:${m.value}`,
+                hasSub: false
+            }));
+            return {
+                mode: 'mime',
+                header: `QUERY SYNTAX &bull; MIME TYPES (${matches.length} AVAILABLE)`,
+                matches,
+                tokenStart: start,
+                tokenEnd: end
+            };
+        }
+
+        // 2. Secondary: ext:
+        if (tokenLower.startsWith('ext:')) {
+            const query = tokenBeforeCursor.slice(4).toLowerCase();
+            const matches = EXTENSIONS_LIST.filter(e =>
+                !query || e.value.toLowerCase().includes(query) || e.desc.toLowerCase().includes(query)
+            ).map(e => ({
+                badgeHtml: `<span class="tok-kw">ext</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(e.value)}</span>`,
+                snippetText: `ext:${e.value}`,
+                desc: e.desc,
+                insertValue: `ext:${e.value}`,
+                hasSub: false
+            }));
+            return {
+                mode: 'ext',
+                header: `QUERY SYNTAX &bull; FILE EXTENSIONS (${matches.length} AVAILABLE)`,
+                matches,
+                tokenStart: start,
+                tokenEnd: end
+            };
+        }
+
+        // 3. Secondary: size:
+        if (tokenLower.startsWith('size:')) {
+            const query = tokenBeforeCursor.slice(5).toLowerCase();
+            const matches = SIZE_LIST.filter(s =>
+                !query || s.value.toLowerCase().includes(query) || s.desc.toLowerCase().includes(query)
+            ).map(s => ({
+                badgeHtml: `<span class="tok-kw">size</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(s.value)}</span>`,
+                snippetText: `size:${s.value}`,
+                desc: s.desc,
+                insertValue: `size${s.value.startsWith('<') || s.value.startsWith('>') ? s.value : (':' + s.value)}`,
+                hasSub: false
+            }));
+            return {
+                mode: 'size',
+                header: `QUERY SYNTAX &bull; FILE SIZES (${matches.length} AVAILABLE)`,
+                matches,
+                tokenStart: start,
+                tokenEnd: end
+            };
+        }
+
+        // 4. Top-level keywords / patterns
+        let baseList;
+        if (contextType === 'text') {
+            baseList = (val.trim() === '')
+                ? TEXT_SNIPPET_PATTERNS.concat(TOP_LEVEL_KEYWORDS)
+                : TOP_LEVEL_KEYWORDS.concat(TEXT_SNIPPET_PATTERNS);
+        } else {
+            baseList = TOP_LEVEL_KEYWORDS;
+        }
+
+        const query = tokenBeforeCursor.toLowerCase();
+        const matches = baseList.filter(item => {
+            if (!query) return true;
+            const full = item.prefix + (item.placeholder || '');
+            return full.toLowerCase().includes(query) || item.desc.toLowerCase().includes(query);
+        }).map(item => {
+            let badgeHtml = '';
+            if (item.placeholder) {
+                const kw = item.prefix.replace(/[:(]/, '');
+                const op = item.prefix.slice(kw.length);
+                badgeHtml = `<span class="tok-kw">${escapeHtml(kw)}</span><span class="tok-op">${escapeHtml(op)}</span><span class="param-placeholder">${escapeHtml(item.placeholder)}</span>`;
+            } else if (item.prefix.startsWith('{value}') || item.prefix.includes('{value}')) {
+                badgeHtml = highlightQuerySyntax(item.prefix);
+            } else {
+                badgeHtml = `<span class="tok-kw">${escapeHtml(item.prefix)}</span>`;
+            }
+
+            return {
+                badgeHtml,
+                snippetText: item.prefix + (item.placeholder || ''),
+                desc: item.desc,
+                hasSub: !!item.hasSub,
+                insertPrefix: item.insertPrefix,
+                insertValue: item.insertPrefix || item.prefix
+            };
+        });
+
+        return {
+            mode: 'top',
+            header: `QUERY SYNTAX SUGGESTIONS (${matches.length} AVAILABLE)`,
+            matches,
+            tokenStart: start,
+            tokenEnd: end
+        };
+    }
+
+    function renderDropdown(ctx) {
+        currentContext = ctx;
+        currentMatches = ctx.matches;
+        activeIdx = currentMatches.length > 0 ? 0 : -1;
 
         if (!dropdown || !dropdown.isConnected) {
             dropdown = document.createElement('div');
@@ -611,10 +779,10 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
         const header = document.createElement('div');
         header.className = 'query-autocomplete-header';
-        header.innerHTML = `<span>Query Syntax Suggestions</span><span>${matches.length} available</span>`;
+        header.innerHTML = `<span>${ctx.header}</span>`;
         dropdown.appendChild(header);
 
-        if (matches.length === 0) {
+        if (currentMatches.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'query-suggestion-empty';
             empty.textContent = 'No matching query operators found.';
@@ -622,12 +790,12 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             return;
         }
 
-        matches.forEach((item, idx) => {
+        currentMatches.forEach((item, idx) => {
             const row = document.createElement('div');
             row.className = `query-suggestion-item ${idx === activeIdx ? 'is-selected' : ''}`;
             row.dataset.index = idx;
             row.innerHTML = `
-                <span class="query-suggestion-snippet">${escapeHtml(item.snippet)}</span>
+                <span class="query-suggestion-snippet">${item.badgeHtml}</span>
                 <span class="query-suggestion-desc">${escapeHtml(item.desc)}</span>
             `;
 
@@ -650,30 +818,32 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     }
 
     function filterAndShow() {
-        const val = inputEl.value.trim().toLowerCase();
-        let matches;
-        if (!val) {
-            // When field is empty, show all available options
-            matches = suggestionsList;
-        } else {
-            matches = suggestionsList.filter(s =>
-                s.snippet.toLowerCase().includes(val) || s.desc.toLowerCase().includes(val)
-            );
-            if (matches.length === 0) {
-                const words = val.split(/[\s:/*]+/).filter(Boolean);
-                matches = suggestionsList.filter(s =>
-                    words.some(w => s.snippet.toLowerCase().includes(w) || s.desc.toLowerCase().includes(w))
-                );
-            }
-        }
-        renderDropdown(matches);
+        const ctx = getActiveContext();
+        renderDropdown(ctx);
     }
 
     function selectSuggestion(item) {
-        inputEl.value = item.snippet;
+        const ctx = currentContext || getActiveContext();
+        const val = inputEl.value;
+        const before = val.slice(0, ctx.tokenStart);
+        const after = val.slice(ctx.tokenEnd);
+
+        const replacement = item.insertValue || item.insertPrefix || item.snippetText;
+        const reopenSub = !!item.hasSub;
+
+        inputEl.value = before + replacement + after;
+        const newCursorPos = ctx.tokenStart + replacement.length;
+        inputEl.setSelectionRange(newCursorPos, newCursorPos);
+
         updateHighlight();
         inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-        closeDropdown();
+
+        if (reopenSub) {
+            // Immediately open context suggestions at the cursor
+            filterAndShow();
+        } else {
+            closeDropdown();
+        }
         inputEl.focus();
     }
 

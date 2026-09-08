@@ -2535,8 +2535,11 @@ input.form-control-query:active {
     left: 0;
     right: 0;
     min-width: 340px;
-    max-height: 260px;
-    overflow-y: auto;
+    max-height: 250px;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(139, 92, 246, 0.45) transparent !important;
     background: rgba(12, 16, 32, 0.97);
     border: 1px solid rgba(139, 92, 246, 0.45);
     border-radius: 10px;
@@ -2548,6 +2551,24 @@ input.form-control-query:active {
     flex-direction: column;
     gap: 2px;
     animation: queryDropFade 0.15s ease-out;
+}
+
+.query-autocomplete-dropdown::-webkit-scrollbar {
+    width: 6px !important;
+    height: 0px !important;
+}
+
+.query-autocomplete-dropdown::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.query-autocomplete-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.45) !important;
+    border-radius: 4px !important;
+}
+
+.query-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.75) !important;
 }
 
 .query-autocomplete-dropdown.drop-up {
@@ -2573,6 +2594,7 @@ input.form-control-query:active {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .query-suggestion-item {
@@ -2585,6 +2607,8 @@ input.form-control-query:active {
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease;
     border: 1px solid transparent;
+    min-width: 0;
+    flex-shrink: 0;
 }
 
 .query-suggestion-item:hover,
@@ -2604,6 +2628,16 @@ input.form-control-query:active {
     border: 1px solid rgba(56, 189, 248, 0.25);
     white-space: nowrap;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.query-suggestion-snippet .param-placeholder {
+    color: #94a3b8 !important;
+    font-style: italic;
+    font-weight: 500;
+    opacity: 0.9;
+    margin-left: 1px;
 }
 
 .query-suggestion-desc {
@@ -2614,6 +2648,7 @@ input.form-control-query:active {
     white-space: nowrap;
     text-align: right;
     flex: 1;
+    min-width: 0;
 }
 
 .query-suggestion-empty {
