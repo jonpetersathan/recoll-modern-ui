@@ -42,9 +42,10 @@ function initRecollApp() {
         }
     });
 
-    // Initialize Advanced Search Panel & Settings Form Manager
+    // Initialize Advanced Search Panel, Settings Form Manager, & Files Download
     initAdvancedSearch();
     initSettingsFormManager();
+    initFilesDownload();
 }
 
 if (document.readyState === 'loading') {
@@ -915,5 +916,147 @@ function initSettingsFormManager() {
     }
 
     renderCards();
+}
+
+/**
+ * Files Download Handler (Single File direct download or Zip Archive with Progress)
+ */
+function initFilesDownload() {
+    const btnDownloadFiles = document.getElementById('btn-download-files');
+    const archiveModal = document.getElementById('archive-modal');
+    if (!btnDownloadFiles || !archiveModal) return;
+
+    const btnCloseModal = document.getElementById('btn-close-archive-modal');
+    const btnCancelArchive = document.getElementById('btn-cancel-archive');
+    const statusText = document.getElementById('archive-status-text');
+    const percentText = document.getElementById('archive-percent-text');
+    const progressBar = document.getElementById('archive-progress-bar');
+    const fileDetail = document.getElementById('archive-file-detail');
+
+    let activeJobId = null;
+    let pollTimer = null;
+
+    function closeModal() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        if (activeJobId) {
+            const jobIdToCancel = activeJobId;
+            activeJobId = null;
+            try {
+                fetch(`/api/archive/cancel/${jobIdToCancel}`, { method: 'POST' }).catch(() => {});
+            } catch (e) {}
+        }
+        archiveModal.style.display = 'none';
+    }
+
+    if (btnCloseModal) {
+        btnCloseModal.addEventListener('click', closeModal);
+    }
+    if (btnCancelArchive) {
+        btnCancelArchive.addEventListener('click', closeModal);
+    }
+    archiveModal.addEventListener('click', (e) => {
+        if (e.target === archiveModal) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && archiveModal.style.display !== 'none') {
+            closeModal();
+        }
+    });
+
+    btnDownloadFiles.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const totalCount = parseInt(btnDownloadFiles.dataset.totalCount, 10);
+        let queryString = btnDownloadFiles.dataset.queryString || '';
+        if (!queryString && window.location.search) {
+            queryString = window.location.search.replace(/^\?/, '');
+        }
+
+        // Single file: direct download without opening dialog or zipping
+        if (totalCount === 1) {
+            window.location.href = `./download/0?${queryString}`;
+            return;
+        }
+
+        // Multiple files: open dialog with animated progress bar
+        statusText.textContent = 'Preparing files for archive...';
+        statusText.style.color = '';
+        percentText.textContent = '0%';
+        progressBar.style.width = '0%';
+        fileDetail.textContent = '';
+        archiveModal.style.display = 'flex';
+
+        try {
+            const res = await fetch(`/api/archive/start?${queryString}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'Failed to start archive');
+            }
+            const data = await res.json();
+
+            if (data.single_file) {
+                closeModal();
+                window.location.href = data.download_url || `./download/0?${queryString}`;
+                return;
+            }
+
+            activeJobId = data.job_id;
+
+            // Poll zipping progress
+            pollTimer = setInterval(async () => {
+                if (!activeJobId) {
+                    clearInterval(pollTimer);
+                    return;
+                }
+                try {
+                    const statusRes = await fetch(`/api/archive/status/${activeJobId}`);
+                    if (!statusRes.ok) {
+                        throw new Error('Status request failed');
+                    }
+                    const statusData = await statusRes.json();
+
+                    const pct = statusData.percent != null ? statusData.percent : 0;
+                    progressBar.style.width = `${pct}%`;
+                    percentText.textContent = `${pct}%`;
+
+                    if (statusData.status === 'zipping') {
+                        statusText.textContent = `Zipping files (${statusData.processed || 0} of ${statusData.total || 0})...`;
+                        fileDetail.textContent = statusData.current_file ? `Adding: ${statusData.current_file}` : '';
+                    } else if (statusData.status === 'ready') {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                        const dlUrl = statusData.download_url || `/api/archive/download/${activeJobId}`;
+                        activeJobId = null;
+                        // Close modal immediately upon completion; browser proceeds to download
+                        archiveModal.style.display = 'none';
+                        window.location.href = dlUrl;
+                    } else if (statusData.status === 'error') {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                        activeJobId = null;
+                        statusText.textContent = `Archive failed: ${statusData.error || 'Unknown error'}`;
+                        statusText.style.color = '#ef4444';
+                        fileDetail.textContent = '';
+                    } else if (statusData.status === 'cancelled') {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                        activeJobId = null;
+                        archiveModal.style.display = 'none';
+                    }
+                } catch (pollErr) {
+                    // Ignore transient network errors during polling
+                }
+            }, 300);
+
+        } catch (startErr) {
+            statusText.textContent = `Error: ${startErr.message}`;
+            statusText.style.color = '#ef4444';
+        }
+    });
 }
 

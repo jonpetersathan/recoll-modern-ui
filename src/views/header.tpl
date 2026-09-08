@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <title>Recoll Search{{title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.3.12">
-    <script type="text/javascript" src="/static/extra.js?v=0.3.12" defer></script>
+    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.3.13">
+    <script type="text/javascript" src="/static/extra.js?v=0.3.13" defer></script>
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="icon" type="image/png" href="/static/recoll.png">
     <link rel="search" type="application/opensearchdescription+xml" title="recoll" href="/osd.xml">
@@ -21,7 +21,7 @@
                 </a>
                 <div class="header-title">
                     <h1><a href="./">Recoll Search</a></h1>
-                    <p>Protected Document Index &amp; Full-Text Retrieval</p>
+                    <p>Blazing Fast File Index And Query Solution/p>
                 </div>
             </div>
             <div class="header-actions">

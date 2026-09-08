@@ -26,10 +26,10 @@ RUN apt-get install -y --no-install-recommends poppler-utils unrtf antiword unzi
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Setup data and recoll configuration directories
-RUN mkdir -p /data /root/.recoll && \
+# Setup data, export and recoll configuration directories
+RUN mkdir -p /data /root/.recoll /export && \
     chmod 755 /root && \
-    chmod -R 777 /root/.recoll /data
+    chmod -R 777 /root/.recoll /data /export
 COPY recoll.conf /root/.recoll/recoll.conf
 RUN echo topdirs = /data >> /root/.recoll/recoll.conf && \
     chmod 666 /root/.recoll/recoll.conf

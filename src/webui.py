@@ -16,9 +16,13 @@ import os
 import shlex
 import string
 import sys
+import threading
 import time
+import urllib.parse
+import urllib.request
 import uuid
 import warnings
+import zipfile
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote as urlquote
 
@@ -83,6 +87,14 @@ if VIEWS_DIR not in bottle.TEMPLATE_PATH:
 
 # Temporary directory for generated files
 TEMP_DIR = os.getenv("RECOLL_TMPDIR") or os.getenv("TMPDIR") or "/tmp"
+
+# Export directory for ZIP archives
+EXPORT_DIR = os.getenv("RECOLL_EXPORT_DIR") or "/export"
+try:
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+except Exception:
+    EXPORT_DIR = os.path.join(TEMP_DIR, "export")
+    os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # Default configuration options
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -1210,6 +1222,274 @@ def export_csv():
     for doc in res:
         writer.writerow([doc.get(f, '') for f in fields])
     return string_io.getvalue().strip("\r\n")
+
+
+# ============================================================================
+# Search Files Archiving & ZIP Manager
+# ============================================================================
+
+class ArchiveManager:
+    """Manages background archiving jobs for search file exports."""
+
+    _jobs: Dict[str, Dict[str, Any]] = {}
+    _lock = threading.Lock()
+
+    @classmethod
+    def create_job(cls, total: int) -> str:
+        job_id = uuid.uuid4().hex[:12]
+        now_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"search_{now_ts}.zip"
+        zip_path = os.path.join(EXPORT_DIR, filename)
+
+        counter = 1
+        while os.path.exists(zip_path):
+            filename = f"search_{now_ts}_{counter}.zip"
+            zip_path = os.path.join(EXPORT_DIR, filename)
+            counter += 1
+
+        with cls._lock:
+            # Clean up old jobs (> 3600 seconds)
+            curr_time = time.time()
+            expired = [k for k, v in cls._jobs.items() if curr_time - v.get('created_at', 0) > 3600]
+            for k in expired:
+                cls._jobs.pop(k, None)
+
+            cls._jobs[job_id] = {
+                'id': job_id,
+                'status': 'zipping',
+                'processed': 0,
+                'total': total,
+                'current_file': '',
+                'filename': filename,
+                'zip_path': zip_path,
+                'download_url': f"/api/archive/download/{job_id}",
+                'error': None,
+                'cancelled': False,
+                'created_at': curr_time,
+            }
+        return job_id
+
+    @classmethod
+    def get_job(cls, job_id: str) -> Optional[Dict[str, Any]]:
+        with cls._lock:
+            return cls._jobs.get(job_id)
+
+    @classmethod
+    def cancel_job(cls, job_id: str):
+        with cls._lock:
+            job = cls._jobs.get(job_id)
+            if job:
+                job['cancelled'] = True
+                job['status'] = 'cancelled'
+
+    @classmethod
+    def update_job(cls, job_id: str, **kwargs):
+        with cls._lock:
+            job = cls._jobs.get(job_id)
+            if job:
+                job.update(kwargs)
+
+
+def _run_archive_worker(job_id: str, query_data: Dict[str, Any], config: Dict[str, Any]):
+    job = ArchiveManager.get_job(job_id)
+    if not job:
+        return
+
+    zip_path = job['zip_path']
+    used_names = set()
+
+    try:
+        query_obj, db_obj = RecollSearchEngine._init_query(query_data, config)
+        total_docs = query_obj.rowcount
+
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for i in range(total_docs):
+                current_job = ArchiveManager.get_job(job_id)
+                if not current_job or current_job.get('cancelled'):
+                    break
+
+                try:
+                    doc = query_obj.fetchone()
+                except Exception as exc:
+                    logger.warning("ARCHIVE: fetchone error at doc #%d: %s", i, exc)
+                    break
+
+                if not doc:
+                    break
+
+                fname = getattr(doc, 'filename', None)
+                extractor = None
+                extracted_path = None
+                temp_extracted = False
+
+                try:
+                    extractor = rclextract.Extractor(doc)
+                    extracted_path = extractor.idoctofile(doc.ipath, doc.mimetype)
+                    if extracted_path:
+                        temp_extracted = True
+                        if not fname:
+                            fname = os.path.basename(extracted_path)
+                except Exception as exc:
+                    logger.warning("ARCHIVE: extractor failed for doc #%d: %s", i, exc)
+
+                # Fallback to direct file path if extractor did not produce path
+                if not extracted_path or not os.path.isfile(extracted_path):
+                    url = getattr(doc, 'url', '')
+                    if url.startswith('file://'):
+                        local_path = urllib.request.url2pathname(urllib.parse.urlparse(url).path)
+                        if os.path.isfile(local_path):
+                            extracted_path = local_path
+                            temp_extracted = False
+                            if not fname:
+                                fname = os.path.basename(local_path)
+
+                if extracted_path and os.path.isfile(extracted_path):
+                    if not fname:
+                        fname = f"document_{i+1}"
+
+                    # Deduplicate filename if multiple files have the same name
+                    arcname = fname
+                    counter = 1
+                    name_part, ext_part = os.path.splitext(fname)
+                    while arcname in used_names:
+                        arcname = f"{name_part} ({counter}){ext_part}"
+                        counter += 1
+                    used_names.add(arcname)
+
+                    try:
+                        zip_file.write(extracted_path, arcname=arcname)
+                    except Exception as exc:
+                        logger.warning("ARCHIVE: failed to write %s to zip: %s", arcname, exc)
+
+                    if temp_extracted:
+                        try:
+                            os.unlink(extracted_path)
+                        except Exception:
+                            pass
+
+                ArchiveManager.update_job(job_id, processed=i + 1, current_file=fname or f"file_{i+1}")
+
+        final_job = ArchiveManager.get_job(job_id)
+        if final_job and not final_job.get('cancelled'):
+            ArchiveManager.update_job(job_id, status='ready', processed=final_job['total'])
+            logger.info("ARCHIVE_READY: %s created with %d files", zip_path, len(used_names))
+        elif final_job and final_job.get('cancelled'):
+            try:
+                if os.path.isfile(zip_path):
+                    os.unlink(zip_path)
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.error("ARCHIVE_ERROR: job %s failed: %s", job_id, exc)
+        ArchiveManager.update_job(job_id, status='error', error=str(exc))
+        try:
+            if os.path.isfile(zip_path):
+                os.unlink(zip_path)
+        except Exception:
+            pass
+
+
+@bottle.route('/api/archive/start')
+def api_archive_start():
+    """Start background ZIP packaging of matching search files."""
+    config = ConfigManager.get_config()
+    query_data = SearchQuery.parse(config)
+    query_data['page'] = 0
+    query_data['snippets'] = 0
+
+    bottle.response.content_type = 'application/json'
+    try:
+        query_obj, _ = RecollSearchEngine._init_query(query_data, config)
+        total_count = query_obj.rowcount
+    except Exception as exc:
+        logger.error("ARCHIVE_START_ERROR: %s", exc)
+        bottle.response.status = 500
+        return json.dumps({"error": f"Failed to initialize search: {exc}"})
+
+    if total_count <= 0:
+        return json.dumps({"single_file": False, "total": 0, "error": "No matching files found."})
+
+    if total_count == 1:
+        # Exactly one file found: download directly without zipping
+        return json.dumps({
+            "single_file": True,
+            "total": 1,
+            "download_url": f"./download/0?{bottle.request.query_string}"
+        })
+
+    job_id = ArchiveManager.create_job(total=total_count)
+    thread = threading.Thread(target=_run_archive_worker, args=(job_id, query_data, config), daemon=True)
+    thread.start()
+
+    return json.dumps({
+        "single_file": False,
+        "total": total_count,
+        "job_id": job_id
+    })
+
+
+@bottle.route('/api/archive/status/<job_id>')
+def api_archive_status(job_id: str):
+    """Return current zipping progress and status of archive job."""
+    job = ArchiveManager.get_job(job_id)
+    bottle.response.content_type = 'application/json'
+    if not job:
+        bottle.response.status = 404
+        return json.dumps({"error": "Job not found"})
+
+    total = max(job.get('total', 1), 1)
+    processed = min(job.get('processed', 0), total)
+    status = job.get('status', 'zipping')
+    percent = 100.0 if status == 'ready' else round((processed / total) * 100, 1)
+
+    return json.dumps({
+        "status": status,
+        "processed": processed,
+        "total": total,
+        "percent": percent,
+        "current_file": job.get('current_file', ''),
+        "download_url": job.get('download_url'),
+        "filename": job.get('filename'),
+        "error": job.get('error')
+    })
+
+
+@bottle.route('/api/archive/download/<job_id>')
+def api_archive_download(job_id: str):
+    """Download the completed zip archive."""
+    job = ArchiveManager.get_job(job_id)
+    if not job or job.get('status') != 'ready':
+        bottle.response.status = 404
+        return "Archive is not ready or does not exist."
+
+    zip_path = job.get('zip_path')
+    if not zip_path or not os.path.isfile(zip_path):
+        bottle.response.status = 404
+        return "Archive file missing from storage."
+
+    filename = job.get('filename') or os.path.basename(zip_path)
+    file_size = os.path.getsize(zip_path)
+
+    bottle.response.content_type = 'application/zip'
+    bottle.response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    bottle.response.headers['Content-Length'] = str(file_size)
+    bottle.response.headers['Vary'] = 'Cookie'
+
+    return open(zip_path, 'rb')
+
+
+@bottle.route('/api/archive/cancel/<job_id>', method=['POST', 'GET'])
+def api_archive_cancel(job_id: str):
+    """Cancel an ongoing archiving job."""
+    ArchiveManager.cancel_job(job_id)
+    bottle.response.content_type = 'application/json'
+    return json.dumps({"status": "cancelled", "cancelled": True})
+
+
+@bottle.route('/export/<filename:path>')
+def serve_exported_file(filename: str):
+    """Serve exported archives directly from /export."""
+    return bottle.static_file(filename, root=EXPORT_DIR, download=True)
 
 
 @bottle.route('/settings')

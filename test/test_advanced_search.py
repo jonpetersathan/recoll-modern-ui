@@ -5,6 +5,7 @@ Verifies form persistence, read-only protection, field compilation,
 REST API endpoints, and container restart survival.
 """
 
+import io
 import json
 import os
 import shutil
@@ -15,6 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import unittest
+import zipfile
 
 
 BASE_URL = os.environ.get("RECOLL_TEST_URL", "http://127.0.0.1:8080")
@@ -193,6 +195,15 @@ class TestContainerEndpoints(unittest.TestCase):
         except urllib.error.HTTPError as err:
             return err.code, err.read().decode("utf-8")
 
+    def _raw_request(self, path: str, method: str = "GET", headers: dict = None) -> tuple:
+        url = f"{BASE_URL}{path}"
+        req = urllib.request.Request(url, headers=headers or {}, method=method)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return resp.status, resp.read(), dict(resp.headers)
+        except urllib.error.HTTPError as err:
+            return err.code, err.read(), dict(err.headers)
+
     def test_search_page_has_advanced_button_and_panel(self):
         """Verify root page has Advanced button and panel, and settings button replaced in button row."""
         status, html = self._http_request("/")
@@ -334,6 +345,96 @@ class TestContainerEndpoints(unittest.TestCase):
 
         # Clean up
         self._http_request("/api/forms/delete", method="POST", data={"id": form_id})
+
+    def test_results_page_has_files_button_and_modal(self):
+        """Verify results page renders the FILES download button and zipping modal markup."""
+        status, html = self._http_request("/results?query=" + urllib.parse.quote("filename:000994.ppt"))
+        self.assertEqual(status, 200)
+        self.assertIn('id="btn-download-files"', html)
+        self.assertIn('<span>FILES</span>', html)
+        self.assertIn('id="archive-modal"', html)
+        self.assertIn('id="archive-progress-bar"', html)
+
+    def test_archive_single_file_shortcut(self):
+        """Verify 1 search result returns single_file=true with direct download link (no zipping)."""
+        status, content = self._http_request("/api/archive/start?query=" + urllib.parse.quote("filename:000994.ppt"))
+        self.assertEqual(status, 200)
+        data = json.loads(content)
+        self.assertTrue(data.get("single_file"))
+        self.assertEqual(data.get("total"), 1)
+        self.assertIn("download/0", data.get("download_url", ""))
+
+        # Verify downloading from the provided URL serves the single file directly
+        dl_status, dl_bytes, dl_headers = self._raw_request(data["download_url"].lstrip("."))
+        self.assertEqual(dl_status, 200)
+        disp = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertIn("000994.ppt", disp)
+
+    def test_archive_multi_files_zipping_and_download(self):
+        """Verify multiple search results start a zipping job, update progress, and provide search_TIMESTAMP.zip."""
+        status, content = self._http_request("/api/archive/start?query=" + urllib.parse.quote("filename:00099*"))
+        self.assertEqual(status, 200)
+        data = json.loads(content)
+        self.assertFalse(data.get("single_file"))
+        self.assertEqual(data.get("total"), 10)
+        job_id = data.get("job_id")
+        self.assertIsNotNone(job_id)
+
+        # Poll status until ready
+        ready = False
+        final_status_data = None
+        for _ in range(30):
+            time.sleep(0.3)
+            s_status, s_content = self._http_request(f"/api/archive/status/{job_id}")
+            self.assertEqual(s_status, 200)
+            status_data = json.loads(s_content)
+            if status_data.get("status") == "ready":
+                ready = True
+                final_status_data = status_data
+                break
+            elif status_data.get("status") == "error":
+                self.fail(f"Archive zipping failed with error: {status_data.get('error')}")
+
+        self.assertTrue(ready, "Archive zipping did not complete in time")
+        self.assertEqual(final_status_data.get("percent"), 100)
+        download_url = final_status_data.get("download_url")
+        self.assertIsNotNone(download_url)
+
+        # Verify downloading the zip
+        dl_status, dl_bytes, dl_headers = self._raw_request(download_url)
+        self.assertEqual(dl_status, 200)
+        content_type = dl_headers.get("Content-Type") or dl_headers.get("content-type", "")
+        self.assertIn("application/zip", content_type)
+        disp = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertIn("search_", disp)
+        self.assertIn(".zip", disp)
+
+        # Verify zip validity and contents
+        with zipfile.ZipFile(io.BytesIO(dl_bytes)) as zf:
+            namelist = zf.namelist()
+            self.assertGreaterEqual(len(namelist), 5)
+            self.assertTrue(any("000994" in name for name in namelist))
+            self.assertTrue(any("000995" in name for name in namelist))
+
+    def test_archive_cancel(self):
+        """Verify archive job can be cancelled."""
+        status, content = self._http_request("/api/archive/start?query=" + urllib.parse.quote("filename:*000*"))
+        self.assertEqual(status, 200)
+        data = json.loads(content)
+        job_id = data.get("job_id")
+        self.assertIsNotNone(job_id)
+
+        # Cancel job
+        c_status, c_content = self._http_request(f"/api/archive/cancel/{job_id}", method="POST")
+        self.assertEqual(c_status, 200)
+        c_data = json.loads(c_content)
+        self.assertTrue(c_data.get("cancelled"))
+
+        # Check status reflects cancelled
+        s_status, s_content = self._http_request(f"/api/archive/status/{job_id}")
+        self.assertEqual(s_status, 200)
+        s_data = json.loads(s_content)
+        self.assertEqual(s_data.get("status"), "cancelled")
 
 
 if __name__ == "__main__":
