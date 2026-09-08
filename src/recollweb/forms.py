@@ -72,14 +72,24 @@ class SearchFormsManager:
                 continue
             if form.get('id') == 'default':
                 form_copy = dict(DEFAULT_SEARCH_FORM)
+                if 'enabled' in form:
+                    form_copy['enabled'] = bool(form['enabled'])
+                else:
+                    form_copy['enabled'] = True
                 sanitized_forms.insert(0, form_copy)
                 has_default = True
             else:
                 form['readonly'] = False
+                if 'enabled' in form:
+                    form['enabled'] = bool(form['enabled'])
+                else:
+                    form['enabled'] = True
                 sanitized_forms.append(form)
 
         if not has_default:
-            sanitized_forms.insert(0, dict(DEFAULT_SEARCH_FORM))
+            default_copy = dict(DEFAULT_SEARCH_FORM)
+            default_copy['enabled'] = True
+            sanitized_forms.insert(0, default_copy)
 
         # Provide sample classification form out-of-the-box if no custom forms exist
         if len(sanitized_forms) == 1:
@@ -95,12 +105,21 @@ class SearchFormsManager:
         """
         path = cls.get_forms_path(conf_dir)
         try:
-            clean_forms: List[Dict[str, Any]] = [dict(DEFAULT_SEARCH_FORM)]
+            clean_forms: List[Dict[str, Any]] = []
+            default_form = dict(DEFAULT_SEARCH_FORM)
+            for f in forms:
+                if isinstance(f, dict) and f.get('id') == 'default':
+                    if 'enabled' in f:
+                        default_form['enabled'] = bool(f['enabled'])
+                    break
+            clean_forms.append(default_form)
             for form in forms:
                 if not isinstance(form, dict) or form.get('id') == 'default':
                     continue
                 form_copy = dict(form)
                 form_copy['readonly'] = False
+                if 'enabled' in form:
+                    form_copy['enabled'] = bool(form['enabled'])
                 clean_forms.append(form_copy)
 
             temp_path = f"{path}.tmp.{uuid.uuid4().hex}"
@@ -111,6 +130,24 @@ class SearchFormsManager:
         except Exception as exc:
             logger.error("Failed to save forms to %s: %s", path, exc)
             return False
+
+    @classmethod
+    def toggle_form(cls, conf_dir: Optional[str], form_id: str, enabled: bool) -> Dict[str, Any]:
+        """
+        Toggle active state of a search form (default or custom) and persist to forms.json.
+        """
+        forms = cls.get_forms(conf_dir)
+        target = None
+        for f in forms:
+            if f.get('id') == form_id:
+                f['enabled'] = enabled
+                target = f
+                break
+        if not target:
+            raise ValueError(f"Form with ID '{form_id}' not found.")
+        if not cls.save_forms(conf_dir, forms):
+            raise IOError("Failed to persist forms to disk.")
+        return target
 
     @classmethod
     def save_custom_form(cls, conf_dir: Optional[str], form_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -145,6 +182,7 @@ class SearchFormsManager:
                 'type': ftype,
                 'helper': str(f.get('helper', '')).strip(),
                 'placeholder': str(f.get('placeholder', '')).strip(),
+                'enabled': bool(f.get('enabled', True)) if 'enabled' in f else True,
             }
             if ftype == 'select':
                 raw_options = f.get('options', [])
@@ -184,6 +222,7 @@ class SearchFormsManager:
             'description': str(form_data.get('description', '')).strip(),
             'readonly': False,
             'fields': clean_fields,
+            'enabled': bool(form_data.get('enabled', True)) if 'enabled' in form_data else True,
         }
 
         existing_forms = cls.get_forms(conf_dir)

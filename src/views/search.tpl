@@ -8,7 +8,7 @@
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input tabindex="0" type="search" name="query" class="query-input" value="{{query['query']}}" placeholder="Search documents, text content, metadata, or keywords..." autofocus autocomplete="off">
+                <input tabindex="0" type="search" name="query" class="query-input" value="{{query['query']}}" placeholder="Search documents, text content or metadata..." autofocus autocomplete="off">
             </div>
             <div class="button-row">
                 <button type="submit" class="btn btn-primary" title="Execute Search">
@@ -50,12 +50,14 @@
                     </label>
                     <select id="active-form-selector" class="form-control form-preset-select">
                         %for f in forms:
+                        %if f.get('enabled', True):
                         %if f.get('id') == 'default':
                         <option value="{{f['id']}}">Advanced (Default / Read-Only)</option>
                         %elif f.get('readonly'):
                         <option value="{{f['id']}}">{{f['name']}} (Default / Read-Only)</option>
                         %else:
                         <option value="{{f['id']}}">{{f['name']}}</option>
+                        %end
                         %end
                         %end
                     </select>

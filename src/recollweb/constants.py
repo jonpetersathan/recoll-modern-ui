@@ -146,7 +146,7 @@ MIME_LABELS: Dict[str, str] = {
 # Default comprehensive advanced search form schema (read-only)
 DEFAULT_SEARCH_FORM: Dict[str, Any] = {
     "id": "default",
-    "name": "Advanced",
+    "name": "Advanced Search",
     "description": "Comprehensive search form supporting all Recoll query language features",
     "readonly": True,
     "fields": [

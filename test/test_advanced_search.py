@@ -237,6 +237,47 @@ class TestSearchFormsManager(unittest.TestCase):
         # Clean up
         SearchFormsManager.delete_custom_form(self.test_dir, form_id)
 
+    def test_form_fields_enable_disable_persistence(self):
+        """Verify saving and retrieving forms with enabled and disabled fields."""
+        try:
+            from webui import SearchFormsManager
+        except ImportError:
+            self.skipTest("webui cannot be imported in host python")
+
+        form_data = {
+            "name": "Field Toggle Test Form",
+            "description": "Form with enabled and disabled fields",
+            "fields": [
+                {
+                    "id": "f_active",
+                    "label": "Active Keyword",
+                    "type": "text",
+                    "enabled": True,
+                    "query_format": "keyword:{value}"
+                },
+                {
+                    "id": "f_inactive",
+                    "label": "Disabled Tag",
+                    "type": "text",
+                    "enabled": False,
+                    "query_format": "tag:{value}"
+                }
+            ]
+        }
+
+        saved = SearchFormsManager.save_custom_form(self.test_dir, form_data)
+        self.assertTrue(saved["fields"][0]["enabled"])
+        self.assertFalse(saved["fields"][1]["enabled"])
+
+        # Reload from disk
+        loaded = SearchFormsManager.get_forms(self.test_dir)
+        match = next(f for f in loaded if f["id"] == saved["id"])
+        self.assertTrue(match["fields"][0]["enabled"])
+        self.assertFalse(match["fields"][1]["enabled"])
+
+        # Clean up
+        SearchFormsManager.delete_custom_form(self.test_dir, saved["id"])
+
 
 class TestContainerEndpoints(unittest.TestCase):
     """Integration tests running against active container."""
@@ -734,6 +775,347 @@ class TestContainerEndpoints(unittest.TestCase):
         status_js, content_js = self._http_request("/static/extra.js")
         self.assertEqual(status_js, 200)
         self.assertIn("has-no-user-fields", content_js)
+
+    def test_form_fields_enable_disable(self):
+        """Verify enable/disable option for form fields and removal of Apple-style terminal dots."""
+        form_data = {
+            "name": "Field Toggle API Test Form",
+            "description": "Form with enabled and disabled fields",
+            "fields": [
+                {
+                    "id": "f_active",
+                    "label": "Active Keyword",
+                    "type": "text",
+                    "enabled": True,
+                    "query_format": "keyword:{value}"
+                },
+                {
+                    "id": "f_inactive",
+                    "label": "Disabled Tag",
+                    "type": "text",
+                    "enabled": False,
+                    "query_format": "tag:{value}"
+                }
+            ]
+        }
+
+        # Test POST /api/forms saves enabled state
+        status, content = self._http_request("/api/forms", method="POST", data=form_data)
+        self.assertEqual(status, 200)
+        resp = json.loads(content)
+        self.assertTrue(resp.get("success"))
+        saved = resp.get("form", {})
+        self.assertTrue(saved["fields"][0]["enabled"])
+        self.assertFalse(saved["fields"][1]["enabled"])
+        created_id = saved.get("id")
+
+        # Test GET /api/forms returns enabled state
+        status, content_forms = self._http_request("/api/forms", method="GET")
+        self.assertEqual(status, 200)
+        forms_data = json.loads(content_forms)
+        forms = forms_data.get("forms", forms_data) if isinstance(forms_data, dict) else forms_data
+        match = next(f for f in forms if f["id"] == created_id)
+        self.assertTrue(match["fields"][0]["enabled"])
+        self.assertFalse(match["fields"][1]["enabled"])
+
+        # Check CSS contains disabled card style and switch layout
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".builder-field-card.is-disabled", content_css)
+        self.assertIn(".builder-field-header-left", content_css)
+        self.assertIn(".terminal-body::-webkit-scrollbar", content_css)
+        self.assertIn(".terminal-body::-webkit-scrollbar-thumb", content_css)
+
+        # Check JS contains toggle handling and enabled checks
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        self.assertIn("field-enabled-toggle", content_js)
+        self.assertIn("field.enabled === false", content_js)
+
+        # Check index_manager HTML removes Apple-style window decorations (terminal-controls / terminal-dot)
+        status_im, content_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+        self.assertNotIn("terminal-controls", content_im)
+        self.assertNotIn("terminal-dot", content_im)
+
+        # Clean up
+        self._http_request("/api/forms/delete", method="POST", data={"id": created_id})
+
+    def test_keyword_aliases_and_removed_keywords_suggestions(self):
+        """Verify fn, cfn, and fileextension are removed from TOP_LEVEL_KEYWORDS but their canonical keywords match aliases."""
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+
+        # Extract TOP_LEVEL_KEYWORDS block
+        self.assertIn("const TOP_LEVEL_KEYWORDS = [", content_js)
+        start_idx = content_js.index("const TOP_LEVEL_KEYWORDS = [")
+        end_idx = content_js.index("];", start_idx)
+        top_kw_block = content_js[start_idx:end_idx]
+
+        # 1. fn:, cfn:, fileextension:, mimetype:, contenttype:, mtype: must NOT be standalone entries in TOP_LEVEL_KEYWORDS
+        self.assertNotIn("prefix: 'fn:'", top_kw_block)
+        self.assertNotIn("prefix: 'cfn:'", top_kw_block)
+        self.assertNotIn("prefix: 'fileextension:'", top_kw_block)
+        self.assertNotIn("prefix: 'mimetype:'", top_kw_block)
+        self.assertNotIn("prefix: 'contenttype:'", top_kw_block)
+        self.assertNotIn("prefix: 'mtype:'", top_kw_block)
+
+        # 2. Canonical keywords must have aliases mapped
+        self.assertIn("prefix: 'filename:'", top_kw_block)
+        self.assertIn("aliases: ['fn']", top_kw_block)
+
+        self.assertIn("prefix: 'containerfilename:'", top_kw_block)
+        self.assertIn("aliases: ['cfn']", top_kw_block)
+
+        self.assertIn("prefix: 'ext:'", top_kw_block)
+        self.assertIn("aliases: ['fileextension']", top_kw_block)
+
+        self.assertIn("prefix: 'mime:'", top_kw_block)
+        self.assertIn("aliases: ['mimetype', 'mtype', 'contenttype']", top_kw_block)
+
+        self.assertIn("prefix: 'filetype:'", top_kw_block)
+        self.assertIn("aliases: ['mimetype', 'mtype', 'contenttype']", top_kw_block)
+
+        # 3. scoreKeywordItem must handle aliases
+        self.assertIn("item.aliases", content_js)
+        self.assertIn("alias === cleanQ", content_js)
+
+        # 4. Secondary mimePrefixes must recognize mimetype, mtype, contenttype
+        self.assertIn("const mimePrefixes = ['mime:', 'filetype:', 'mimetype:', 'mtype:', 'contenttype:'];", content_js)
+
+    def test_full_form_enable_disable_toggle(self):
+        """Verify full form enable/disable toggle API, persistence, CSS matching index page, and JS."""
+        # 1. Create a custom form to toggle
+        form_payload = {
+            "name": "Toggle Form Test",
+            "description": "Form for testing full form enable/disable toggle",
+            "fields": [
+                {
+                    "id": "f1",
+                    "label": "Topic",
+                    "type": "text",
+                    "query_format": "subject:{value}"
+                }
+            ]
+        }
+        status, content = self._http_request("/api/forms", method="POST", data=form_payload)
+        self.assertEqual(status, 200)
+        resp = json.loads(content)
+        self.assertTrue(resp.get("success"))
+        created_id = resp["form"]["id"]
+
+        # 2. Toggle form to disabled via POST /api/forms/toggle
+        status, content_toggle = self._http_request("/api/forms/toggle", method="POST", data={"id": created_id, "enabled": False})
+        self.assertEqual(status, 200)
+        resp_toggle = json.loads(content_toggle)
+        self.assertTrue(resp_toggle.get("success"))
+        self.assertFalse(resp_toggle["form"]["enabled"])
+
+        # Verify /api/forms returns it as disabled
+        status, content_get = self._http_request("/api/forms", method="GET")
+        self.assertEqual(status, 200)
+        forms = json.loads(content_get).get("forms", [])
+        matched = next(f for f in forms if f["id"] == created_id)
+        self.assertFalse(matched["enabled"])
+
+        # 3. Toggle form back to enabled
+        status, content_toggle_on = self._http_request("/api/forms/toggle", method="POST", data={"id": created_id, "enabled": True})
+        self.assertEqual(status, 200)
+        resp_toggle_on = json.loads(content_toggle_on)
+        self.assertTrue(resp_toggle_on.get("success"))
+        self.assertTrue(resp_toggle_on["form"]["enabled"])
+
+        # 4. Verify CSS styling matches exact look & feel from index page
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".form-manage-card.is-disabled", content_css)
+        self.assertIn(".form-card-identity", content_css)
+        self.assertIn("opacity: 0.55;", content_css)
+        self.assertIn("filter: grayscale(0.5);", content_css)
+
+        # 5. Verify JS contains form toggle handler and API call
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        self.assertIn("form-enabled-toggle", content_js)
+        self.assertIn("/api/forms/toggle", content_js)
+
+        # Clean up
+        self._http_request("/api/forms/delete", method="POST", data={"id": created_id})
+
+    def test_footer_index_status_and_themed_dialogs(self):
+        """Verify footer index badge reflecting actual status and themed dialog modal markup."""
+        # 1. Root page has footer badge and app dialog overlay
+        status_root, html_root = self._http_request("/")
+        self.assertEqual(status_root, 200)
+        self.assertIn('id="footer-index-badge"', html_root)
+        self.assertIn('id="app-dialog-overlay"', html_root)
+        self.assertIn('id="app-dialog-title"', html_root)
+        self.assertIn('id="app-dialog-message"', html_root)
+        self.assertIn('id="btn-confirm-app-dialog"', html_root)
+        self.assertIn('id="btn-cancel-app-dialog"', html_root)
+
+        # 2. Index manager page also has footer badge and app dialog overlay
+        status_im, html_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+        self.assertIn('id="footer-index-badge"', html_im)
+        self.assertIn('id="app-dialog-overlay"', html_im)
+
+        # 3. Settings page also has footer badge and app dialog overlay
+        status_set, html_set = self._http_request("/settings")
+        self.assertEqual(status_set, 200)
+        self.assertIn('id="footer-index-badge"', html_set)
+        self.assertIn('id="app-dialog-overlay"', html_set)
+
+        # 4. Verify CSS styling contains status variants and dialog styles
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".security-badge.status-ready", content_css)
+        self.assertIn(".security-badge.status-indexing", content_css)
+        self.assertIn(".security-badge.status-empty", content_css)
+        self.assertIn(".security-badge.status-error", content_css)
+        self.assertIn(".confirm-modal-dialog", content_css)
+        self.assertIn(".btn-danger", content_css)
+
+        # 5. Verify JS contains modal dialog functions and footer status updater
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        self.assertIn("window.showConfirmModal", content_js)
+        self.assertIn("window.showAlertModal", content_js)
+        self.assertIn("window.updateFooterIndexBadge", content_js)
+        self.assertIn("initFooterIndexStatus", content_js)
+
+        # 6. Verify index_manager.tpl uses custom modals instead of native confirm/alert
+        self.assertIn("window.showConfirmModal", html_im)
+        self.assertNotIn("confirm(", html_im)
+
+    def test_form_field_value_wildcard_suggestions(self):
+        """Verify form field suggestions provide *{value}* along with {value} for all keywords."""
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+
+        # Check TEXT_SNIPPET_PATTERNS contains both {value} and *{value}*
+        self.assertIn("const TEXT_SNIPPET_PATTERNS = [", content_js)
+        self.assertIn("prefix: '{value}'", content_js)
+        self.assertIn("prefix: '*{value}*'", content_js)
+
+        # Verify keyword pairs exist for exact and wildcard partial matching
+        keyword_pairs = [
+            ("filename:{value}", "filename:*{value}*"),
+            ("title:{value}", "title:*{value}*"),
+            ("author:{value}", "author:*{value}*"),
+            ("subject:{value}", "subject:*{value}*"),
+            ("ext:{value}", "ext:*{value}*"),
+            ("mime:{value}", "mime:*{value}*"),
+            ("filetype:{value}", "filetype:*{value}*"),
+            ("tag:{value}", "tag:*{value}*"),
+            ("keyword:{value}", "keyword:*{value}*"),
+            ("from:{value}", "from:*{value}*"),
+            ("to:{value}", "to:*{value}*"),
+            ("recipient:{value}", "recipient:*{value}*"),
+        ]
+        for exact_kw, wild_kw in keyword_pairs:
+            self.assertIn(f"prefix: '{exact_kw}'", content_js)
+            self.assertIn(f"prefix: '{wild_kw}'", content_js)
+
+        # Verify highlightQuerySyntax handles *{value}*
+        self.assertIn("(\\*?\\{value\\}\\*?)", content_js)
+
+    def test_four_index_status_states_and_colors(self):
+        """Verify the 4 required index status labels and their respective color styling:
+        - No index (red)
+        - Creating Index (orange)
+        - Updating Index (blue)
+        - Index Ready (green)
+        """
+        # 1. Check style.css contains class definitions and color rules for all 4 states
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+
+        # Red styling for No index
+        self.assertIn(".index-status-pill.is-no-index", content_css)
+        self.assertIn(".security-badge.status-no-index", content_css)
+
+        # Orange styling for Creating Index
+        self.assertIn(".index-status-pill.is-creating", content_css)
+        self.assertIn(".security-badge.status-creating", content_css)
+        self.assertIn("pulseGlowOrange", content_css)
+
+        # Blue styling for Updating Index
+        self.assertIn(".index-status-pill.is-updating", content_css)
+        self.assertIn(".security-badge.status-updating", content_css)
+
+        # Green styling for Index Ready
+        self.assertIn(".index-status-pill.is-ready", content_css)
+        self.assertIn(".security-badge.status-ready", content_css)
+
+        # 2. Check extra.js handles all 4 states with exact labels
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        self.assertIn("'No index'", content_js)
+        self.assertIn("'Creating Index'", content_js)
+        self.assertIn("'Updating Index'", content_js)
+        self.assertIn("'Index Ready'", content_js)
+
+        # 3. Check index_manager.tpl renders and updates with the 4 status labels
+        status_im, html_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+        self.assertIn("Creating Index", html_im)
+        self.assertIn("Updating Index", html_im)
+        self.assertIn("No index", html_im)
+        self.assertIn("Index Ready", html_im)
+
+    def test_dynamic_index_action_button(self):
+        """Verify the dynamic index action button:
+        - Replaces separate incremental and full buttons with single button
+        - Titled 'Create Index' when no index exists, 'Update Index' when index exists
+        - Disabled while creating or updating
+        """
+        status_im, html_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+
+        # 1. Old buttons removed, new dynamic button present
+        self.assertNotIn("btn-incremental-index", html_im)
+        self.assertNotIn("btn-full-reindex", html_im)
+        self.assertIn('id="btn-index-action"', html_im)
+        self.assertIn("triggerIndexAction()", html_im)
+
+        # 2. Check CSS contains disabled styling for buttons
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".btn:disabled", content_css)
+
+        # 3. Check client-side fetchIndexStatus toggles 'Create Index' vs 'Update Index' and disabled state
+        self.assertIn("btnText.innerText = 'Create Index'", html_im)
+        self.assertIn("btnText.innerText = 'Update Index'", html_im)
+        self.assertIn("btnAction.disabled = isRunning", html_im)
+
+        # 4. Refresh button and old toolbar removed, buttons aligned next to Database Metrics
+        self.assertNotIn("btn-icon-spin", html_im)
+        self.assertNotIn("Refresh</span>", html_im)
+        self.assertIn('class="section-title-actions"', html_im)
+
+    def test_webui_startup_and_availability_without_index(self):
+        """Verify Web UI and endpoints are available without an index, and entrypoint does not block."""
+        # 1. Verify entrypoint.sh does not run blocking recollindex
+        if os.path.exists("entrypoint.sh"):
+            with open("entrypoint.sh", "r", encoding="utf-8") as f:
+                entrypoint_content = f.read()
+            self.assertNotIn("recollindex -z", entrypoint_content)
+            self.assertIn("No search index found", entrypoint_content)
+        elif os.path.exists("/app/entrypoint.sh"):
+            with open("/app/entrypoint.sh", "r", encoding="utf-8") as f:
+                entrypoint_content = f.read()
+            self.assertNotIn("recollindex -z", entrypoint_content)
+            self.assertIn("No search index found", entrypoint_content)
+
+        # 2. Verify root page and index manager load with 200 OK
+        status_root, html_root = self._http_request("/")
+        self.assertEqual(status_root, 200)
+        self.assertIn("Recoll", html_root)
+
+        status_im, html_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+        self.assertIn("Index Management", html_im)
 
 
 if __name__ == "__main__":

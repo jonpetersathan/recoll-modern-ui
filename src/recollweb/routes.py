@@ -331,7 +331,14 @@ def register_routes(app: bottle.Bottle):
         qs = SearchQuery.to_recoll_string(query_data)
         client_ip = get_client_ip()
 
-        res, total_count, _ = RecollSearchEngine.execute_search(query_data, config)
+        try:
+            res, total_count, _ = RecollSearchEngine.execute_search(query_data, config)
+        except Exception as exc:
+            logger.warning("EXPORT_JSON_WARNING: Search index unavailable or query error: %s (Client: %s)", exc, client_ip)
+            bottle.response.headers['Content-Type'] = 'application/json'
+            bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.json"'
+            return json.dumps({'query': query_data, 'results': [], 'total': 0})
+
         logger.info("EXPORT_JSON: query='%s' (terms='%s') -> %d records exported to %s", qs, query_data.get('query', ''), total_count, client_ip)
 
         bottle.response.headers['Content-Type'] = 'application/json'
@@ -349,7 +356,11 @@ def register_routes(app: bottle.Bottle):
         qs = SearchQuery.to_recoll_string(query_data)
         client_ip = get_client_ip()
 
-        res, _, _ = RecollSearchEngine.execute_search(query_data, config)
+        try:
+            res, _, _ = RecollSearchEngine.execute_search(query_data, config)
+        except Exception as exc:
+            logger.warning("EXPORT_CSV_WARNING: Search index unavailable or query error: %s (Client: %s)", exc, client_ip)
+            res = []
         logger.info("EXPORT_CSV: query='%s' (terms='%s') -> %d records exported to %s", qs, query_data.get('query', ''), len(res), client_ip)
 
         bottle.response.headers['Content-Type'] = 'text/csv'
@@ -487,6 +498,22 @@ def register_routes(app: bottle.Bottle):
                 return json_error("Missing form ID", status=400)
             SearchFormsManager.delete_custom_form(config['confdir'], form_id)
             return json_response({'success': True})
+        except ValueError as val_err:
+            return json_error(str(val_err), status=400)
+        except Exception as exc:
+            return json_error(str(exc), status=500)
+
+    @app.route('/api/forms/toggle', method=['POST'])
+    def api_toggle_form():
+        config = ConfigManager.get_config()
+        try:
+            data = parse_json_request()
+            form_id = data.get('id')
+            enabled = bool(data.get('enabled', True))
+            if not form_id:
+                return json_error("Missing form ID", status=400)
+            updated_form = SearchFormsManager.toggle_form(config['confdir'], form_id, enabled)
+            return json_response({'success': True, 'form': updated_form})
         except ValueError as val_err:
             return json_error(str(val_err), status=400)
         except Exception as exc:

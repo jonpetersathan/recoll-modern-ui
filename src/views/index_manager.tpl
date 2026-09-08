@@ -13,23 +13,74 @@
                 </svg>
             </div>
             <div>
-                <h2 class="settings-title">Index Management &amp; Metadata Engine</h2>
+                <h2 class="settings-title">Index Management</h2>
                 <p class="settings-helper">Monitor database health, trigger re-indexing jobs, and configure sub-microsecond metadata extraction</p>
             </div>
         </div>
-        <div id="index-status-pill" class="index-status-pill {{'is-running' if status == 'running' else 'is-idle'}}">
+        % job_mode = job.get('mode') if defined('job') and isinstance(job, dict) else None
+        % is_running = status == 'running'
+        % has_index = exists if defined('exists') and exists is not None else True
+        % if is_running:
+            % if job_mode == 'full' or not has_index:
+                % pill_cls = 'is-creating'
+                % pill_txt = 'Creating Index'
+            % else:
+                % pill_cls = 'is-updating is-running'
+                % pill_txt = 'Updating Index'
+            % end
+        % elif not has_index:
+            % pill_cls = 'is-no-index'
+            % pill_txt = 'No index'
+        % else:
+            % pill_cls = 'is-idle'
+            % pill_txt = 'Index Ready'
+        % end
+        <div id="index-status-pill" class="index-status-pill {{pill_cls}}">
             <span class="status-dot-pulse"></span>
-            <span id="index-status-text">{{'Indexing Active' if status == 'running' else 'Index Ready'}}</span>
+            <span id="index-status-text">{{pill_txt}}</span>
         </div>
     </div>
 
     <!-- Section 1: Database Metrics & Control Operations -->
     <div class="settings-section">
         <div class="settings-section-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-            </svg>
-            <span>Database Metrics &amp; Lifecycle</span>
+            <div style="display: inline-flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+                <span>Metrics</span>
+            </div>
+            <div class="section-title-actions" style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px;">
+                % has_index = exists if defined('exists') and exists is not None else True
+                % is_running = status == 'running'
+                % btn_label = 'Create Index' if not has_index else 'Update Index'
+                <button type="button" class="btn btn-primary btn-sm" id="btn-index-action" onclick="triggerIndexAction()" {{'disabled' if is_running else ''}}>
+                    <span id="btn-index-icon">
+                        % if not has_index:
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        % else:
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        % end
+                    </span>
+                    <span id="btn-index-text">{{btn_label}}</span>
+                </button>
+                <button type="button" class="btn btn-danger-ghost btn-sm" id="btn-purge-index" onclick="confirmPurgeIndex()" {{'disabled' if is_running or not has_index else ''}}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                    <span>Purge Index</span>
+                </button>
+            </div>
         </div>
 
         <!-- Metric Cards Grid -->
@@ -43,10 +94,25 @@
                             <polyline points="14 2 14 8 20 8"></polyline>
                         </svg>
                     </div>
-                    <div class="stat-card-label">Total Documents</div>
+                    <div class="stat-card-label">Index Files</div>
                 </div>
                 <div class="stat-card-value" id="stat-doc-count">{{doc_count}}</div>
                 <div class="stat-card-sub">Indexed entries in database</div>
+            </div>
+
+            <div class="stat-card" onmousemove="updateGlow(event, this)">
+                <div class="card-glow"></div>
+                <div class="stat-card-top">
+                    <div class="stat-card-icon icon-emerald">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <div class="stat-card-label">Last Sync</div>
+                </div>
+                <div class="stat-card-value stat-small" id="stat-last-indexed">{{last_indexed}}</div>
+                <div class="stat-card-sub">Timestamp of last index write</div>
             </div>
 
             <div class="stat-card" onmousemove="updateGlow(event, this)">
@@ -59,25 +125,10 @@
                             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                         </svg>
                     </div>
-                    <div class="stat-card-label">Index Storage</div>
+                    <div class="stat-card-label">Index Size</div>
                 </div>
                 <div class="stat-card-value" id="stat-db-size">{{size_human}}</div>
                 <div class="stat-card-sub" id="stat-db-bytes">{{size_bytes}} bytes on disk</div>
-            </div>
-
-            <div class="stat-card" onmousemove="updateGlow(event, this)">
-                <div class="card-glow"></div>
-                <div class="stat-card-top">
-                    <div class="stat-card-icon icon-emerald">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                    </div>
-                    <div class="stat-card-label">Last Synchronization</div>
-                </div>
-                <div class="stat-card-value stat-small" id="stat-last-indexed">{{last_indexed}}</div>
-                <div class="stat-card-sub">Timestamp of last index write</div>
             </div>
 
             <div class="stat-card" onmousemove="updateGlow(event, this)">
@@ -88,59 +139,18 @@
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                         </svg>
                     </div>
-                    <div class="stat-card-label">Target Scope</div>
+                    <div class="stat-card-label">Data Size</div>
                 </div>
-                <div class="stat-card-value stat-small" id="stat-topdirs">{{' '.join(topdirs) if topdirs else '/data'}}</div>
-                <div class="stat-card-sub">Root crawl scope in recoll.conf</div>
+                <div class="stat-card-value" id="stat-data-size">{{data_size_human}}</div>
+                <div class="stat-card-sub" id="stat-data-bytes">{{data_size_bytes}} bytes in /data</div>
             </div>
         </div>
 
-        <!-- Executive Operations Toolbar -->
-        <div class="index-toolbar">
-            <div class="toolbar-group">
-                <button type="button" class="btn btn-primary" id="btn-incremental-index" onclick="triggerIndexing(false)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="23 4 23 10 17 10"></polyline>
-                        <polyline points="1 20 1 14 7 14"></polyline>
-                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                    </svg>
-                    <span>Run Incremental Index</span>
-                </button>
-                <button type="button" class="btn btn-secondary" id="btn-full-reindex" onclick="triggerIndexing(true)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                    </svg>
-                    <span>Full Re-index (-z)</span>
-                </button>
-                <button type="button" class="btn btn-danger-ghost" id="btn-purge-index" onclick="confirmPurgeIndex()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                    </svg>
-                    <span>Purge Index</span>
-                </button>
-            </div>
-            <div class="toolbar-group">
-                <button type="button" class="btn btn-secondary btn-icon-spin" onclick="fetchIndexStatus()" title="Refresh metrics">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="23 4 23 10 17 10"></polyline>
-                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                    </svg>
-                    <span>Refresh</span>
-                </button>
-            </div>
-        </div>
+
 
         <!-- Terminal Window Console Viewer -->
         <div class="terminal-window">
             <div class="terminal-header">
-                <div class="terminal-controls">
-                    <span class="terminal-dot dot-red"></span>
-                    <span class="terminal-dot dot-yellow"></span>
-                    <span class="terminal-dot dot-green"></span>
-                </div>
                 <div class="terminal-title">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                     <span>recollindex.log</span>
@@ -162,7 +172,7 @@
                 <line x1="9" y1="20" x2="15" y2="20"></line>
                 <line x1="12" y1="4" x2="12" y2="20"></line>
             </svg>
-            <span>High-Performance Metadata Extraction Engine</span>
+            <span>Metadata Extraction</span>
             <button type="button" class="btn btn-primary btn-sm" style="margin-left: auto;" onclick="openAddRuleModal()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -189,7 +199,7 @@
                         <path d="M10 2v7.31L4.62 19.3A2 2 0 0 0 6.37 22h11.26a2 2 0 0 0 1.75-2.7L14 9.31V2"></path>
                         <line x1="8" y1="2" x2="16" y2="2"></line>
                     </svg>
-                    <h3 class="sandbox-title">Interactive Rule Evaluation Sandbox</h3>
+                    <h3 class="sandbox-title">Sandbox Rule Evaluation</h3>
                 </div>
             </div>
             <p class="settings-helper" style="margin-bottom: 0.5rem;">
@@ -240,7 +250,7 @@
                     <polyline points="17 21 17 13 7 13 7 21"></polyline>
                     <polyline points="7 3 7 8 15 8"></polyline>
                 </svg>
-                <span>Save Rules &amp; Sync Recoll Config</span>
+                <span>Save Config</span>
             </button>
             <span id="save-status-msg" class="status-msg"></span>
         </div>
@@ -288,7 +298,7 @@
 
             <div class="settings-field" style="margin-bottom: 1rem;">
                 <label class="settings-label" for="modal-rule-glob">Path Filter (Glob Pattern)</label>
-                <span class="settings-helper">Optional fast-path filter (e.g. <code>*.pdf</code> or <code>/data/projects/**</code>). Non-matching paths exit in &lt; 100ns.</span>
+                <span class="settings-helper">Optional fast-path filter (e.g. <code>*.pdf</code> or <code>/data/projects/**</code>).</span>
                 <input type="text" id="modal-rule-glob" class="form-control" placeholder="e.g. *.pdf, /data/projects/** (leave empty for all files)">
             </div>
 
@@ -461,8 +471,14 @@ function toggleRuleEnabled(id, isEnabled) {
     }
 }
 
-function deleteRule(id) {
-    if (confirm("Are you sure you want to remove this extraction rule?")) {
+async function deleteRule(id) {
+    const confirmed = await window.showConfirmModal({
+        title: "Remove Extraction Rule",
+        message: "Are you sure you want to remove this extraction rule? Custom fields generated by this rule will no longer be indexed.",
+        confirmText: "Remove Rule",
+        isDanger: true
+    });
+    if (confirmed) {
         currentRulesData.rules = currentRulesData.rules.filter(r => r.id !== id);
         renderRules();
         runLiveTest();
@@ -540,7 +556,11 @@ function saveModalRule() {
         ruleObj.depth = parseInt(document.getElementById('modal-rule-depth').value, 10) || 0;
         ruleObj.field = document.getElementById('modal-rule-depth-field').value.trim();
         if (!ruleObj.field) {
-            alert('Target field name is required.');
+            window.showAlertModal({
+                title: 'Validation Error',
+                message: 'Target field name is required.',
+                type: 'warning'
+            });
             return;
         }
     } else if (rtype === 'delimiter') {
@@ -557,18 +577,30 @@ function saveModalRule() {
             }
         });
         if (mappings.length === 0) {
-            alert('At least one token mapping (e.g. 0:doctype) is required.');
+            window.showAlertModal({
+                title: 'Validation Error',
+                message: 'At least one token mapping (e.g. 0:doctype) is required.',
+                type: 'warning'
+            });
             return;
         }
         ruleObj.mappings = mappings;
     } else if (rtype === 'regex') {
         ruleObj.pattern = document.getElementById('modal-rule-pattern').value.trim();
         if (!ruleObj.pattern) {
-            alert('Regex pattern is required.');
+            window.showAlertModal({
+                title: 'Validation Error',
+                message: 'Regex pattern is required.',
+                type: 'warning'
+            });
             return;
         }
         if (!ruleObj.pattern.includes('(?P<')) {
-            alert('Regex must include at least one named capture group e.g. (?P<project>[^/]+)');
+            window.showAlertModal({
+                title: 'Validation Error',
+                message: 'Regex must include at least one named capture group e.g. (?P<project>[^/]+)',
+                type: 'warning'
+            });
             return;
         }
     }
@@ -671,42 +703,74 @@ function saveAllRules() {
     });
 }
 
-function triggerIndexing(full) {
-    if (full && !confirm("A full re-index will rebuild the entire search index database from scratch. Continue?")) {
-        return;
-    }
+function triggerIndexAction() {
+    const btnAction = document.getElementById('btn-index-action');
+    if (btnAction && btnAction.disabled) return;
+    if (btnAction) btnAction.disabled = true;
 
     fetch('/api/index/reindex', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full: full })
+        body: JSON.stringify({ full: false })
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
             fetchIndexStatus();
         } else {
-            alert("Could not start indexing: " + (data.error || "Unknown error"));
+            if (btnAction) btnAction.disabled = false;
+            window.showAlertModal({
+                title: "Indexing Error",
+                message: "Could not start indexing: " + (data.error || "Unknown error"),
+                type: "danger"
+            });
         }
     })
     .catch(err => {
-        alert("Failed to trigger indexing: " + err);
+        if (btnAction) btnAction.disabled = false;
+        window.showAlertModal({
+            title: "Indexing Error",
+            message: "Failed to trigger indexing: " + err,
+            type: "danger"
+        });
     });
 }
+window.triggerIndexing = function(full) { triggerIndexAction(); };
 
-function confirmPurgeIndex() {
-    if (confirm("WARNING: This will permanently purge the search database directory (xapiandb). Search results will be empty until indexing completes. Proceed?")) {
-        fetch('/api/index/purge', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert("Index database successfully purged.");
-                fetchIndexStatus();
-            } else {
-                alert("Purge failed: " + (data.error || "Unknown error"));
-            }
+async function confirmPurgeIndex() {
+    const confirmed = await window.showConfirmModal({
+        title: "Purge Search Index Database",
+        message: "WARNING: This will permanently purge the search database directory (xapiandb). Search results will be empty until indexing completes. Proceed?",
+        confirmText: "Purge Database",
+        isDanger: true
+    });
+    if (!confirmed) return;
+
+    fetch('/api/index/purge', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.showAlertModal({
+                title: "Database Purged",
+                message: "Index database successfully purged.",
+                type: "success"
+            });
+            fetchIndexStatus();
+        } else {
+            window.showAlertModal({
+                title: "Purge Failed",
+                message: "Purge failed: " + (data.error || "Unknown error"),
+                type: "danger"
+            });
+        }
+    })
+    .catch(err => {
+        window.showAlertModal({
+            title: "Purge Failed",
+            message: "Purge network error: " + err,
+            type: "danger"
         });
-    }
+    });
 }
 
 function clearConsole() {
@@ -716,7 +780,11 @@ function clearConsole() {
 function copyConsoleLogs() {
     const text = document.getElementById('console-output').innerText;
     navigator.clipboard.writeText(text).then(() => {
-        alert("Console logs copied to clipboard.");
+        window.showAlertModal({
+            title: "Logs Copied",
+            message: "Console logs copied to clipboard.",
+            type: "success"
+        });
     });
 }
 
@@ -725,24 +793,72 @@ function fetchIndexStatus() {
     .then(res => res.json())
     .then(data => {
         document.getElementById('stat-doc-count').innerText = data.doc_count !== undefined ? Number(data.doc_count).toLocaleString() : '0';
+        document.getElementById('stat-last-indexed').innerText = data.last_indexed || 'Never';
         document.getElementById('stat-db-size').innerText = data.size_human || '0 B';
         if (document.getElementById('stat-db-bytes')) {
             document.getElementById('stat-db-bytes').innerText = (data.size_bytes || 0).toLocaleString() + ' bytes on disk';
         }
-        document.getElementById('stat-last-indexed').innerText = data.last_indexed || 'Never';
-        if (data.topdirs) {
-            document.getElementById('stat-topdirs').innerText = data.topdirs.join(' ');
+        if (document.getElementById('stat-data-size')) {
+            document.getElementById('stat-data-size').innerText = data.data_size_human || '0 B';
+        }
+        if (document.getElementById('stat-data-bytes')) {
+            document.getElementById('stat-data-bytes').innerText = (data.data_size_bytes || 0).toLocaleString() + ' bytes in /data';
         }
 
-        const isRunning = data.status === 'running';
+        const job = data.job || {};
+        const isRunning = data.status === 'running' || job.status === 'running';
+        const exists = data.exists !== false && data.exists !== 0 && data.exists != null;
         const pill = document.getElementById('index-status-pill');
-        pill.className = 'index-status-pill ' + (isRunning ? 'is-running' : 'is-idle');
-        document.getElementById('index-status-text').innerText = isRunning ? 'Indexing in Progress' : 'Index Ready';
+        const textEl = document.getElementById('index-status-text');
+        if (pill && textEl) {
+            if (isRunning) {
+                if (job.mode === 'full' || !exists) {
+                    pill.className = 'index-status-pill is-creating';
+                    textEl.innerText = 'Creating Index';
+                } else {
+                    pill.className = 'index-status-pill is-updating is-running';
+                    textEl.innerText = 'Updating Index';
+                }
+            } else if (!exists) {
+                pill.className = 'index-status-pill is-no-index';
+                textEl.innerText = 'No index';
+            } else {
+                pill.className = 'index-status-pill is-idle';
+                textEl.innerText = 'Index Ready';
+            }
+        }
+
+        const btnAction = document.getElementById('btn-index-action');
+        const btnText = document.getElementById('btn-index-text');
+        const btnIcon = document.getElementById('btn-index-icon');
+        const btnPurge = document.getElementById('btn-purge-index');
+
+        if (btnAction) {
+            btnAction.disabled = isRunning;
+            if (!exists) {
+                if (btnText) btnText.innerText = 'Create Index';
+                if (btnIcon) {
+                    btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+                }
+            } else {
+                if (btnText) btnText.innerText = 'Update Index';
+                if (btnIcon) {
+                    btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`;
+                }
+            }
+        }
+        if (btnPurge) {
+            btnPurge.disabled = isRunning || !exists;
+        }
 
         if (data.logs && data.logs.length > 0) {
             const consoleOut = document.getElementById('console-output');
             consoleOut.innerText = data.logs.join('\n');
             consoleOut.scrollTop = consoleOut.scrollHeight;
+        }
+
+        if (typeof window.updateFooterIndexBadge === 'function') {
+            window.updateFooterIndexBadge(data);
         }
     })
     .catch(err => console.error('Status fetch error:', err));

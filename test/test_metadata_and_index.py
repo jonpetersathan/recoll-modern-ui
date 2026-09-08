@@ -186,6 +186,8 @@ class TestIndexManager(unittest.TestCase):
         status = IndexManager.get_status(self.temp_dir)
         self.assertIn("status", status)
         self.assertIn("topdirs", status)
+        self.assertIn("data_size_human", status)
+        self.assertIn("data_size_bytes", status)
         self.assertEqual(status["topdirs"], ["/data", "/custom_docs"])
         self.assertFalse(status["exists"])
 

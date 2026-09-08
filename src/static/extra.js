@@ -70,6 +70,10 @@ function initRecollApp() {
         }
     });
 
+    // Initialize Global Themed Dialogs & Footer Index Status
+    initAppDialogs();
+    initFooterIndexStatus();
+
     // Initialize Advanced Search Panel, Settings Form Manager, Files Download, Custom Selects, & Datepicker
     initAdvancedSearch();
     initSettingsFormManager();
@@ -83,6 +87,206 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initRecollApp);
 } else {
     initRecollApp();
+}
+
+/**
+ * Themed Application Confirmation & Alert Dialogs
+ */
+let _appDialogResolve = null;
+
+function initAppDialogs() {
+    const overlay = document.getElementById('app-dialog-overlay');
+    if (!overlay) return;
+
+    const btnConfirm = document.getElementById('btn-confirm-app-dialog');
+    const btnCancel = document.getElementById('btn-cancel-app-dialog');
+    const btnClose = document.getElementById('btn-close-app-dialog');
+
+    function closeDialog(result) {
+        overlay.style.display = 'none';
+        if (_appDialogResolve) {
+            const resolve = _appDialogResolve;
+            _appDialogResolve = null;
+            resolve(result);
+        }
+    }
+
+    if (btnConfirm) {
+        btnConfirm.onclick = () => closeDialog(true);
+    }
+    if (btnCancel) {
+        btnCancel.onclick = () => closeDialog(false);
+    }
+    if (btnClose) {
+        btnClose.onclick = () => closeDialog(false);
+    }
+
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            closeDialog(false);
+        }
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (overlay.style.display === 'flex') {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeDialog(false);
+            } else if (e.key === 'Enter' && !['TEXTAREA'].includes(document.activeElement.tagName)) {
+                e.preventDefault();
+                closeDialog(true);
+            }
+        }
+    });
+}
+
+window.showConfirmModal = function(options = {}) {
+    const overlay = document.getElementById('app-dialog-overlay');
+    if (!overlay) {
+        return Promise.resolve(confirm(options.message || 'Are you sure?'));
+    }
+
+    const titleEl = document.getElementById('app-dialog-title');
+    const messageEl = document.getElementById('app-dialog-message');
+    const iconEl = document.getElementById('app-dialog-icon');
+    const btnConfirm = document.getElementById('btn-confirm-app-dialog');
+    const btnCancel = document.getElementById('btn-cancel-app-dialog');
+
+    if (titleEl) titleEl.textContent = options.title || 'Confirm Action';
+    if (messageEl) messageEl.textContent = options.message || '';
+    if (btnCancel) {
+        btnCancel.style.display = 'inline-flex';
+        btnCancel.textContent = options.cancelText || 'Cancel';
+    }
+    if (btnConfirm) {
+        btnConfirm.textContent = options.confirmText || 'Confirm';
+        btnConfirm.className = options.isDanger ? 'btn btn-danger' : 'btn btn-primary';
+    }
+
+    if (iconEl) {
+        if (options.isDanger) {
+            iconEl.innerHTML = '<svg class="dialog-icon-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        } else {
+            iconEl.innerHTML = '<svg class="dialog-icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+        }
+    }
+
+    overlay.style.display = 'flex';
+    if (btnConfirm) btnConfirm.focus();
+
+    return new Promise((resolve) => {
+        _appDialogResolve = resolve;
+    });
+};
+
+window.showAlertModal = function(options = {}) {
+    const overlay = document.getElementById('app-dialog-overlay');
+    const opts = typeof options === 'string' ? { message: options } : options;
+
+    if (!overlay) {
+        alert(opts.message || '');
+        return Promise.resolve();
+    }
+
+    const titleEl = document.getElementById('app-dialog-title');
+    const messageEl = document.getElementById('app-dialog-message');
+    const iconEl = document.getElementById('app-dialog-icon');
+    const btnConfirm = document.getElementById('btn-confirm-app-dialog');
+    const btnCancel = document.getElementById('btn-cancel-app-dialog');
+
+    if (titleEl) titleEl.textContent = opts.title || 'Notice';
+    if (messageEl) messageEl.textContent = opts.message || '';
+    if (btnCancel) btnCancel.style.display = 'none';
+    if (btnConfirm) {
+        btnConfirm.textContent = opts.okText || 'OK';
+        btnConfirm.className = (opts.type === 'danger' || opts.type === 'error') ? 'btn btn-danger' : 'btn btn-primary';
+    }
+
+    if (iconEl) {
+        if (opts.type === 'danger' || opts.type === 'error') {
+            iconEl.innerHTML = '<svg class="dialog-icon-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        } else if (opts.type === 'warning') {
+            iconEl.innerHTML = '<svg class="dialog-icon-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        } else if (opts.type === 'success') {
+            iconEl.innerHTML = '<svg class="dialog-icon-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+        } else {
+            iconEl.innerHTML = '<svg class="dialog-icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+        }
+    }
+
+    overlay.style.display = 'flex';
+    if (btnConfirm) btnConfirm.focus();
+
+    return new Promise((resolve) => {
+        _appDialogResolve = resolve;
+    });
+};
+
+/**
+ * Global Real-Time Footer Index Status
+ */
+window.updateFooterIndexBadge = function(statusInfo) {
+    const badge = document.getElementById('footer-index-badge');
+    if (!badge || !statusInfo) return;
+
+    badge.classList.remove('status-ready', 'status-indexing', 'status-updating', 'status-creating', 'status-empty', 'status-error', 'status-no-index');
+
+    const job = statusInfo.job || {};
+    const status = statusInfo.status || job.status || 'idle';
+    const isRunning = status === 'running';
+    const exists = statusInfo.exists !== false && statusInfo.exists !== 0 && statusInfo.exists != null;
+
+    if (isRunning) {
+        if (job.mode === 'full' || !exists) {
+            badge.textContent = 'Creating Index';
+            badge.title = 'Full search index creation in progress';
+            badge.classList.add('status-creating');
+        } else {
+            badge.textContent = 'Updating Index';
+            badge.title = 'Incremental search index update in progress';
+            badge.classList.add('status-indexing', 'status-updating');
+        }
+    } else if (!exists) {
+        badge.textContent = 'No index';
+        badge.title = 'No search index found. Indexing required.';
+        badge.classList.add('status-error', 'status-no-index');
+    } else {
+        badge.textContent = 'Index Ready';
+        const docCount = Number(statusInfo.doc_count) || 0;
+        const countStr = docCount.toLocaleString();
+        const lastSync = statusInfo.last_indexed ? ` | Last sync: ${statusInfo.last_indexed}` : '';
+        badge.title = `Search index ready (${countStr} documents${lastSync})`;
+        badge.classList.add('status-ready');
+    }
+};
+
+function initFooterIndexStatus() {
+    const badge = document.getElementById('footer-index-badge');
+    if (!badge) return;
+
+    let pollTimer = null;
+
+    async function checkStatus() {
+        try {
+            const resp = await fetch('/api/index/status');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            window.updateFooterIndexBadge(data);
+
+            if (data.status === 'running') {
+                if (!pollTimer) {
+                    pollTimer = setInterval(checkStatus, 3000);
+                }
+            } else if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        } catch (err) {
+            // Non-blocking network status check
+        }
+    }
+
+    checkStatus();
 }
 
 /**
@@ -107,7 +311,11 @@ function addOpenSearch() {
         const url = window.location.origin + '/osd.xml';
         window.external.AddSearchProvider(url);
     } else {
-        alert('OpenSearch plugins can be added automatically from your browser address bar.');
+        window.showAlertModal({
+            title: 'OpenSearch Provider',
+            message: 'OpenSearch plugins can be added automatically from your browser address bar.',
+            type: 'info'
+        });
     }
 }
 
@@ -199,7 +407,11 @@ function initAdvancedSearch() {
     const panel = document.getElementById('advanced-search-panel');
     if (!toggleBtn || !panel) return;
 
-    const forms = getStoredForms();
+    const rawForms = getStoredForms();
+    let forms = rawForms.filter(f => f.enabled !== false);
+    if (forms.length === 0 && rawForms.length > 0) {
+        forms = [rawForms[0]];
+    }
     const formSelector = document.getElementById('active-form-selector');
     const fieldsContainer = document.getElementById('advanced-fields-container');
     const previewEl = document.getElementById('advanced-query-preview');
@@ -259,6 +471,9 @@ function initAdvancedSearch() {
         fieldsContainer.innerHTML = '';
 
         (activeForm.fields || []).forEach(field => {
+            if (field.enabled === false) {
+                return;
+            }
             const ftype = String(field.type || 'text').trim().toLowerCase().replace(/[\s-]/g, '_');
             if (ftype === 'static_query' || ftype === 'static') {
                 return;
@@ -392,6 +607,17 @@ function initAdvancedSearch() {
     }
 
     if (formSelector) {
+        // Populate options in formSelector to match active enabled forms
+        formSelector.innerHTML = '';
+        forms.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.id === 'default'
+                ? 'Advanced (Default / Read-Only)'
+                : (f.readonly ? `${f.name} (Default / Read-Only)` : f.name);
+            formSelector.appendChild(opt);
+        });
+
         // Restore last selected form
         const savedFormId = safeStorageGet('localStorage', 'recoll_active_form_id');
         if (savedFormId && forms.some(f => f.id === savedFormId)) {
@@ -453,6 +679,7 @@ function compileQueryFromForm(form, container) {
     const fields = form.fields || [];
 
     fields.forEach(field => {
+        if (field.enabled === false) return;
         const ftype = String(field.type || 'text').trim().toLowerCase().replace(/[\s-]/g, '_');
         if (ftype === 'static_query' || ftype === 'static') {
             const q = String(field.query || '').trim();
@@ -497,10 +724,18 @@ function compileQueryFromForm(form, container) {
                 const words = val.replace(/"/g, '').trim();
                 clauses.push(`"${words}"p${slack}`);
             } else if (fmt.includes('{value}')) {
+                const textPrefixes = [
+                    'filename:', 'fn:', 'containerfilename:', 'cfn:',
+                    'title:', 'subject:', 'caption:',
+                    'author:', 'from:', 'creator:',
+                    'recipient:', 'to:',
+                    'abstract:', 'summary:', 'description:',
+                    'keyword:', 'keywords:', 'tag:', 'tags:',
+                    'annotation:', 'annot:', 'pa:',
+                    'dir:'
+                ];
                 if (val.includes(' ') && !val.startsWith('"') && !val.endsWith('"') &&
-                    (fmt.startsWith('filename:') || fmt.startsWith('title:') || fmt.startsWith('subject:') ||
-                     fmt.startsWith('author:') || fmt.startsWith('from:') || fmt.startsWith('recipient:') ||
-                     fmt.startsWith('to:') || fmt.startsWith('dir:'))) {
+                    (textPrefixes.some(pfx => fmt.startsWith(pfx)))) {
                     clauses.push(fmt.replace('{value}', `"${val}"`));
                 } else {
                     clauses.push(fmt.replace('{value}', val));
@@ -576,48 +811,136 @@ const SIZE_LIST = [
 
 // Top-level keywords with parameter placeholder hints
 const TOP_LEVEL_KEYWORDS = [
-    { prefix: 'mime:', placeholder: 'type', desc: 'MIME type filter', hasSub: true, insertPrefix: 'mime:' },
-    { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter', hasSub: true, insertPrefix: 'ext:' },
+    // MIME / File Type filters
+    { prefix: 'mime:', placeholder: 'type', desc: 'MIME type filter', hasSub: true, insertPrefix: 'mime:', aliases: ['mimetype', 'mtype', 'contenttype'] },
+    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter (alias for mime:)', hasSub: true, insertPrefix: 'mime:', aliases: ['mimetype', 'mtype', 'contenttype'] },
+
+    // File Extensions
+    { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter (alias: fileextension:)', hasSub: true, insertPrefix: 'ext:', aliases: ['fileextension'] },
+
+    // Path & Filename
     { prefix: 'dir:', placeholder: 'path', desc: 'Restrict search to folder path', insertPrefix: 'dir:' },
-    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename match with optional wildcards', insertPrefix: 'filename:' },
-    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter (alias for mime:)', hasSub: true, insertPrefix: 'mime:' },
+    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename match with optional wildcards (alias: fn:)', insertPrefix: 'filename:', aliases: ['fn'] },
+    { prefix: 'containerfilename:', placeholder: 'pattern', desc: 'Container / archive inner file name (alias: cfn:)', insertPrefix: 'containerfilename:', aliases: ['cfn'] },
+
+    // Title / Subject / Caption
     { prefix: 'title:', placeholder: 'text', desc: 'Document title metadata field search', insertPrefix: 'title:' },
     { prefix: 'subject:', placeholder: 'text', desc: 'Email subject / document title search', insertPrefix: 'subject:' },
+    { prefix: 'caption:', placeholder: 'text', desc: 'Document title / caption search (alias)', insertPrefix: 'caption:' },
+
+    // Author / Sender / Creator
     { prefix: 'author:', placeholder: 'name', desc: 'Author / creator metadata search', insertPrefix: 'author:' },
     { prefix: 'from:', placeholder: 'name/email', desc: 'Email sender / author search', insertPrefix: 'from:' },
+    { prefix: 'creator:', placeholder: 'name', desc: 'Document creator / author search (alias)', insertPrefix: 'creator:' },
+
+    // Recipient
     { prefix: 'recipient:', placeholder: 'email/name', desc: 'Email recipient search (To/Cc)', insertPrefix: 'recipient:' },
     { prefix: 'to:', placeholder: 'email/name', desc: 'Email recipient search alias', insertPrefix: 'to:' },
+
+    // Keywords & Tags
+    { prefix: 'tag:', placeholder: 'keyword', desc: 'Document category or tag keyword', insertPrefix: 'tag:', aliases: ['tags'] },
+    { prefix: 'keyword:', placeholder: 'word', desc: 'Document keyword search', insertPrefix: 'keyword:', aliases: ['keywords'] },
+
+    // Abstract / Summary / Description
+    { prefix: 'abstract:', placeholder: 'text', desc: 'Document abstract / summary search', insertPrefix: 'abstract:' },
+    { prefix: 'summary:', placeholder: 'text', desc: 'Document summary search (alias for abstract:)', insertPrefix: 'summary:' },
+    { prefix: 'description:', placeholder: 'text', desc: 'Document description search (alias for abstract:)', insertPrefix: 'description:' },
+
+    // Annotation
+    { prefix: 'annotation:', placeholder: 'text', desc: 'PDF annotation / comment search', insertPrefix: 'annotation:' },
+    { prefix: 'annot:', placeholder: 'text', desc: 'PDF annotation search (alias for annotation:)', insertPrefix: 'annot:' },
+
+    // Size & Date
     { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold', hasSub: true, insertPrefix: 'size:' },
     { prefix: 'date:', placeholder: 'range', desc: 'Date range filter (YYYY-MM-DD/YYYY-MM-DD)', insertPrefix: 'date:' },
-    { prefix: 'tag:', placeholder: 'keyword', desc: 'Document category or tag keyword', insertPrefix: 'tag:' },
-    { prefix: 'keyword:', placeholder: 'word', desc: 'Document keyword / tag search', insertPrefix: 'keyword:' },
+
+    // Boolean Operators
     { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator', insertPrefix: 'AND ', isBool: true },
     { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator', insertPrefix: 'OR ', isBool: true },
     { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator', insertPrefix: 'NOT ', isBool: true },
+    { prefix: 'XOR', placeholder: '', desc: 'Boolean XOR operator', insertPrefix: 'XOR ', isBool: true },
+
+    // Modifiers & Punctuation
     { prefix: '-', placeholder: 'term', desc: 'Negation prefix to exclude term', insertPrefix: '-', isOp: true },
-    { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Parenthesize sub-conditions', insertPrefix: '(', isOp: true }
+    { prefix: '+', placeholder: 'term', desc: 'Inclusion prefix to require term', insertPrefix: '+', isOp: true },
+    { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Parenthesize sub-conditions', insertPrefix: '(', isOp: true },
+    { prefix: '"', placeholder: 'phrase', suffix: '"', desc: 'Exact phrase search', insertPrefix: '""', isOp: true },
+    { prefix: 'p4', placeholder: '', desc: 'Proximity slack operator (within N words)', insertPrefix: 'p4', isOp: true }
 ];
 
 // Text Input field specific patterns (using {value} as user input placeholder)
 const TEXT_SNIPPET_PATTERNS = [
     { prefix: '{value}', placeholder: '', desc: 'Match all entered words (AND)', insertPrefix: '{value}' },
+    { prefix: '*{value}*', placeholder: '', desc: 'Wildcard partial match with user input', insertPrefix: '*{value}*' },
     { prefix: '"{value}"', placeholder: '', desc: 'Match terms in exact order', insertPrefix: '"{value}"' },
-    { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}' },
-    { prefix: 'filename:*{value}*', placeholder: '', desc: 'Filename wildcard search with user input', insertPrefix: 'filename:*{value}*' },
+    { prefix: '"{value}"p4', placeholder: '', desc: 'Match terms within 4 words', insertPrefix: '"{value}"p4' },
+
+    // Filename & Containers
+    { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}', aliases: ['fn'] },
+    { prefix: 'filename:*{value}*', placeholder: '', desc: 'Filename wildcard / partial search with user input', insertPrefix: 'filename:*{value}*', aliases: ['fn'] },
+    { prefix: 'containerfilename:{value}', placeholder: '', desc: 'Container / archive inner file name match', insertPrefix: 'containerfilename:{value}', aliases: ['cfn'] },
+    { prefix: 'containerfilename:*{value}*', placeholder: '', desc: 'Container / archive inner file name wildcard search', insertPrefix: 'containerfilename:*{value}*', aliases: ['cfn'] },
+
+    // Title / Subject / Caption
     { prefix: 'title:{value}', placeholder: '', desc: 'Document title metadata search with user input', insertPrefix: 'title:{value}' },
+    { prefix: 'title:*{value}*', placeholder: '', desc: 'Document title wildcard / partial search with user input', insertPrefix: 'title:*{value}*' },
     { prefix: 'subject:{value}', placeholder: '', desc: 'Email subject search with user input', insertPrefix: 'subject:{value}' },
+    { prefix: 'subject:*{value}*', placeholder: '', desc: 'Email subject wildcard / partial search with user input', insertPrefix: 'subject:*{value}*' },
+    { prefix: 'caption:{value}', placeholder: '', desc: 'Document caption search with user input', insertPrefix: 'caption:{value}' },
+    { prefix: 'caption:*{value}*', placeholder: '', desc: 'Document caption wildcard / partial search with user input', insertPrefix: 'caption:*{value}*' },
+
+    // Author / Sender / Recipient / Creator
     { prefix: 'author:{value}', placeholder: '', desc: 'Author / creator search with user input', insertPrefix: 'author:{value}' },
+    { prefix: 'author:*{value}*', placeholder: '', desc: 'Author / creator wildcard / partial search with user input', insertPrefix: 'author:*{value}*' },
     { prefix: 'from:{value}', placeholder: '', desc: 'Email sender search with user input', insertPrefix: 'from:{value}' },
+    { prefix: 'from:*{value}*', placeholder: '', desc: 'Email sender wildcard / partial search with user input', insertPrefix: 'from:*{value}*' },
+    { prefix: 'creator:{value}', placeholder: '', desc: 'Document creator search with user input', insertPrefix: 'creator:{value}' },
+    { prefix: 'creator:*{value}*', placeholder: '', desc: 'Document creator wildcard / partial search with user input', insertPrefix: 'creator:*{value}*' },
     { prefix: 'recipient:{value}', placeholder: '', desc: 'Email recipient search with user input', insertPrefix: 'recipient:{value}' },
+    { prefix: 'recipient:*{value}*', placeholder: '', desc: 'Email recipient wildcard / partial search with user input', insertPrefix: 'recipient:*{value}*' },
     { prefix: 'to:{value}', placeholder: '', desc: 'Email recipient search with user input', insertPrefix: 'to:{value}' },
+    { prefix: 'to:*{value}*', placeholder: '', desc: 'Email recipient wildcard / partial search with user input', insertPrefix: 'to:*{value}*' },
+
+    // Folder Scope
     { prefix: 'dir:"{value}"', placeholder: '', desc: 'Directory Scope with user input', insertPrefix: 'dir:"{value}"' },
-    { prefix: 'ext:{value}', placeholder: '', desc: 'File extension match with user input', insertPrefix: 'ext:{value}' },
-    { prefix: 'mime:{value}', placeholder: '', desc: 'MIME type filter with user input', insertPrefix: 'mime:{value}' },
+    { prefix: 'dir:*{value}*', placeholder: '', desc: 'Directory Scope wildcard search with user input', insertPrefix: 'dir:*{value}*' },
+
+    // Extension / Format / MIME
+    { prefix: 'ext:{value}', placeholder: '', desc: 'File extension match with user input', insertPrefix: 'ext:{value}', aliases: ['fileextension'] },
+    { prefix: 'ext:*{value}*', placeholder: '', desc: 'File extension wildcard match with user input', insertPrefix: 'ext:*{value}*', aliases: ['fileextension'] },
+    { prefix: 'mime:{value}', placeholder: '', desc: 'MIME type filter with user input', insertPrefix: 'mime:{value}', aliases: ['mimetype', 'mtype', 'contenttype'] },
+    { prefix: 'mime:*{value}*', placeholder: '', desc: 'MIME type wildcard filter with user input', insertPrefix: 'mime:*{value}*', aliases: ['mimetype', 'mtype', 'contenttype'] },
+    { prefix: 'filetype:{value}', placeholder: '', desc: 'File format filter with user input', insertPrefix: 'filetype:{value}' },
+    { prefix: 'filetype:*{value}*', placeholder: '', desc: 'File format wildcard filter with user input', insertPrefix: 'filetype:*{value}*' },
+
+    // Tags & Keywords
+    { prefix: 'tag:{value}', placeholder: '', desc: 'Document tag search with user input', insertPrefix: 'tag:{value}', aliases: ['tags'] },
+    { prefix: 'tag:*{value}*', placeholder: '', desc: 'Document tag wildcard search with user input', insertPrefix: 'tag:*{value}', aliases: ['tags'] },
+    { prefix: 'keyword:{value}', placeholder: '', desc: 'Document keyword search with user input', insertPrefix: 'keyword:{value}', aliases: ['keywords'] },
+    { prefix: 'keyword:*{value}*', placeholder: '', desc: 'Document keyword wildcard search with user input', insertPrefix: 'keyword:*{value}*', aliases: ['keywords'] },
+
+    // Abstract, Summary, Description
+    { prefix: 'abstract:{value}', placeholder: '', desc: 'Document abstract search with user input', insertPrefix: 'abstract:{value}' },
+    { prefix: 'abstract:*{value}*', placeholder: '', desc: 'Document abstract wildcard search with user input', insertPrefix: 'abstract:*{value}*' },
+    { prefix: 'summary:{value}', placeholder: '', desc: 'Document summary search with user input', insertPrefix: 'summary:{value}' },
+    { prefix: 'summary:*{value}*', placeholder: '', desc: 'Document summary wildcard search with user input', insertPrefix: 'summary:*{value}*' },
+    { prefix: 'description:{value}', placeholder: '', desc: 'Document description search with user input', insertPrefix: 'description:{value}' },
+    { prefix: 'description:*{value}*', placeholder: '', desc: 'Document description wildcard search with user input', insertPrefix: 'description:*{value}*' },
+
+    // Annotations
+    { prefix: 'annotation:{value}', placeholder: '', desc: 'PDF annotation search with user input', insertPrefix: 'annotation:{value}', aliases: ['annot', 'pa', 'pdfannot'] },
+    { prefix: 'annotation:*{value}*', placeholder: '', desc: 'PDF annotation wildcard search with user input', insertPrefix: 'annotation:*{value}*', aliases: ['annot', 'pa', 'pdfannot'] },
+
+    // Size & Date
     { prefix: 'size>{value}', placeholder: '', desc: 'Minimum file size threshold with user input', insertPrefix: 'size>{value}' },
     { prefix: 'size<{value}', placeholder: '', desc: 'Maximum file size threshold with user input', insertPrefix: 'size<{value}' },
     { prefix: 'date:{value}', placeholder: '', desc: 'Date range filter with user input', insertPrefix: 'date:{value}' },
-    { prefix: '"{value}"p4', placeholder: '', desc: 'Match terms within 4 words', insertPrefix: '"{value}"p4' },
-    { prefix: '-{value}', placeholder: '', desc: 'Exclusion / NOT operator with user input', insertPrefix: '-{value}' }
+
+    // Inclusions & Exclusions
+    { prefix: '-{value}', placeholder: '', desc: 'Exclusion / NOT operator with user input', insertPrefix: '-{value}' },
+    { prefix: '-*{value}*', placeholder: '', desc: 'Wildcard exclusion operator with user input', insertPrefix: '-*{value}*' },
+    { prefix: '+{value}', placeholder: '', desc: 'Mandatory / inclusion operator with user input', insertPrefix: '+{value}' },
+    { prefix: '+*{value}*', placeholder: '', desc: 'Wildcard mandatory operator with user input', insertPrefix: '+*{value}*' }
 ];
 
 function highlightQuerySyntax(raw) {
@@ -627,12 +950,12 @@ function highlightQuerySyntax(raw) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
-    // 1: {value} placeholder
+    // 1: {value} placeholder (with optional enclosing wildcards *{value}*)
     // 2: boolean operators: AND, OR, NOT, XOR
-    // 3: keywords: filename, title, subject, author, from, recipient, to, mime, dir, ext, size, date, keyword, tag, filetype
-    // 4: operators: * , / : ( ) " - + &gt; &lt; or p\d+
+    // 3: keywords: all canonical fields & aliases, or any custom field name preceding a colon (or size with </>/colons)
+    // 4: operators: * , / : ( ) " - + ? &gt; &lt; or p\d+
     // 5: literal strings / words
-    const tokenRegex = /(\{value\})|(\b(?:AND|OR|NOT|XOR)\b)|(\b(?:filename|title|subject|author|from|recipient|to|mime|dir|ext|size|date|keyword|tag|filetype)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
+    const tokenRegex = /(\*?\{value\}\*?)|(\b(?:AND|OR|NOT|XOR)\b)|(\bsize(?=[:<>]|&gt;|&lt;)|(?:\b(?:filename|fn|containerfilename|cfn|title|subject|caption|author|creator|from|recipient|to|mime|mimetype|contenttype|mtype|filetype|ext|fileextension|dir|date|keyword|keywords|tag|tags|abstract|summary|description|annotation|annot|pa|pdfannot|[a-zA-Z_][a-zA-Z0-9_-]*)(?=:)))|([*:,/()"\-+?]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+?&{}]+)/g;
 
     return escaped.replace(tokenRegex, (match, valPh, boolOp, kw, op, word) => {
         if (valPh) {
@@ -654,23 +977,63 @@ function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function scoreKeywordItem(item, q) {
+function scoreKeywordItem(item, q, contextType = 'general') {
     if (!q) return 0;
     const rawPrefix = item.prefix.toLowerCase();
     const prefixClean = rawPrefix.replace(/[:(]/g, '');
     const full = (item.prefix + (item.placeholder || '') + (item.suffix || '')).toLowerCase();
     const desc = (item.desc || '').toLowerCase();
+    const cleanQ = q.replace(/[:(]/g, '').trim();
+
+    // Prioritize {value} and *{value}* patterns in text context (form field query format editor)
+    if (contextType === 'text') {
+        if (cleanQ && (rawPrefix.startsWith(cleanQ + ':{value}') || rawPrefix === cleanQ + ':{value}')) {
+            return 0.01;
+        }
+        if (cleanQ && (rawPrefix.startsWith(cleanQ + ':*{value}*') || rawPrefix === cleanQ + ':*{value}*')) {
+            return 0.02;
+        }
+        if (cleanQ === 'value') {
+            if (rawPrefix === '{value}') return 0.01;
+            if (rawPrefix === '*{value}*') return 0.02;
+        }
+    }
 
     // Tier 0: exact keyword match (e.g. 'or' === 'or', 'and' === 'and', 'mime' === 'mime')
     if (prefixClean === q || rawPrefix === q || rawPrefix === q + ':') {
-        return 0;
+        return (contextType === 'text' && !rawPrefix.includes('{value}')) ? 0.3 : 0;
     }
+
+    // Tier 0.5: exact alias match (e.g. 'fn' -> 'filename:', 'cfn' -> 'containerfilename:', 'fileextension' -> 'ext:', 'mimetype' -> 'mime:')
+    if (item.aliases && Array.isArray(item.aliases)) {
+        for (const a of item.aliases) {
+            const alias = a.toLowerCase();
+            if (alias === cleanQ || alias === q || (alias + ':') === q) {
+                if (contextType === 'text' && rawPrefix.includes('{value}')) {
+                    return rawPrefix.includes('*{value}*') ? 0.06 : 0.05;
+                }
+                return 1;
+            }
+        }
+    }
+
     // Tier 1: keyword starts with query (e.g. 'fil' -> 'filename', 'or' -> 'order')
-    if (prefixClean.startsWith(q) || rawPrefix.startsWith(q)) {
+    if (prefixClean.startsWith(q) || rawPrefix.startsWith(q) || (cleanQ && prefixClean.startsWith(cleanQ))) {
         return 10 + (prefixClean.length - q.length);
     }
+
+    // Tier 1.5: alias starts with query (e.g. 'fileext' -> 'fileextension' -> 'ext:')
+    if (item.aliases && Array.isArray(item.aliases)) {
+        for (const a of item.aliases) {
+            const alias = a.toLowerCase();
+            if ((cleanQ && alias.startsWith(cleanQ)) || alias.startsWith(q)) {
+                return 15 + (alias.length - cleanQ.length);
+            }
+        }
+    }
+
     // Tier 2: full snippet starts with query (e.g. '{val' -> '{value}')
-    if (full.startsWith(q)) {
+    if (full.startsWith(q) || (cleanQ && full.startsWith(cleanQ))) {
         return 30 + (full.length - q.length);
     }
     // Tier 3: word boundary in prefix or template
@@ -806,10 +1169,11 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         const tokenBeforeCursor = val.slice(start, pos);
         const tokenLower = tokenBeforeCursor.toLowerCase();
 
-        // 1. Secondary: mime: or filetype:
-        if (tokenLower.startsWith('mime:') || tokenLower.startsWith('filetype:')) {
-            const prefix = tokenLower.startsWith('filetype:') ? 'filetype:' : 'mime:';
-            const query = tokenBeforeCursor.slice(prefix.length).toLowerCase();
+        // 1. Secondary: mime: or filetype: or aliases
+        const mimePrefixes = ['mime:', 'filetype:', 'mimetype:', 'mtype:', 'contenttype:'];
+        const matchedMime = mimePrefixes.find(p => tokenLower.startsWith(p));
+        if (matchedMime) {
+            const query = tokenBeforeCursor.slice(matchedMime.length).toLowerCase();
             const scored = MIME_TYPES_LIST.map((m, idx) => ({
                 item: m,
                 idx,
@@ -818,7 +1182,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
 
             const matches = scored.map(({ item: m }) => ({
-                badgeHtml: `<span class="tok-kw">mime</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(m.value)}</span>`,
+                badgeHtml: `<span class="tok-kw">${escapeHtml(matchedMime.replace(':', ''))}</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(m.value)}</span>`,
                 snippetText: `mime:${m.value}`,
                 desc: m.desc,
                 insertValue: `mime:${m.value}`,
@@ -833,9 +1197,11 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             };
         }
 
-        // 2. Secondary: ext:
-        if (tokenLower.startsWith('ext:')) {
-            const query = tokenBeforeCursor.slice(4).toLowerCase();
+        // 2. Secondary: ext: or fileextension:
+        const extPrefixes = ['ext:', 'fileextension:'];
+        const matchedExt = extPrefixes.find(p => tokenLower.startsWith(p));
+        if (matchedExt) {
+            const query = tokenBeforeCursor.slice(matchedExt.length).toLowerCase();
             const scored = EXTENSIONS_LIST.map((e, idx) => ({
                 item: e,
                 idx,
@@ -844,7 +1210,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
 
             const matches = scored.map(({ item: e }) => ({
-                badgeHtml: `<span class="tok-kw">ext</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(e.value)}</span>`,
+                badgeHtml: `<span class="tok-kw">${escapeHtml(matchedExt.replace(':', ''))}</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(e.value)}</span>`,
                 snippetText: `ext:${e.value}`,
                 desc: e.desc,
                 insertValue: `ext:${e.value}`,
@@ -859,9 +1225,11 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             };
         }
 
-        // 3. Secondary: size:
-        if (tokenLower.startsWith('size:')) {
-            const query = tokenBeforeCursor.slice(5).toLowerCase();
+        // 3. Secondary: size: or size< or size>
+        const sizePrefixes = ['size:', 'size<', 'size>'];
+        const matchedSize = sizePrefixes.find(p => tokenLower.startsWith(p));
+        if (matchedSize) {
+            const query = tokenBeforeCursor.slice(matchedSize.length).toLowerCase();
             const scored = SIZE_LIST.map((s, idx) => ({
                 item: s,
                 idx,
@@ -869,13 +1237,20 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             })).filter(x => x.score < Infinity);
             scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
 
-            const matches = scored.map(({ item: s }) => ({
-                badgeHtml: `<span class="tok-kw">size</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(s.value)}</span>`,
-                snippetText: `size:${s.value}`,
-                desc: s.desc,
-                insertValue: `size${s.value.startsWith('<') || s.value.startsWith('>') ? s.value : (':' + s.value)}`,
-                hasSub: false
-            }));
+            const matches = scored.map(({ item: s }) => {
+                let insVal = `size${s.value.startsWith('<') || s.value.startsWith('>') ? s.value : (':' + s.value)}`;
+                if (matchedSize === 'size<' || matchedSize === 'size>') {
+                    const cleanVal = s.value.replace(/^[<>]/, '');
+                    insVal = `${matchedSize}${cleanVal}`;
+                }
+                return {
+                    badgeHtml: `<span class="tok-kw">size</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(s.value)}</span>`,
+                    snippetText: `size:${s.value}`,
+                    desc: s.desc,
+                    insertValue: insVal,
+                    hasSub: false
+                };
+            });
             return {
                 mode: 'size',
                 header: `FILE SIZES`,
@@ -888,9 +1263,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         // 4. Top-level keywords / patterns
         let baseList;
         if (contextType === 'text') {
-            baseList = (val.trim() === '')
-                ? TEXT_SNIPPET_PATTERNS.concat(TOP_LEVEL_KEYWORDS)
-                : TOP_LEVEL_KEYWORDS.concat(TEXT_SNIPPET_PATTERNS);
+            baseList = TEXT_SNIPPET_PATTERNS.concat(TOP_LEVEL_KEYWORDS);
         } else {
             baseList = TOP_LEVEL_KEYWORDS;
         }
@@ -899,7 +1272,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         const scored = baseList.map((item, idx) => ({
             item,
             idx,
-            score: scoreKeywordItem(item, query)
+            score: scoreKeywordItem(item, query, contextType)
         })).filter(x => x.score < Infinity);
         scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
 
@@ -913,9 +1286,16 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
                 const ph = item.placeholder || 'clause';
                 badgeHtml = `<span class="tok-op">(</span><span class="param-placeholder">${escapeHtml(ph)}</span><span class="tok-op">)</span>`;
                 snippetClass = 'snippet-op';
-            } else if (item.prefix === '-') {
+            } else if (item.prefix === '"') {
+                const ph = item.placeholder || 'phrase';
+                badgeHtml = `<span class="tok-op">"</span><span class="param-placeholder">${escapeHtml(ph)}</span><span class="tok-op">"</span>`;
+                snippetClass = 'snippet-op';
+            } else if (item.prefix === '-' || item.prefix === '+') {
                 const ph = item.placeholder || 'term';
-                badgeHtml = `<span class="tok-op">-</span><span class="param-placeholder">${escapeHtml(ph)}</span>`;
+                badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span><span class="param-placeholder">${escapeHtml(ph)}</span>`;
+                snippetClass = 'snippet-op';
+            } else if (item.prefix.startsWith('p') && /^\bp\d+\b$/.test(item.prefix)) {
+                badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span>`;
                 snippetClass = 'snippet-op';
             } else if (item.placeholder) {
                 const kw = item.prefix.replace(/[:(]/, '');
@@ -1050,7 +1430,9 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         const reopenSub = !!item.hasSub;
 
         inputEl.value = before + replacement + after;
-        const newCursorPos = ctx.tokenStart + replacement.length;
+        const newCursorPos = (replacement === '""' || replacement === '()')
+            ? ctx.tokenStart + 1
+            : ctx.tokenStart + replacement.length;
         inputEl.setSelectionRange(newCursorPos, newCursorPos);
 
         updateHighlight();
@@ -1177,7 +1559,9 @@ function initSettingsFormManager() {
         listContainer.innerHTML = '';
         forms.forEach(form => {
             const card = document.createElement('div');
-            card.className = 'form-manage-card';
+            const isFormEnabled = form.enabled !== false;
+            card.className = `form-manage-card ${isFormEnabled ? '' : 'is-disabled'}`;
+            card.id = `form-card-${form.id}`;
 
             const isReadOnly = !!form.readonly;
             const badgeHtml = isReadOnly
@@ -1186,7 +1570,8 @@ function initSettingsFormManager() {
 
             let fieldChips = '';
             (form.fields || []).slice(0, 5).forEach(f => {
-                fieldChips += `<span class="field-chip">${escapeHtml(f.label)} (${escapeHtml(f.type)})</span>`;
+                const isFieldEnabled = f.enabled !== false;
+                fieldChips += `<span class="field-chip ${isFieldEnabled ? '' : 'is-disabled'}" style="${isFieldEnabled ? '' : 'opacity: 0.5; text-decoration: line-through;'}">${escapeHtml(f.label)} (${escapeHtml(f.type)})</span>`;
             });
             if ((form.fields || []).length > 5) {
                 fieldChips += `<span class="field-chip">+${form.fields.length - 5} more</span>`;
@@ -1223,8 +1608,14 @@ function initSettingsFormManager() {
 
             card.innerHTML = `
                 <div class="form-card-top">
-                    <h4 class="form-card-title">${escapeHtml(form.name)}</h4>
-                    ${badgeHtml}
+                    <div class="form-card-identity">
+                        ${badgeHtml}
+                        <h4 class="form-card-title" title="${escapeHtml(form.name)}">${escapeHtml(form.name)}</h4>
+                    </div>
+                    <label class="glass-switch" title="Toggle form active state">
+                        <input type="checkbox" class="form-enabled-toggle" ${isFormEnabled ? 'checked' : ''} data-form-id="${escapeHtml(form.id)}">
+                        <span class="glass-slider"></span>
+                    </label>
                 </div>
                 <p class="form-card-desc">${escapeHtml(form.description || 'No description provided.')}</p>
                 <div class="form-card-fields-preview">
@@ -1236,6 +1627,49 @@ function initSettingsFormManager() {
             `;
 
             listContainer.appendChild(card);
+        });
+
+        // Toggle handlers for full forms
+        listContainer.querySelectorAll('.form-enabled-toggle').forEach(toggle => {
+            toggle.addEventListener('change', async () => {
+                const formId = toggle.dataset.formId;
+                const isEnabled = toggle.checked;
+                const card = document.getElementById(`form-card-${formId}`);
+                if (card) {
+                    card.classList.toggle('is-disabled', !isEnabled);
+                }
+                const targetForm = forms.find(f => f.id === formId);
+                if (targetForm) {
+                    targetForm.enabled = isEnabled;
+                }
+                try {
+                    const resp = await fetch('/api/forms/toggle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: formId, enabled: isEnabled })
+                    });
+                    const res = await resp.json();
+                    if (!resp.ok || !res.success) {
+                        throw new Error(res.error || 'Failed to toggle form state');
+                    }
+                    const dataTag = document.getElementById('recoll-search-forms-data');
+                    if (dataTag) dataTag.textContent = JSON.stringify(forms);
+                } catch (err) {
+                    console.error('Error toggling form state:', err);
+                    window.showAlertModal({
+                        title: 'Form Toggle Failed',
+                        message: `Failed to toggle form: ${err.message}`,
+                        type: 'danger'
+                    });
+                    toggle.checked = !isEnabled;
+                    if (card) {
+                        card.classList.toggle('is-disabled', isEnabled);
+                    }
+                    if (targetForm) {
+                        targetForm.enabled = !isEnabled;
+                    }
+                }
+            });
         });
 
         // Attach action handlers
@@ -1323,7 +1757,8 @@ function initSettingsFormManager() {
         if (emptyNotice) emptyNotice.remove();
 
         const card = document.createElement('div');
-        card.className = 'builder-field-card';
+        const isEnabled = fieldData.enabled !== false;
+        card.className = `builder-field-card ${isEnabled ? '' : 'is-disabled'}`;
 
         const fId = fieldData.id || `f_${Math.random().toString(36).substring(2, 9)}`;
         const fLabel = fieldData.label || '';
@@ -1338,7 +1773,13 @@ function initSettingsFormManager() {
 
         card.innerHTML = `
             <div class="builder-field-header">
-                <span class="builder-field-num">Field Config</span>
+                <div class="builder-field-header-left">
+                    <label class="glass-switch" title="Toggle field enabled state">
+                        <input type="checkbox" class="field-enabled-toggle" ${isEnabled ? 'checked' : ''}>
+                        <span class="glass-slider"></span>
+                    </label>
+                    <span class="builder-field-num">Field Config</span>
+                </div>
                 <div class="builder-field-controls">
                     <button type="button" class="btn-icon btn-move-up" title="Move Up">&uarr;</button>
                     <button type="button" class="btn-icon btn-move-down" title="Move Down">&darr;</button>
@@ -1465,6 +1906,18 @@ function initSettingsFormManager() {
         if (toggleQueryInput) setupQueryFieldEditor(toggleQueryInput, 'general');
         setupQueryFieldEditor(card.querySelector('.field-static-query-input'), 'general');
 
+        // Enabled toggle handler
+        const toggle = card.querySelector('.field-enabled-toggle');
+        if (toggle) {
+            toggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    card.classList.remove('is-disabled');
+                } else {
+                    card.classList.add('is-disabled');
+                }
+            });
+        }
+
         // Reordering and deletion handlers
         card.querySelector('.btn-del-field').addEventListener('click', () => {
             card.remove();
@@ -1512,14 +1965,22 @@ function initSettingsFormManager() {
         btnSaveForm.addEventListener('click', async () => {
             const name = builderFormName.value.trim();
             if (!name) {
-                alert('Please provide a form name.');
+                window.showAlertModal({
+                    title: 'Validation Error',
+                    message: 'Please provide a form name.',
+                    type: 'warning'
+                });
                 builderFormName.focus();
                 return;
             }
 
             const fieldCards = builderFieldsContainer.querySelectorAll('.builder-field-card');
             if (fieldCards.length === 0) {
-                alert('Please add at least one field to the search form.');
+                window.showAlertModal({
+                    title: 'Validation Error',
+                    message: 'Please add at least one field to the search form.',
+                    type: 'warning'
+                });
                 return;
             }
 
@@ -1528,10 +1989,16 @@ function initSettingsFormManager() {
                 const fId = card.querySelector('.field-id-input').value.trim();
                 let fLabel = card.querySelector('.field-label-input').value.trim();
                 const fType = card.querySelector('.field-type-select').value;
+                const toggleInput = card.querySelector('.field-enabled-toggle');
+                const isFieldEnabled = toggleInput ? toggleInput.checked : true;
                 if (!fLabel && (fType === 'static_query' || fType === 'static')) {
                     fLabel = 'Static Query';
                 } else if (!fLabel) {
-                    alert('Every field must have a label.');
+                    window.showAlertModal({
+                        title: 'Validation Error',
+                        message: 'Every field must have a label.',
+                        type: 'warning'
+                    });
                     return;
                 }
                 const fHelper = card.querySelector('.field-helper-input').value.trim();
@@ -1543,6 +2010,7 @@ function initSettingsFormManager() {
                     type: fType,
                     helper: fHelper,
                     placeholder: fPlaceholder,
+                    enabled: isFieldEnabled,
                 };
 
                 if (fType === 'select') {
@@ -1602,7 +2070,11 @@ function initSettingsFormManager() {
                 builderOverlay.style.display = 'none';
                 renderCards();
             } catch (err) {
-                alert(`Error saving form: ${err.message}`);
+                window.showAlertModal({
+                    title: 'Error Saving Form',
+                    message: `Failed to save form: ${err.message}`,
+                    type: 'danger'
+                });
             } finally {
                 btnSaveForm.disabled = false;
                 btnSaveForm.textContent = 'Save Search Form';
@@ -1611,7 +2083,13 @@ function initSettingsFormManager() {
     }
 
     async function deleteForm(form) {
-        if (!confirm(`Are you sure you want to delete the custom form "${form.name}"?`)) {
+        const confirmed = await window.showConfirmModal({
+            title: 'Delete Search Form',
+            message: `Are you sure you want to delete the custom form "${form.name}"? This action cannot be undone.`,
+            confirmText: 'Delete Form',
+            isDanger: true
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -1636,7 +2114,11 @@ function initSettingsFormManager() {
 
             renderCards();
         } catch (err) {
-            alert(`Error deleting form: ${err.message}`);
+            window.showAlertModal({
+                title: 'Error Deleting Form',
+                message: `Failed to delete form: ${err.message}`,
+                type: 'danger'
+            });
         }
     }
 

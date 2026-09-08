@@ -32,10 +32,9 @@ if [ ! -f /usr/local/bin/recoll-metadata-extractor ] && [ -f /app/src/recollweb/
     chmod +x /usr/local/bin/recoll-metadata-extractor 2>/dev/null || true
 fi
 
-# If index doesn't exist yet, run initial indexing
+# Allow web UI to start immediately even if no index exists
 if [ ! -d "$CONFDIR/xapiandb" ]; then
-    echo "[Recoll Init] Search index not found at $CONFDIR/xapiandb. Building initial index for /data..."
-    recollindex -z -c "$CONFDIR"
+    echo "[Recoll Init] No search index found at $CONFDIR/xapiandb. Starting Web UI immediately (indexing can be triggered on demand via Index Management)."
 fi
 
 echo "[Recoll Init] Starting Web UI..."

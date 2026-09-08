@@ -77,15 +77,72 @@ class IndexManager:
             except Exception:
                 pass
 
-        # Try to resolve document count via python3-recoll
+        # Try to resolve document count via python3-recoll query on dir:/
         doc_count = 0
         try:
             from recoll import recoll as rcl
             db = rcl.connect(conf_dir)
-            doc_count = db.doccount()
+            q = db.query()
+            q.execute('dir:/')
+            if q.rowcount is not None and q.rowcount >= 0:
+                doc_count = q.rowcount
         except Exception:
-            # Fallback estimation or 0
             pass
+
+        if doc_count <= 0 and db_exists:
+            # Fallback to recollq CLI
+            try:
+                out = subprocess.check_output(
+                    ['recollq', '-c', conf_dir, '-Q', 'dir:/'],
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    timeout=3
+                )
+                for line in out.splitlines():
+                    if 'results' in line:
+                        parts = line.strip().split()
+                        if parts and parts[0].isdigit():
+                            doc_count = int(parts[0])
+                            break
+            except Exception:
+                pass
+
+        # Calculate total file size of data in /data (or topdirs)
+        data_size_bytes = 0
+        data_dir = "/data"
+        if os.path.exists(data_dir):
+            try:
+                out = subprocess.check_output(
+                    ['du', '-s', '-b', data_dir],
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    timeout=2
+                )
+                data_size_bytes = int(out.split()[0])
+            except Exception:
+                try:
+                    for root, _, files in os.walk(data_dir):
+                        for f in files:
+                            fp = os.path.join(root, f)
+                            try:
+                                data_size_bytes += os.path.getsize(fp)
+                            except OSError:
+                                pass
+                except Exception:
+                    pass
+        elif topdirs:
+            for td in topdirs:
+                if os.path.exists(td):
+                    try:
+                        out = subprocess.check_output(
+                            ['du', '-s', '-b', td],
+                            stderr=subprocess.DEVNULL,
+                            text=True,
+                            timeout=2
+                        )
+                        data_size_bytes += int(out.split()[0])
+                    except Exception:
+                        pass
 
         # Determine job status
         with cls._lock:
@@ -112,7 +169,9 @@ class IndexManager:
             "doc_count": doc_count,
             "size_bytes": db_size_bytes,
             "size_human": cls._format_bytes(db_size_bytes),
-            "last_indexed": datetime.datetime.fromtimestamp(db_mtime).strftime("%Y-%m-%d %H:%M:%S") if db_mtime else "Never",
+            "data_size_bytes": data_size_bytes,
+            "data_size_human": cls._format_bytes(data_size_bytes),
+            "last_indexed": datetime.datetime.fromtimestamp(db_mtime).strftime("%Y-%m-%d %H:%M") if db_mtime else "Never",
             "topdirs": topdirs,
             "conf_dir": conf_dir,
             "logs": cls.get_logs()[-30:],
@@ -148,7 +207,7 @@ class IndexManager:
             }
             cls._recent_logs.clear()
 
-        mode_str = "Full re-index (-z)" if full else "Incremental update"
+        mode_str = "full re-index" if full else "Incremental update"
         cls._append_log(f"Starting {mode_str} with confdir: {conf_dir}")
 
         thread = threading.Thread(
