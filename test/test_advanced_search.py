@@ -250,6 +250,67 @@ class TestSearchFormsManager(unittest.TestCase):
         # Clean up
         SearchFormsManager.delete_custom_form(self.test_dir, form_id)
 
+    def test_toggle_filter_field_lifecycle_and_compilation(self):
+        """Verify custom search form with Toggle Filter field persists and compiles correctly."""
+        try:
+            from webui import SearchFormsManager
+        except ImportError:
+            self.skipTest("webui cannot be imported in host python")
+
+        form_data = {
+            "name": "Toggle Filter Test Form",
+            "description": "Form with toggle switches",
+            "fields": [
+                {
+                    "id": "pdf_only",
+                    "label": "PDFs Only",
+                    "type": "toggle",
+                    "query": "mime:application/pdf"
+                },
+                {
+                    "id": "legacy_check",
+                    "label": "Legacy Checkbox",
+                    "type": "checkbox",
+                    "query": "filename:*archive*"
+                },
+                {
+                    "id": "kw",
+                    "label": "Keywords",
+                    "type": "text",
+                    "query_format": "{value}"
+                }
+            ]
+        }
+
+        saved = SearchFormsManager.save_custom_form(self.test_dir, form_data)
+        self.assertIn("id", saved)
+        form_id = saved["id"]
+
+        # Reload from disk
+        loaded_forms = SearchFormsManager.get_forms(self.test_dir)
+        found = next((f for f in loaded_forms if f["id"] == form_id), None)
+        self.assertIsNotNone(found)
+        self.assertEqual(len(found["fields"]), 3)
+        self.assertEqual(found["fields"][0]["type"], "toggle")
+        self.assertEqual(found["fields"][0]["query"], "mime:application/pdf")
+        # Legacy checkbox is normalized to toggle
+        self.assertEqual(found["fields"][1]["type"], "toggle")
+
+        # Compile when toggle is on (True / 'true' / 1)
+        compiled_on = SearchFormsManager.compile_query(found, {"pdf_only": True, "legacy_check": "1", "kw": "report"})
+        self.assertIn("mime:application/pdf", compiled_on)
+        self.assertIn("filename:*archive*", compiled_on)
+        self.assertIn("report", compiled_on)
+
+        # Compile when toggle is off (False / 0 / None)
+        compiled_off = SearchFormsManager.compile_query(found, {"pdf_only": False, "legacy_check": 0, "kw": "report"})
+        self.assertNotIn("mime:application/pdf", compiled_off)
+        self.assertNotIn("filename:*archive*", compiled_off)
+        self.assertEqual(compiled_off, "report")
+
+        # Clean up
+        SearchFormsManager.delete_custom_form(self.test_dir, form_id)
+
 
 class TestContainerEndpoints(unittest.TestCase):
     """Integration tests running against active container."""

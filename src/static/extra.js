@@ -136,11 +136,28 @@ function safeStorageSet(type, key, val) {
     } catch (_) {}
 }
 
+window.closeAllQueryDropdowns = function() {
+    document.querySelectorAll('.query-editor-wrap').forEach(w => {
+        if (typeof w._closeQueryDropdown === 'function') {
+            w._closeQueryDropdown();
+        }
+    });
+    document.querySelectorAll('.query-autocomplete-dropdown').forEach(d => {
+        if (d.parentNode) d.parentNode.removeChild(d);
+    });
+    document.querySelectorAll('.has-active-dropdown').forEach(el => {
+        el.classList.remove('has-active-dropdown');
+    });
+};
+
 let _lastAdvToggleTime = 0;
 window.toggleAdvancedSearch = function(e) {
     if (e) {
         if (e.preventDefault) e.preventDefault();
         if (e.stopPropagation) e.stopPropagation();
+    }
+    if (typeof window.closeAllQueryDropdowns === 'function') {
+        window.closeAllQueryDropdowns();
     }
     const now = Date.now();
     if (now - _lastAdvToggleTime < 250) {
@@ -265,15 +282,20 @@ function initAdvancedSearch() {
                     </select>
                     ${helperHtml}
                 `;
-            } else if (field.type === 'checkbox') {
+            } else if (field.type === 'toggle' || field.type === 'checkbox') {
                 const isChecked = !!savedValues[field.id];
-                card.className = 'advanced-field-card';
+                card.className = 'advanced-field-card advanced-field-toggle-card';
                 card.innerHTML = `
-                    <label class="advanced-field-checkbox" for="${fieldId}">
-                        <input type="checkbox" id="${fieldId}" data-field-id="${escapeHtml(field.id)}" class="advanced-field-input" data-query="${escapeHtml(field.query || '')}" ${isChecked ? 'checked' : ''}>
-                        <span>${escapeHtml(field.label)}</span>
-                    </label>
-                    ${helperHtml}
+                    <div class="advanced-field-toggle-row">
+                        <label class="advanced-field-toggle" for="${fieldId}">
+                            <div class="toggle-switch-wrapper">
+                                <input type="checkbox" role="switch" id="${fieldId}" data-field-id="${escapeHtml(field.id)}" class="advanced-field-input toggle-switch-input" data-query="${escapeHtml(field.query || '')}" ${isChecked ? 'checked' : ''}>
+                                <span class="toggle-switch-slider"></span>
+                            </div>
+                            <span class="toggle-switch-label">${escapeHtml(field.label)}</span>
+                        </label>
+                        ${helperHtml}
+                    </div>
                 `;
             } else {
                 const savedVal = savedValues[field.id] !== undefined ? savedValues[field.id] : '';
@@ -431,7 +453,7 @@ function compileQueryFromForm(form, container) {
         if (field.type === 'select') {
             const val = (input.value || '').trim();
             if (val) clauses.push(val);
-        } else if (field.type === 'checkbox') {
+        } else if (field.type === 'toggle' || field.type === 'checkbox') {
             if (input.checked) {
                 const q = (field.query || input.dataset.query || '').trim();
                 if (q) clauses.push(q);
@@ -735,6 +757,8 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         currentMatches = [];
     }
 
+    wrap._closeQueryDropdown = closeDropdown;
+
     function getActiveContext() {
         const val = inputEl.value;
         const pos = (typeof inputEl.selectionStart === 'number') ? inputEl.selectionStart : val.length;
@@ -771,7 +795,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             }));
             return {
                 mode: 'mime',
-                header: `QUERY SYNTAX &bull; MIME TYPES (${matches.length} AVAILABLE)`,
+                header: `QUERY SYNTAX &bull; MIME TYPES`,
                 matches,
                 tokenStart: start,
                 tokenEnd: end
@@ -797,7 +821,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             }));
             return {
                 mode: 'ext',
-                header: `QUERY SYNTAX &bull; FILE EXTENSIONS (${matches.length} AVAILABLE)`,
+                header: `QUERY SYNTAX &bull; FILE EXTENSIONS`,
                 matches,
                 tokenStart: start,
                 tokenEnd: end
@@ -823,7 +847,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             }));
             return {
                 mode: 'size',
-                header: `QUERY SYNTAX &bull; FILE SIZES (${matches.length} AVAILABLE)`,
+                header: `QUERY SYNTAX &bull; FILE SIZES`,
                 matches,
                 tokenStart: start,
                 tokenEnd: end
@@ -872,7 +896,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
         return {
             mode: 'top',
-            header: `QUERY SYNTAX SUGGESTIONS (${matches.length} AVAILABLE)`,
+            header: `QUERY SYNTAX SUGGESTIONS`,
             matches,
             tokenStart: start,
             tokenEnd: end
@@ -1277,7 +1301,7 @@ function initSettingsFormManager() {
                     <select class="form-control field-type-select">
                         <option value="text" ${fType === 'text' ? 'selected' : ''}>Text Input</option>
                         <option value="select" ${fType === 'select' ? 'selected' : ''}>Dropdown  Filter</option>
-                        <option value="checkbox" ${fType === 'checkbox' ? 'selected' : ''}>Checkbox Filter</option>
+                        <option value="toggle" ${(fType === 'toggle' || fType === 'checkbox') ? 'selected' : ''}>Toggle Filter</option>
                         <option value="static_query" ${(fType === 'static_query' || fType === 'static') ? 'selected' : ''}>Static Query</option>
                     </select>
                 </div>
@@ -1302,11 +1326,11 @@ function initSettingsFormManager() {
                 </div>
             </div>
 
-            <!-- Checkbox Config -->
-            <div class="field-checkbox-config" style="${fType === 'checkbox' ? '' : 'display: none;'} margin-top: 0.5rem;">
+            <!-- Toggle Config -->
+            <div class="field-toggle-config field-checkbox-config" style="${(fType === 'toggle' || fType === 'checkbox') ? '' : 'display: none;'} margin-top: 0.5rem;">
                 <div class="settings-field">
-                    <label class="settings-label">Query Snippet When Checked</label>
-                    <input class="form-control form-control-query field-checkbox-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. mime:application/pdf" spellcheck="false" autocomplete="off">
+                    <label class="settings-label">Query Snippet When Toggled On</label>
+                    <input class="form-control form-control-query field-toggle-query-input field-checkbox-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. mime:application/pdf" spellcheck="false" autocomplete="off">
                 </div>
             </div>
 
@@ -1345,7 +1369,7 @@ function initSettingsFormManager() {
         const typeSelect = card.querySelector('.field-type-select');
         const textConfig = card.querySelector('.field-text-config');
         const placeholderWrap = card.querySelector('.field-placeholder-wrap');
-        const checkboxConfig = card.querySelector('.field-checkbox-config');
+        const toggleConfig = card.querySelector('.field-toggle-config') || card.querySelector('.field-checkbox-config');
         const selectConfig = card.querySelector('.field-select-config');
         const staticConfig = card.querySelector('.field-static-config');
         const optionsTbody = card.querySelector('.options-tbody');
@@ -1373,15 +1397,17 @@ function initSettingsFormManager() {
         typeSelect.addEventListener('change', () => {
             const selectedType = typeSelect.value;
             const isStatic = selectedType === 'static_query' || selectedType === 'static';
+            const isToggle = selectedType === 'toggle' || selectedType === 'checkbox';
             textConfig.style.display = selectedType === 'text' ? 'block' : 'none';
             placeholderWrap.style.display = selectedType === 'text' ? 'block' : 'none';
-            checkboxConfig.style.display = selectedType === 'checkbox' ? 'block' : 'none';
+            if (toggleConfig) toggleConfig.style.display = isToggle ? 'block' : 'none';
             selectConfig.style.display = selectedType === 'select' ? 'block' : 'none';
             staticConfig.style.display = isStatic ? 'block' : 'none';
         });
 
         setupQueryFieldEditor(card.querySelector('.field-custom-format-input'), 'text');
-        setupQueryFieldEditor(card.querySelector('.field-checkbox-query-input'), 'general');
+        const toggleQueryInput = card.querySelector('.field-toggle-query-input') || card.querySelector('.field-checkbox-query-input');
+        if (toggleQueryInput) setupQueryFieldEditor(toggleQueryInput, 'general');
         setupQueryFieldEditor(card.querySelector('.field-static-query-input'), 'general');
 
         // Reordering and deletion handlers
@@ -1475,8 +1501,10 @@ function initSettingsFormManager() {
                         }
                     });
                     fieldObj.options = options;
-                } else if (fType === 'checkbox') {
-                    fieldObj.query = card.querySelector('.field-checkbox-query-input').value.trim();
+                } else if (fType === 'toggle' || fType === 'checkbox') {
+                    fieldObj.type = 'toggle';
+                    const qInput = card.querySelector('.field-toggle-query-input') || card.querySelector('.field-checkbox-query-input');
+                    fieldObj.query = qInput ? qInput.value.trim() : '';
                 } else if (fType === 'static_query' || fType === 'static') {
                     fieldObj.query = card.querySelector('.field-static-query-input').value.trim();
                 } else {

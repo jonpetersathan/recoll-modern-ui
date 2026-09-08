@@ -1986,6 +1986,94 @@ select.form-preset-select:focus {
     margin-top: 0.15rem;
 }
 
+/* Toggle Switch Filter */
+.advanced-field-toggle-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.advanced-field-toggle-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.advanced-field-toggle {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.85rem !important;
+    padding: 0.45rem 0.15rem;
+    margin-bottom: 0 !important;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-switch-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.toggle-switch-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+    margin: 0;
+}
+
+.toggle-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--card-border);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 24px;
+}
+
+.toggle-switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #cbd5e1;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.toggle-switch-input:checked + .toggle-switch-slider {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px var(--glow-color);
+}
+
+.toggle-switch-input:checked + .toggle-switch-slider:before {
+    transform: translateX(20px);
+    background-color: #ffffff;
+}
+
+.toggle-switch-input:focus-visible + .toggle-switch-slider {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.toggle-switch-label {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
 .advanced-field-checkbox {
     display: flex;
     align-items: center;

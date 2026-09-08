@@ -696,7 +696,8 @@ class SearchFormsManager:
                             'query': str(opt.get('query', '')).strip(),
                         })
                 clean_field['options'] = clean_options
-            elif ftype == 'checkbox':
+            elif ftype in ('toggle', 'checkbox'):
+                clean_field['type'] = 'toggle'
                 clean_field['query'] = str(f.get('query', '')).strip()
             elif ftype in ('static_query', 'static') or ftype.lower().replace(' ', '_').replace('-', '_') in ('static_query', 'static'):
                 clean_field['type'] = ftype if ftype in ('static_query', 'static') else 'static_query'
@@ -783,7 +784,7 @@ class SearchFormsManager:
                     opt_query = val
                 if opt_query.strip():
                     clauses.append(opt_query.strip())
-            elif ftype == 'checkbox':
+            elif ftype in ('toggle', 'checkbox'):
                 if val in (True, 1, '1', 'true', 'on', 'yes'):
                     q = field.get('query', '').strip()
                     if q:
