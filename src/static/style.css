@@ -247,6 +247,8 @@ header.app-header {
 .query-input-icon {
     position: absolute;
     left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-secondary);
     pointer-events: none;
     width: 18px;
@@ -2524,7 +2526,12 @@ input.form-control-query:active {
     background: rgba(15, 19, 34, 0.85);
     border: 1px solid var(--card-border);
     border-radius: 12px;
+    height: 48px;
     min-height: 48px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    position: relative;
     box-shadow: none;
     transition: all 0.25s ease;
 }
@@ -2560,11 +2567,21 @@ input.form-control-query:active {
 }
 
 .main-query-highlight-backdrop {
-    padding: 13px 16px 13px 44px;
-    min-height: 48px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding: 0 16px 0 44px;
+    min-height: 46px;
     font-size: 1.02rem;
-    line-height: 20px;
+    line-height: normal;
     letter-spacing: 0.025em;
+    border: none;
 }
 
 .options-table .query-highlight-backdrop {
@@ -2593,13 +2610,14 @@ input.form-control-query:active {
     position: relative;
     z-index: 2;
     background: transparent !important;
-    border: 1px solid transparent !important;
+    border: none !important;
     box-shadow: none !important;
     color: transparent !important;
     caret-color: #38bdf8 !important;
-    padding: 13px 16px 13px 44px !important;
-    min-height: 48px !important;
-    line-height: 20px !important;
+    padding: 0 16px 0 44px !important;
+    height: 100% !important;
+    min-height: 46px !important;
+    line-height: normal !important;
     font-size: 1.02rem !important;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
     letter-spacing: 0.025em !important;

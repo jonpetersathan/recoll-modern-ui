@@ -661,6 +661,10 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     }
     inputEl.parentNode.insertBefore(wrap, inputEl);
     wrap.appendChild(inputEl);
+    if (inputEl.classList.contains('query-input') && wrap.parentElement) {
+        const icon = wrap.parentElement.querySelector('.query-input-icon');
+        if (icon) wrap.appendChild(icon);
+    }
 
     // Backdrop for real-time syntax highlighting
     const backdrop = document.createElement('div');
