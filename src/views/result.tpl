@@ -86,7 +86,7 @@
                     %end
                     %res_mtype = d.get('mtype_label') or d.get('mtype', '')
                     %if res_mtype:
-                    <span class="result-label result-label-mtype" title="MIME file type: {{res_mtype}}">
+                    <span class="result-label result-label-mtype" title="{{d.get('mtype', '') or res_mtype}}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
                             <polyline points="2 17 12 22 22 17"></polyline>

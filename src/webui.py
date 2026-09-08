@@ -137,83 +137,83 @@ DOCUMENT_FIELDS: List[str] = [
 
 VALID_FILENAME_CHARS = f"_-{string.ascii_letters}{string.digits}"
 
-# Map of standard MIME types to user-friendly labels matching the dropdown scheme: Name (mime:<type>)
+# Map of standard MIME types to user-friendly descriptive labels
 MIME_LABELS: Dict[str, str] = {
     # Documents
-    'application/pdf': 'PDF Document (mime:application/pdf)',
-    'text/plain': 'Plain Text (mime:text/plain)',
-    'text/html': 'HTML Document (mime:text/html)',
-    'application/msword': 'Word Document (mime:application/msword)',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document (mime:application/vnd.openxmlformats-officedocument.wordprocessingml.document)',
-    'application/vnd.wordperfect': 'WordPerfect Document (mime:application/vnd.wordperfect)',
-    'text/rtf': 'Rich Text (mime:text/rtf)',
-    'application/rtf': 'Rich Text (mime:application/rtf)',
-    'application/vnd.oasis.opendocument.text': 'OpenDocument Text (mime:application/vnd.oasis.opendocument.text)',
-    'application/vnd.oasis.opendocument.spreadsheet': 'Spreadsheet (mime:application/vnd.oasis.opendocument.spreadsheet)',
-    'application/vnd.oasis.opendocument.presentation': 'Presentation (mime:application/vnd.oasis.opendocument.presentation)',
+    'application/pdf': 'PDF Document',
+    'text/plain': 'Plain Text',
+    'text/html': 'HTML Document',
+    'application/msword': 'Word Document',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document',
+    'application/vnd.wordperfect': 'WordPerfect Document',
+    'text/rtf': 'Rich Text',
+    'application/rtf': 'Rich Text',
+    'application/vnd.oasis.opendocument.text': 'OpenDocument Text',
+    'application/vnd.oasis.opendocument.spreadsheet': 'Spreadsheet',
+    'application/vnd.oasis.opendocument.presentation': 'Presentation',
 
     # Spreadsheets & Databases
-    'application/vnd.ms-excel': 'Spreadsheet (mime:application/vnd.ms-excel)',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Spreadsheet (mime:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)',
-    'text/x-csv': 'CSV File (mime:text/x-csv)',
-    'text/csv': 'CSV File (mime:text/csv)',
-    'application/x-dbf': 'Database File (mime:application/x-dbf)',
+    'application/vnd.ms-excel': 'Spreadsheet',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Spreadsheet',
+    'text/x-csv': 'CSV File',
+    'text/csv': 'CSV File',
+    'application/x-dbf': 'Database File',
 
     # Emails & Messaging
-    'message/rfc822': 'Email (mime:message/rfc822)',
-    'application/vnd.ms-outlook': 'Email (mime:application/vnd.ms-outlook)',
+    'message/rfc822': 'Email',
+    'application/vnd.ms-outlook': 'Email',
 
     # Presentations
-    'application/vnd.ms-powerpoint': 'Presentation (mime:application/vnd.ms-powerpoint)',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'Presentation (mime:application/vnd.openxmlformats-officedocument.presentationml.presentation)',
+    'application/vnd.ms-powerpoint': 'Presentation',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'Presentation',
 
     # Source code & Data
-    'text/x-python': 'Python Source (mime:text/x-python)',
-    'text/x-java': 'Java Source (mime:text/x-java)',
-    'text/x-c': 'C Source (mime:text/x-c)',
-    'text/x-c++': 'C++ Source (mime:text/x-c++)',
-    'text/x-fortran': 'Fortran Source (mime:text/x-fortran)',
-    'text/x-shellscript': 'Shell Script (mime:text/x-shellscript)',
-    'text/xml': 'XML Document (mime:text/xml)',
-    'application/xml': 'XML Document (mime:application/xml)',
-    'application/json': 'JSON Document (mime:application/json)',
-    'application/javascript': 'JavaScript Source (mime:application/javascript)',
-    'text/javascript': 'JavaScript Source (mime:text/javascript)',
-    'text/markdown': 'Markdown Document (mime:text/markdown)',
+    'text/x-python': 'Python Source',
+    'text/x-java': 'Java Source',
+    'text/x-c': 'C Source',
+    'text/x-c++': 'C++ Source',
+    'text/x-fortran': 'Fortran Source',
+    'text/x-shellscript': 'Shell Script',
+    'text/xml': 'XML Document',
+    'application/xml': 'XML Document',
+    'application/json': 'JSON Document',
+    'application/javascript': 'JavaScript Source',
+    'text/javascript': 'JavaScript Source',
+    'text/markdown': 'Markdown Document',
 
     # Archives
-    'application/zip': 'Archive (mime:application/zip)',
-    'application/x-tar': 'Archive (mime:application/x-tar)',
-    'application/gzip': 'Archive (mime:application/gzip)',
-    'application/x-bzip2': 'Archive (mime:application/x-bzip2)',
-    'application/x-7z-compressed': 'Archive (mime:application/x-7z-compressed)',
-    'application/x-rar-compressed': 'Archive (mime:application/x-rar-compressed)',
+    'application/zip': 'Archive',
+    'application/x-tar': 'Archive',
+    'application/gzip': 'Archive',
+    'application/x-bzip2': 'Archive',
+    'application/x-7z-compressed': 'Archive',
+    'application/x-rar-compressed': 'Archive',
 
     # Media & Images
-    'application/postscript': 'PostScript Document (mime:application/postscript)',
-    'application/x-shockwave-flash': 'Flash File (mime:application/x-shockwave-flash)',
-    'image/fits': 'FITS Image (mime:image/fits)',
-    'image/jpeg': 'JPEG Image (mime:image/jpeg)',
-    'image/png': 'PNG Image (mime:image/png)',
-    'image/gif': 'GIF Image (mime:image/gif)',
-    'image/svg+xml': 'SVG Image (mime:image/svg+xml)',
-    'image/webp': 'WebP Image (mime:image/webp)',
-    'image/tiff': 'TIFF Image (mime:image/tiff)',
-    'audio/mpeg': 'Audio / Media (mime:audio/mpeg)',
-    'audio/x-wav': 'Audio / Media (mime:audio/x-wav)',
-    'audio/ogg': 'Audio / Media (mime:audio/ogg)',
-    'audio/flac': 'Audio / Media (mime:audio/flac)',
-    'video/mp4': 'Video / Media (mime:video/mp4)',
-    'video/quicktime': 'Video / Media (mime:video/quicktime)',
+    'application/postscript': 'PostScript Document',
+    'application/x-shockwave-flash': 'Flash File',
+    'image/fits': 'FITS Image',
+    'image/jpeg': 'JPEG Image',
+    'image/png': 'PNG Image',
+    'image/gif': 'GIF Image',
+    'image/svg+xml': 'SVG Image',
+    'image/webp': 'WebP Image',
+    'image/tiff': 'TIFF Image',
+    'audio/mpeg': 'Audio / Media',
+    'audio/x-wav': 'Audio / Media',
+    'audio/ogg': 'Audio / Media',
+    'audio/flac': 'Audio / Media',
+    'video/mp4': 'Video / Media',
+    'video/quicktime': 'Video / Media',
 
     # Generic
-    'inode/directory': 'Directory (mime:inode/directory)',
-    'application/octet-stream': 'Binary Data (mime:application/octet-stream)',
+    'inode/directory': 'Directory',
+    'application/octet-stream': 'Binary Data',
 }
 
 
 def format_mimetype_label(mtype: str, filename: str = '') -> str:
-    """Format MIME type into human-readable label matching the dropdown scheme: Name (mime:<type>)."""
+    """Format MIME type into human-readable descriptive label."""
     clean = (mtype or '').strip()
     if (not clean or clean == 'application/octet-stream') and filename:
         guessed, _ = mimetypes.guess_type(filename)
@@ -222,27 +222,27 @@ def format_mimetype_label(mtype: str, filename: str = '') -> str:
 
     if not clean:
         ext = os.path.splitext(filename)[1].lstrip('.').lower()
-        return f"{ext.upper()} File (ext:{ext})" if ext else "Unknown File"
+        return f"{ext.upper()} File" if ext else "Unknown File"
 
     if clean in MIME_LABELS:
         return MIME_LABELS[clean]
 
     if clean.startswith('audio/'):
-        return f"Audio / Media (mime:{clean})"
+        return "Audio / Media"
     if clean.startswith('video/'):
-        return f"Video / Media (mime:{clean})"
+        return "Video / Media"
     if clean.startswith('image/'):
         subtype = clean.split('/', 1)[1].replace('x-', '').replace('-', ' ').title()
-        return f"{subtype} Image (mime:{clean})"
+        return f"{subtype} Image"
     if clean.startswith('text/'):
         subtype = clean.split('/', 1)[1].replace('x-', '').replace('-', ' ').title()
-        return f"{subtype} (mime:{clean})"
+        return subtype if subtype.endswith('Text') else f"{subtype} Text"
     if '/' in clean:
         major, minor = clean.split('/', 1)
         clean_sub = minor.replace('vnd.', '').replace('x-', '').replace('-', ' ').title()
-        return f"{clean_sub} Document (mime:{clean})"
+        return f"{clean_sub} Document"
 
-    return f"Document (mime:{clean})"
+    return clean.title() if clean else "Unknown File"
 
 
 def sanitize_filename(filename: str) -> str:

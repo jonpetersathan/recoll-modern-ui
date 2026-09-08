@@ -698,14 +698,15 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertNotIn("file:///data/000/000979.doc", content_csv)
 
     def test_search_results_filename_and_mime_labels(self):
-        """Verify search results display full filename and MIME type labels matching dropdown scheme."""
+        """Verify search results display full filename and descriptive filetype labels without raw mimetype."""
         # 1. Test Word Document (.doc)
         status_doc, html_doc = self._http_request("/results?query=" + urllib.parse.quote("filename:000979.doc"))
         self.assertEqual(status_doc, 200)
         self.assertIn('class="result-label result-label-filename"', html_doc)
         self.assertIn('>000979.doc<', html_doc)
         self.assertIn('class="result-label result-label-mtype"', html_doc)
-        self.assertIn('Word Document (mime:application/msword)', html_doc)
+        self.assertIn('>Word Document<', html_doc)
+        self.assertNotIn('>Word Document (mime:application/msword)<', html_doc)
 
         # 2. Test PDF Document (.pdf)
         status_pdf, html_pdf = self._http_request("/results?query=" + urllib.parse.quote("filename:000.pdf"))
@@ -713,7 +714,8 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertIn('class="result-label result-label-filename"', html_pdf)
         self.assertIn('>000.pdf<', html_pdf)
         self.assertIn('class="result-label result-label-mtype"', html_pdf)
-        self.assertIn('PDF Document (mime:application/pdf)', html_pdf)
+        self.assertIn('>PDF Document<', html_pdf)
+        self.assertNotIn('>PDF Document (mime:application/pdf)<', html_pdf)
 
         # 3. Test JSON search endpoint exposes mtype_label
         status_json, content_json = self._http_request("/json?query=" + urllib.parse.quote("filename:000979.doc"))
@@ -721,7 +723,7 @@ class TestContainerEndpoints(unittest.TestCase):
         res_json = json.loads(content_json)
         self.assertEqual(len(res_json["results"]), 1)
         self.assertEqual(res_json["results"][0]["filename"], "000979.doc")
-        self.assertEqual(res_json["results"][0]["mtype_label"], "Word Document (mime:application/msword)")
+        self.assertEqual(res_json["results"][0]["mtype_label"], "Word Document")
 
     def test_query_fields_preserve_blue_color_on_focus(self):
         """Verify CSS preserves blue text color (#38bdf8) when editing query fields in form."""
