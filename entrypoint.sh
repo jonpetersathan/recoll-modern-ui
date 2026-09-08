@@ -26,6 +26,12 @@ if [ -f "$CONFDIR/recoll.conf" ] && [ -w "$CONFDIR/recoll.conf" ]; then
     fi
 fi
 
+# Ensure recoll-metadata-extractor is accessible
+if [ ! -f /usr/local/bin/recoll-metadata-extractor ] && [ -f /app/src/recollweb/extractor_cli.py ]; then
+    ln -sf /app/src/recollweb/extractor_cli.py /usr/local/bin/recoll-metadata-extractor
+    chmod +x /usr/local/bin/recoll-metadata-extractor 2>/dev/null || true
+fi
+
 # If index doesn't exist yet, run initial indexing
 if [ ! -d "$CONFDIR/xapiandb" ]; then
     echo "[Recoll Init] Search index not found at $CONFDIR/xapiandb. Building initial index for /data..."

@@ -1,3 +1,10 @@
+# Stage 1: Build high-performance Rust metadata extractor
+FROM rust:slim-bookworm AS extractor-builder
+WORKDIR /build
+COPY extractor/ .
+RUN cargo build --release
+
+# Stage 2: Modern Recoll Web UI application
 FROM debian:trixie-slim
 
 ARG APP_VERSION
@@ -39,9 +46,12 @@ ARG CACHEBUST=1
 RUN echo "Context sync: ${CACHEBUST}"
 COPY . /app
 WORKDIR /app
-
 RUN chmod -R a+rX /app && \
-    chmod +x /app/entrypoint.sh /app/src/webui-standalone.py
+    chmod +x /app/entrypoint.sh /app/src/webui-standalone.py /app/src/recollweb/extractor_cli.py
+
+# Copy compiled Rust metadata extractor binary
+COPY --from=extractor-builder /build/target/release/recoll-metadata-extractor /usr/local/bin/recoll-metadata-extractor
+RUN chmod 755 /usr/local/bin/recoll-metadata-extractor
 
 VOLUME /data
 EXPOSE 8080

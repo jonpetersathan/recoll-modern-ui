@@ -5,7 +5,11 @@ Full-featured Python Bottle Application for Recoll Search Engine
 
 import mimetypes
 import warnings
-import bottle
+
+try:
+    import bottle
+except ImportError:
+    bottle = None
 
 from recollweb.constants import (
     BASE_DIR,
@@ -61,10 +65,17 @@ from recollweb.errors import (
     register_error_handlers,
     render_error_page,
 )
-from recollweb.routes import (
-    register_routes,
-    serve_logo_file,
-)
+from recollweb.indexer import IndexManager
+from recollweb.metadata import MetadataRulesManager
+
+try:
+    from recollweb.routes import (
+        register_routes,
+        serve_logo_file,
+    )
+except ImportError:
+    register_routes = None
+    serve_logo_file = None
 
 __version__ = "0.9.0"
 
@@ -77,20 +88,22 @@ mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('application/javascript', '.js')
 
 # Ensure views directory is in Bottle template search path
-if VIEWS_DIR not in bottle.TEMPLATE_PATH:
+if bottle and VIEWS_DIR not in bottle.TEMPLATE_PATH:
     bottle.TEMPLATE_PATH.insert(0, VIEWS_DIR)
 
 
-def create_app(custom_app: bottle.Bottle = None) -> bottle.Bottle:
+def create_app(custom_app=None):
     """
     Application factory for Recoll Modern UI.
     Initializes error handlers, registers routes, and configures templates.
     """
+    if not bottle:
+        raise RuntimeError("Bottle is not installed in the current environment.")
     web_app = custom_app or bottle.default_app()
     register_error_handlers(web_app)
     register_routes(web_app)
     return web_app
 
 
-# Initialize default application instance
-app = application = create_app(bottle.default_app())
+# Initialize default application instance if bottle is available
+app = application = create_app(bottle.default_app()) if bottle else None

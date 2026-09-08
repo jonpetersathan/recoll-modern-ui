@@ -14,6 +14,7 @@ from recoll import recoll, rclextract
 
 from recollweb.config import ConfigManager
 from recollweb.constants import DOCUMENT_FIELDS, SORT_OPTIONS
+from recollweb.metadata import MetadataRulesManager
 from recollweb.utils import format_mimetype_label, format_timestamp
 
 
@@ -171,6 +172,9 @@ class RecollSearchEngine:
 
         highlighter = SnippetHighlighter() if query_data.get('highlight', 1) else None
 
+        conf_dir = config.get('confdir', '')
+        custom_fields = MetadataRulesManager.get_extracted_fields(conf_dir) if conf_dir else []
+
         while len(results) < per_page:
             try:
                 doc = query_obj.fetchone()
@@ -185,6 +189,28 @@ class RecollSearchEngine:
             for field in DOCUMENT_FIELDS:
                 val = getattr(doc, field, '')
                 item[field] = val if val is not None else ''
+
+            # Extract custom metadata fields
+            item['custom_metadata'] = {}
+            for cf in custom_fields:
+                val = getattr(doc, cf, None)
+                if val is None and hasattr(doc, 'get'):
+                    val = doc.get(cf)
+                if val:
+                    val_str = str(val).strip()
+                    if val_str:
+                        item[cf] = val_str
+                        item['custom_metadata'][cf] = val_str
+
+            if hasattr(doc, 'keys'):
+                for k in doc.keys():
+                    if k not in item and k not in ('abstract', 'text'):
+                        val = getattr(doc, k, None)
+                        if val:
+                            val_str = str(val).strip()
+                            if val_str:
+                                item[k] = val_str
+                                item['custom_metadata'][k] = val_str
 
             # Omit /data/ from search results so paths start directly with folders contained in /data
             if item.get('url', '').startswith('file:///data/'):

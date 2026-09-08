@@ -6,7 +6,11 @@ import logging
 import os
 import sys
 from typing import Dict
-import bottle
+
+try:
+    import bottle
+except ImportError:
+    bottle = None
 
 LOG_LEVEL_MAP: Dict[str, int] = {
     'ERROR': logging.ERROR,
@@ -53,6 +57,8 @@ def get_client_ip() -> str:
     Extract client IP address from reverse proxy headers (X-Forwarded-For, X-Real-IP)
     or fall back to the remote socket address.
     """
+    if not bottle or not hasattr(bottle, 'request'):
+        return '127.0.0.1'
     for header in ('X-Forwarded-For', 'X-Real-IP'):
         val = bottle.request.headers.get(header)
         if val:

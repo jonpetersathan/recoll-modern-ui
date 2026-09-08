@@ -36,6 +36,14 @@
                     </svg>
                     <span>Search</span>
                 </a>
+                <a href="index-manager" class="btn btn-secondary nav-action-btn" title="Index & Metadata Rules">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>
+                    <span>Index</span>
+                </a>
                 <a href="settings" class="btn btn-secondary nav-action-btn" title="Preferences">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>

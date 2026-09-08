@@ -7,7 +7,12 @@ import mimetypes
 import os
 import time
 from typing import Any, Dict, List
-import bottle
+
+try:
+    import bottle
+except ImportError:
+    bottle = None
+
 from recollweb.constants import MIME_LABELS, VALID_FILENAME_CHARS
 
 
@@ -92,6 +97,8 @@ def parse_json_request() -> Dict[str, Any]:
     Safely extract JSON body from current Bottle request.
     Handles both direct JSON body and raw body stream.
     """
+    if not bottle or not hasattr(bottle, 'request'):
+        return {}
     data = bottle.request.json
     if not data:
         raw_body = bottle.request.body.read().decode('utf-8')
@@ -103,8 +110,9 @@ def json_response(payload: Any, status: int = 200) -> str:
     """
     Format data as JSON string with application/json header and specified status code.
     """
-    bottle.response.status = status
-    bottle.response.content_type = 'application/json'
+    if bottle and hasattr(bottle, 'response'):
+        bottle.response.status = status
+        bottle.response.content_type = 'application/json'
     return json.dumps(payload)
 
 

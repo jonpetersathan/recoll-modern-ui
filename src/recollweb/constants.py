@@ -23,6 +23,9 @@ except Exception:
     EXPORT_DIR = os.path.join(TEMP_DIR, "export")
     os.makedirs(EXPORT_DIR, exist_ok=True)
 
+# Metadata rules configuration filename
+METADATA_RULES_FILENAME = "metadata_rules.json"
+
 # Default configuration settings
 DEFAULT_CONFIG: Dict[str, Any] = {
     'context': 30,

@@ -122,6 +122,18 @@
         {{!d['snippet']}}
     </div>
 
+    %custom_meta = d.get('custom_metadata', {})
+    %if custom_meta:
+    <div class="result-custom-meta">
+        %for meta_k, meta_v in sorted(custom_meta.items()):
+        <span class="meta-badge" title="Field: {{meta_k}} = {{meta_v}}">
+            <span class="meta-badge-key">{{meta_k}}</span>
+            <span class="meta-badge-val">{{meta_v}}</span>
+        </span>
+        %end
+    </div>
+    %end
+
     %if not config.get("noresultlinks", False):
     <div class="card-actions-row">
         <div class="action-buttons">

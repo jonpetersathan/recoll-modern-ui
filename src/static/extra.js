@@ -498,7 +498,9 @@ function compileQueryFromForm(form, container) {
                 clauses.push(`"${words}"p${slack}`);
             } else if (fmt.includes('{value}')) {
                 if (val.includes(' ') && !val.startsWith('"') && !val.endsWith('"') &&
-                    (fmt.startsWith('filename:') || fmt.startsWith('title:') || fmt.startsWith('author:') || fmt.startsWith('dir:'))) {
+                    (fmt.startsWith('filename:') || fmt.startsWith('title:') || fmt.startsWith('subject:') ||
+                     fmt.startsWith('author:') || fmt.startsWith('from:') || fmt.startsWith('recipient:') ||
+                     fmt.startsWith('to:') || fmt.startsWith('dir:'))) {
                     clauses.push(fmt.replace('{value}', `"${val}"`));
                 } else {
                     clauses.push(fmt.replace('{value}', val));
@@ -533,6 +535,7 @@ const MIME_TYPES_LIST = [
     { value: 'text/csv', desc: 'CSV Data Spreadsheet (*.csv)' },
     { value: 'text/markdown', desc: 'Markdown Document (*.md)' },
     { value: 'message/rfc822', desc: 'Email Message (*.eml, *.msg)' },
+    { value: 'application/vnd.ms-outlook', desc: 'Outlook Message / Store (*.msg, *.pst)' },
     { value: 'image/jpeg', desc: 'JPEG Image (*.jpg, *.jpeg)' },
     { value: 'image/png', desc: 'PNG Image (*.png)' },
     { value: 'image/svg+xml', desc: 'SVG Vector Graphic (*.svg)' },
@@ -556,6 +559,7 @@ const EXTENSIONS_LIST = [
     { value: 'jpg', desc: 'JPEG Image (*.jpg)' },
     { value: 'zip', desc: 'ZIP Archive (*.zip)' },
     { value: 'eml', desc: 'Email Message (*.eml)' },
+    { value: 'msg', desc: 'Outlook Message (*.msg)' },
     { value: 'py', desc: 'Python Source Code (*.py)' },
     { value: 'json', desc: 'JSON Data File (*.json)' }
 ];
@@ -576,12 +580,17 @@ const TOP_LEVEL_KEYWORDS = [
     { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter', hasSub: true, insertPrefix: 'ext:' },
     { prefix: 'dir:', placeholder: 'path', desc: 'Restrict search to folder path', insertPrefix: 'dir:' },
     { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename match with optional wildcards', insertPrefix: 'filename:' },
-    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter', hasSub: true, insertPrefix: 'mime:' },
+    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter (alias for mime:)', hasSub: true, insertPrefix: 'mime:' },
     { prefix: 'title:', placeholder: 'text', desc: 'Document title metadata field search', insertPrefix: 'title:' },
+    { prefix: 'subject:', placeholder: 'text', desc: 'Email subject / document title search', insertPrefix: 'subject:' },
     { prefix: 'author:', placeholder: 'name', desc: 'Author / creator metadata search', insertPrefix: 'author:' },
+    { prefix: 'from:', placeholder: 'name/email', desc: 'Email sender / author search', insertPrefix: 'from:' },
+    { prefix: 'recipient:', placeholder: 'email/name', desc: 'Email recipient search (To/Cc)', insertPrefix: 'recipient:' },
+    { prefix: 'to:', placeholder: 'email/name', desc: 'Email recipient search alias', insertPrefix: 'to:' },
     { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold', hasSub: true, insertPrefix: 'size:' },
     { prefix: 'date:', placeholder: 'range', desc: 'Date range filter (YYYY-MM-DD/YYYY-MM-DD)', insertPrefix: 'date:' },
     { prefix: 'tag:', placeholder: 'keyword', desc: 'Document category or tag keyword', insertPrefix: 'tag:' },
+    { prefix: 'keyword:', placeholder: 'word', desc: 'Document keyword / tag search', insertPrefix: 'keyword:' },
     { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator', insertPrefix: 'AND ', isBool: true },
     { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator', insertPrefix: 'OR ', isBool: true },
     { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator', insertPrefix: 'NOT ', isBool: true },
@@ -596,7 +605,11 @@ const TEXT_SNIPPET_PATTERNS = [
     { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}' },
     { prefix: 'filename:*{value}*', placeholder: '', desc: 'Filename wildcard search with user input', insertPrefix: 'filename:*{value}*' },
     { prefix: 'title:{value}', placeholder: '', desc: 'Document title metadata search with user input', insertPrefix: 'title:{value}' },
+    { prefix: 'subject:{value}', placeholder: '', desc: 'Email subject search with user input', insertPrefix: 'subject:{value}' },
     { prefix: 'author:{value}', placeholder: '', desc: 'Author / creator search with user input', insertPrefix: 'author:{value}' },
+    { prefix: 'from:{value}', placeholder: '', desc: 'Email sender search with user input', insertPrefix: 'from:{value}' },
+    { prefix: 'recipient:{value}', placeholder: '', desc: 'Email recipient search with user input', insertPrefix: 'recipient:{value}' },
+    { prefix: 'to:{value}', placeholder: '', desc: 'Email recipient search with user input', insertPrefix: 'to:{value}' },
     { prefix: 'dir:"{value}"', placeholder: '', desc: 'Directory Scope with user input', insertPrefix: 'dir:"{value}"' },
     { prefix: 'ext:{value}', placeholder: '', desc: 'File extension match with user input', insertPrefix: 'ext:{value}' },
     { prefix: 'mime:{value}', placeholder: '', desc: 'MIME type filter with user input', insertPrefix: 'mime:{value}' },
@@ -616,10 +629,10 @@ function highlightQuerySyntax(raw) {
 
     // 1: {value} placeholder
     // 2: boolean operators: AND, OR, NOT, XOR
-    // 3: keywords: filename, title, author, mime, dir, ext, size, date, keyword, recipient, tag, filetype
+    // 3: keywords: filename, title, subject, author, from, recipient, to, mime, dir, ext, size, date, keyword, tag, filetype
     // 4: operators: * , / : ( ) " - + &gt; &lt; or p\d+
     // 5: literal strings / words
-    const tokenRegex = /(\{value\})|(\b(?:AND|OR|NOT|XOR)\b)|(\b(?:filename|title|author|mime|dir|ext|size|date|keyword|recipient|tag|filetype)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
+    const tokenRegex = /(\{value\})|(\b(?:AND|OR|NOT|XOR)\b)|(\b(?:filename|title|subject|author|from|recipient|to|mime|dir|ext|size|date|keyword|tag|filetype)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
 
     return escaped.replace(tokenRegex, (match, valPh, boolOp, kw, op, word) => {
         if (valPh) {
@@ -793,9 +806,10 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         const tokenBeforeCursor = val.slice(start, pos);
         const tokenLower = tokenBeforeCursor.toLowerCase();
 
-        // 1. Secondary: mime:
-        if (tokenLower.startsWith('mime:')) {
-            const query = tokenBeforeCursor.slice(5).toLowerCase();
+        // 1. Secondary: mime: or filetype:
+        if (tokenLower.startsWith('mime:') || tokenLower.startsWith('filetype:')) {
+            const prefix = tokenLower.startsWith('filetype:') ? 'filetype:' : 'mime:';
+            const query = tokenBeforeCursor.slice(prefix.length).toLowerCase();
             const scored = MIME_TYPES_LIST.map((m, idx) => ({
                 item: m,
                 idx,

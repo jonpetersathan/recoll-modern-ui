@@ -24,7 +24,9 @@ from recollweb.constants import (
 )
 from recollweb.errors import render_error_page
 from recollweb.forms import SearchFormsManager
+from recollweb.indexer import IndexManager
 from recollweb.logging import get_client_ip, logger
+from recollweb.metadata import MetadataRulesManager
 from recollweb.search import RecollSearchEngine, SearchQuery, SnippetHighlighter, extract_document_file
 from recollweb.utils import (
     json_error,
@@ -489,6 +491,77 @@ def register_routes(app: bottle.Bottle):
             return json_error(str(val_err), status=400)
         except Exception as exc:
             return json_error(str(exc), status=500)
+
+    # ------------------------------------------------------------------------
+    # Index Management & Metadata Rules API Endpoints
+    # ------------------------------------------------------------------------
+
+    @app.route('/index-manager')
+    def index_manager_page():
+        config = ConfigManager.get_config()
+        conf_dir = config['confdir']
+        status_info = IndexManager.get_status(conf_dir)
+        rules_data = MetadataRulesManager.get_rules(conf_dir)
+
+        view_vars = dict(status_info)
+        view_vars['rules'] = rules_data.get('rules', [])
+        view_vars['rules_json'] = json.dumps(rules_data)
+        view_vars['extractor_path'] = rules_data.get('extractor_path', '')
+        return bottle.template('index_manager', **view_vars)
+
+    @app.route('/api/index/status', method=['GET'])
+    def api_index_status():
+        config = ConfigManager.get_config()
+        status_info = IndexManager.get_status(config['confdir'])
+        return json_response(status_info)
+
+    @app.route('/api/index/reindex', method=['POST'])
+    def api_index_reindex():
+        config = ConfigManager.get_config()
+        data = parse_json_request()
+        full = bool(data.get('full', False))
+        res = IndexManager.start_indexing(config['confdir'], full=full)
+        if not res.get('success'):
+            return json_error(res.get('error', 'Failed to start indexing'), status=400)
+        return json_response(res)
+
+    @app.route('/api/index/purge', method=['POST'])
+    def api_index_purge():
+        config = ConfigManager.get_config()
+        res = IndexManager.purge_index(config['confdir'])
+        if not res.get('success'):
+            return json_error(res.get('error', 'Failed to purge index'), status=500)
+        return json_response(res)
+
+    @app.route('/api/metadata/rules', method=['GET'])
+    def api_get_metadata_rules():
+        config = ConfigManager.get_config()
+        rules_data = MetadataRulesManager.get_rules(config['confdir'])
+        return json_response(rules_data)
+
+    @app.route('/api/metadata/rules', method=['POST'])
+    def api_save_metadata_rules():
+        config = ConfigManager.get_config()
+        try:
+            data = parse_json_request()
+            saved = MetadataRulesManager.save_rules(config['confdir'], data)
+            return json_response({'success': True, 'data': saved})
+        except ValueError as val_err:
+            return json_error(str(val_err), status=400)
+        except Exception as exc:
+            logger.error("API_METADATA_SAVE_ERROR: %s", exc)
+            return json_error(str(exc), status=500)
+
+    @app.route('/api/metadata/test', method=['POST'])
+    def api_test_metadata_rules():
+        try:
+            data = parse_json_request()
+            sample_path = data.get('sample_path', '')
+            rules = data.get('rules', [])
+            extracted = MetadataRulesManager.test_sample_path(sample_path, rules)
+            return json_response({'success': True, 'metadata': extracted})
+        except Exception as exc:
+            return json_error(str(exc), status=400)
 
     # ------------------------------------------------------------------------
     # Settings & OpenSearch Manifest

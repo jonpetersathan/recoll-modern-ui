@@ -58,10 +58,12 @@ test:
 	@echo "[4/6] Testing JSON API and Search Query..."
 	@curl -s -f "http://127.0.0.1:$(PORT)/json?query=000" | grep -q '"results"' || { echo "Error: JSON API query failed." >&2; exit 1; }
 	@echo "      JSON search endpoint OK"
-	@echo "[5/6] Testing Modular Architecture & Subsystems Unit Tests..."
+	@echo "[5/7] Testing Modular Architecture & Subsystems Unit Tests..."
 	@$(DOCKER) exec -i $(CONTAINER_NAME) python3 - < test/test_modular_units.py
-	@echo "[6/6] Testing Advanced Search, Form Builder, and Endpoints Integration..."
+	@echo "[6/7] Testing Advanced Search, Form Builder, and Endpoints Integration..."
 	@$(DOCKER) exec -i -e RECOLL_TEST_URL=http://127.0.0.1:$(PORT) $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
+	@echo "[7/7] Testing Metadata Rules Engine, Index Manager, and Rust Extractor CLI..."
+	@$(DOCKER) exec -i $(CONTAINER_NAME) python3 - < test/test_metadata_and_index.py
 	@echo "All tests passed successfully!"
 
 stop:
