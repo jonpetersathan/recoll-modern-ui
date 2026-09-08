@@ -735,6 +735,19 @@ class TestContainerEndpoints(unittest.TestCase):
         # Verify focus state retains blue text color and does not change to #f8fafc
         self.assertNotIn("color: #f8fafc !important;", content_css)
 
+    def test_static_form_collapses_empty_section_and_divider(self):
+        """Verify CSS and JS collapse empty fields section and remove duplicate divider for static-only forms."""
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".advanced-search-panel.has-no-user-fields .advanced-fields-grid", content_css)
+        self.assertIn("display: none !important;", content_css)
+        self.assertIn(".advanced-search-panel.has-no-user-fields .advanced-bottom-bar", content_css)
+        self.assertIn("border-top: none !important;", content_css)
+
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        self.assertIn("has-no-user-fields", content_js)
+
 
 if __name__ == "__main__":
     unittest.main()

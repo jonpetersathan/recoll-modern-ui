@@ -1990,6 +1990,20 @@ select.form-preset-select:focus {
     border-top: 1px solid var(--card-border);
 }
 
+/* When advanced search form has only static values (no user inputs) */
+.advanced-fields-grid:empty,
+.advanced-search-panel.has-no-user-fields .advanced-fields-grid {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.advanced-fields-grid:empty + .advanced-bottom-bar,
+.advanced-search-panel.has-no-user-fields .advanced-bottom-bar {
+    border-top: none !important;
+    padding-top: 1.25rem;
+}
+
 .query-preview-wrap {
     display: flex;
     align-items: center;

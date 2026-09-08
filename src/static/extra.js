@@ -287,6 +287,15 @@ function initAdvancedSearch() {
             fieldsContainer.appendChild(card);
         });
 
+        const hasVisibleFields = fieldsContainer.children.length > 0;
+        if (!hasVisibleFields) {
+            panel.classList.add('has-no-user-fields');
+            fieldsContainer.style.display = 'none';
+        } else {
+            panel.classList.remove('has-no-user-fields');
+            fieldsContainer.style.display = '';
+        }
+
         // Attach change and Enter listeners
         const inputs = fieldsContainer.querySelectorAll('.advanced-field-input');
         inputs.forEach(input => {
