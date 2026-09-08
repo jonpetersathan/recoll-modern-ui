@@ -10,6 +10,9 @@ function initRecollApp() {
 
     searchForms.forEach(form => {
         form.addEventListener('submit', () => {
+            if (typeof window.closeAllQueryDropdowns === 'function') {
+                window.closeAllQueryDropdowns();
+            }
             const inputs = form.querySelectorAll('input');
             inputs.forEach(input => input.blur());
             if (fadeOverlay) {
@@ -351,11 +354,16 @@ function initAdvancedSearch() {
     }
 
     function executeFormSearch() {
+        if (typeof window.closeAllQueryDropdowns === 'function') {
+            window.closeAllQueryDropdowns();
+        }
         saveActiveFormValues();
         const query = updateCompiledQuery();
         if (mainQueryInput && query) {
             mainQueryInput.value = query;
-            mainQueryInput.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof mainQueryInput._updateHighlight === 'function') {
+                mainQueryInput._updateHighlight();
+            }
         }
         safeStorageSet('sessionStorage', 'recoll_adv_open', '1');
         if (searchForm) {
@@ -371,9 +379,14 @@ function initAdvancedSearch() {
                 const query = updateCompiledQuery();
                 if (mainQueryInput && query) {
                     mainQueryInput.value = query;
-                    mainQueryInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    if (typeof mainQueryInput._updateHighlight === 'function') {
+                        mainQueryInput._updateHighlight();
+                    }
                 }
                 safeStorageSet('sessionStorage', 'recoll_adv_open', '1');
+            }
+            if (typeof window.closeAllQueryDropdowns === 'function') {
+                window.closeAllQueryDropdowns();
             }
         });
     }
@@ -718,6 +731,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     inputEl.addEventListener('input', updateHighlight);
     inputEl.addEventListener('scroll', () => { backdrop.scrollLeft = inputEl.scrollLeft; });
     inputEl.addEventListener('change', updateHighlight);
+    inputEl._updateHighlight = updateHighlight;
     updateHighlight();
 
     // Autocomplete Suggestions Dropdown
@@ -1017,7 +1031,6 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
     inputEl.addEventListener('focus', () => {
         updateHighlight();
-        filterAndShow();
     });
 
     inputEl.addEventListener('click', () => {
@@ -1080,6 +1093,12 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     }
 
     document.addEventListener('click', (e) => {
+        if (!wrap.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
+    document.addEventListener('mousedown', (e) => {
         if (!wrap.contains(e.target)) {
             closeDropdown();
         }
