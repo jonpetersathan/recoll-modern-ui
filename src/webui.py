@@ -589,6 +589,9 @@ class SearchFormsManager:
                 clean_field['options'] = clean_options
             elif ftype == 'checkbox':
                 clean_field['query'] = str(f.get('query', '')).strip()
+            elif ftype in ('static_query', 'static') or ftype.lower().replace(' ', '_').replace('-', '_') in ('static_query', 'static'):
+                clean_field['type'] = ftype if ftype in ('static_query', 'static') else 'static_query'
+                clean_field['query'] = str(f.get('query', '')).strip()
             else:
                 clean_field['type'] = 'text'
                 clean_field['query_format'] = str(f.get('query_format', '{value}')).strip()
@@ -647,10 +650,18 @@ class SearchFormsManager:
     @staticmethod
     def compile_query(form_def: Dict[str, Any], values: Dict[str, Any]) -> str:
         clauses = []
+        if not values:
+            values = {}
         for field in form_def.get('fields', []):
             fid = field.get('id')
+            ftype = str(field.get('type', 'text')).strip()
+            if ftype in ('static_query', 'static') or ftype.lower().replace(' ', '_').replace('-', '_') in ('static_query', 'static'):
+                q = str(field.get('query', '')).strip()
+                if q:
+                    clauses.append(q)
+                continue
+
             val = values.get(fid)
-            ftype = field.get('type', 'text')
             if val is None or val == '':
                 continue
             if ftype == 'select':
