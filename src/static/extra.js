@@ -572,27 +572,27 @@ const SIZE_LIST = [
 
 // Top-level keywords with parameter placeholder hints
 const TOP_LEVEL_KEYWORDS = [
-    { prefix: 'mime:', placeholder: 'type', desc: 'MIME type filter (prompts MIME types list)', hasSub: true, insertPrefix: 'mime:' },
-    { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter (prompts extensions list)', hasSub: true, insertPrefix: 'ext:' },
-    { prefix: 'dir:', placeholder: 'path', desc: 'Directory scope: restrict search to folder path', insertPrefix: 'dir:' },
-    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename match with optional wildcards (e.g. report*.pdf)', insertPrefix: 'filename:' },
-    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter (alias for MIME types / extensions)', hasSub: true, insertPrefix: 'mime:' },
+    { prefix: 'mime:', placeholder: 'type', desc: 'MIME type filter', hasSub: true, insertPrefix: 'mime:' },
+    { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter', hasSub: true, insertPrefix: 'ext:' },
+    { prefix: 'dir:', placeholder: 'path', desc: 'Restrict search to folder path', insertPrefix: 'dir:' },
+    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename match with optional wildcards', insertPrefix: 'filename:' },
+    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter', hasSub: true, insertPrefix: 'mime:' },
     { prefix: 'title:', placeholder: 'text', desc: 'Document title metadata field search', insertPrefix: 'title:' },
     { prefix: 'author:', placeholder: 'name', desc: 'Author / creator metadata search', insertPrefix: 'author:' },
-    { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold (prompts size list)', hasSub: true, insertPrefix: 'size:' },
+    { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold', hasSub: true, insertPrefix: 'size:' },
     { prefix: 'date:', placeholder: 'range', desc: 'Date range filter (YYYY-MM-DD/YYYY-MM-DD)', insertPrefix: 'date:' },
     { prefix: 'tag:', placeholder: 'keyword', desc: 'Document category or tag keyword', insertPrefix: 'tag:' },
-    { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator (both conditions match)', insertPrefix: 'AND ', isBool: true },
-    { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator (either condition matches)', insertPrefix: 'OR ', isBool: true },
-    { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator (inverts next condition)', insertPrefix: 'NOT ', isBool: true },
-    { prefix: '-', placeholder: 'term', desc: 'Negation prefix to exclude term (e.g. -temp)', insertPrefix: '-', isOp: true },
-    { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Grouping clause: parenthesize sub-conditions', insertPrefix: '(', isOp: true }
+    { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator', insertPrefix: 'AND ', isBool: true },
+    { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator', insertPrefix: 'OR ', isBool: true },
+    { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator', insertPrefix: 'NOT ', isBool: true },
+    { prefix: '-', placeholder: 'term', desc: 'Negation prefix to exclude term', insertPrefix: '-', isOp: true },
+    { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Parenthesize sub-conditions', insertPrefix: '(', isOp: true }
 ];
 
 // Text Input field specific patterns (using {value} as user input placeholder)
 const TEXT_SNIPPET_PATTERNS = [
-    { prefix: '{value}', placeholder: '', desc: 'Standard search: match all entered words (AND)', insertPrefix: '{value}' },
-    { prefix: '"{value}"', placeholder: '', desc: 'Exact phrase search: match terms in exact order', insertPrefix: '"{value}"' },
+    { prefix: '{value}', placeholder: '', desc: 'Match all entered words (AND)', insertPrefix: '{value}' },
+    { prefix: '"{value}"', placeholder: '', desc: 'Match terms in exact order', insertPrefix: '"{value}"' },
     { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}' },
     { prefix: 'filename:*{value}*', placeholder: '', desc: 'Filename wildcard search with user input', insertPrefix: 'filename:*{value}*' },
     { prefix: 'title:{value}', placeholder: '', desc: 'Document title metadata search with user input', insertPrefix: 'title:{value}' },
@@ -603,7 +603,7 @@ const TEXT_SNIPPET_PATTERNS = [
     { prefix: 'size>{value}', placeholder: '', desc: 'Minimum file size threshold with user input', insertPrefix: 'size>{value}' },
     { prefix: 'size<{value}', placeholder: '', desc: 'Maximum file size threshold with user input', insertPrefix: 'size<{value}' },
     { prefix: 'date:{value}', placeholder: '', desc: 'Date range filter with user input', insertPrefix: 'date:{value}' },
-    { prefix: '"{value}"p4', placeholder: '', desc: 'Proximity: match terms within 4 words', insertPrefix: '"{value}"p4' },
+    { prefix: '"{value}"p4', placeholder: '', desc: 'Match terms within 4 words', insertPrefix: '"{value}"p4' },
     { prefix: '-{value}', placeholder: '', desc: 'Exclusion / NOT operator with user input', insertPrefix: '-{value}' }
 ];
 

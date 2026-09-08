@@ -452,7 +452,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "None of these words",
             "type": "text",
             "placeholder": "e.g. deprecated draft temp",
-            "helper": "Excludes documents containing any of these terms (-term)",
+            "helper": "Excludes documents containing any of these terms",
             "query_format": "not_terms",
         },
         {
@@ -460,7 +460,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Proximity search",
             "type": "text",
             "placeholder": "e.g. database query",
-            "helper": "Matches terms appearing within 4 words of each other (\"...\"p4)",
+            "helper": "Matches terms appearing within 4 words of each other",
             "query_format": "proximity",
             "slack": 4,
         },
