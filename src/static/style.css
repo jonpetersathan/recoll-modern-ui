@@ -2800,6 +2800,11 @@ input.form-control-query:active {
     font-weight: 600;
 }
 
+.tok-bool {
+    color: #fbbf24;
+    font-weight: 700;
+}
+
 .tok-op {
     color: #c084fc;
     font-weight: 700;
@@ -2946,6 +2951,20 @@ input.form-control-query:active {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
+}
+
+.query-suggestion-snippet.snippet-bool,
+.query-suggestion-snippet:has(.tok-bool) {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.query-suggestion-snippet.snippet-op,
+.query-suggestion-snippet:has(.tok-op:first-child) {
+    color: #c084fc;
+    background: rgba(192, 132, 252, 0.12);
+    border-color: rgba(192, 132, 252, 0.3);
 }
 
 .query-suggestion-snippet .param-placeholder {

@@ -582,11 +582,11 @@ const TOP_LEVEL_KEYWORDS = [
     { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold (prompts size list)', hasSub: true, insertPrefix: 'size:' },
     { prefix: 'date:', placeholder: 'range', desc: 'Date range filter (YYYY-MM-DD/YYYY-MM-DD)', insertPrefix: 'date:' },
     { prefix: 'tag:', placeholder: 'keyword', desc: 'Document category or tag keyword', insertPrefix: 'tag:' },
-    { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator (both conditions match)', insertPrefix: 'AND ' },
-    { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator (either condition matches)', insertPrefix: 'OR ' },
-    { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator (inverts next condition)', insertPrefix: 'NOT ' },
-    { prefix: '-', placeholder: 'term', desc: 'Negation prefix to exclude term (e.g. -temp)', insertPrefix: '-' },
-    { prefix: '(', placeholder: 'clause)', desc: 'Grouping clause: parenthesize sub-conditions', insertPrefix: '(' }
+    { prefix: 'AND', placeholder: '', desc: 'Boolean AND operator (both conditions match)', insertPrefix: 'AND ', isBool: true },
+    { prefix: 'OR', placeholder: '', desc: 'Boolean OR operator (either condition matches)', insertPrefix: 'OR ', isBool: true },
+    { prefix: 'NOT', placeholder: '', desc: 'Boolean NOT operator (inverts next condition)', insertPrefix: 'NOT ', isBool: true },
+    { prefix: '-', placeholder: 'term', desc: 'Negation prefix to exclude term (e.g. -temp)', insertPrefix: '-', isOp: true },
+    { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Grouping clause: parenthesize sub-conditions', insertPrefix: '(', isOp: true }
 ];
 
 // Text Input field specific patterns (using {value} as user input placeholder)
@@ -615,14 +615,17 @@ function highlightQuerySyntax(raw) {
         .replace(/>/g, '&gt;');
 
     // 1: {value} placeholder
-    // 2: keywords: filename, title, author, mime, dir, ext, size, date, keyword, recipient, tag, AND, OR, NOT, XOR
-    // 3: operators: * , / : ( ) " - + &gt; &lt; or p\d+
-    // 4: literal strings / words
-    const tokenRegex = /(\{value\})|(\b(?:filename|title|author|mime|dir|ext|size|date|keyword|recipient|tag|AND|OR|NOT|XOR)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
+    // 2: boolean operators: AND, OR, NOT, XOR
+    // 3: keywords: filename, title, author, mime, dir, ext, size, date, keyword, recipient, tag, filetype
+    // 4: operators: * , / : ( ) " - + &gt; &lt; or p\d+
+    // 5: literal strings / words
+    const tokenRegex = /(\{value\})|(\b(?:AND|OR|NOT|XOR)\b)|(\b(?:filename|title|author|mime|dir|ext|size|date|keyword|recipient|tag|filetype)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
 
-    return escaped.replace(tokenRegex, (match, valPh, kw, op, word) => {
+    return escaped.replace(tokenRegex, (match, valPh, boolOp, kw, op, word) => {
         if (valPh) {
             return `<span class="tok-val">${valPh}</span>`;
+        } else if (boolOp) {
+            return `<span class="tok-bool">${boolOp}</span>`;
         } else if (kw) {
             return `<span class="tok-kw">${kw}</span>`;
         } else if (op) {
@@ -642,7 +645,7 @@ function scoreKeywordItem(item, q) {
     if (!q) return 0;
     const rawPrefix = item.prefix.toLowerCase();
     const prefixClean = rawPrefix.replace(/[:(]/g, '');
-    const full = (item.prefix + (item.placeholder || '')).toLowerCase();
+    const full = (item.prefix + (item.placeholder || '') + (item.suffix || '')).toLowerCase();
     const desc = (item.desc || '').toLowerCase();
 
     // Tier 0: exact keyword match (e.g. 'or' === 'or', 'and' === 'and', 'mime' === 'mime')
@@ -888,10 +891,25 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
         const matches = scored.map(({ item }) => {
             let badgeHtml = '';
-            if (item.placeholder) {
+            let snippetClass = '';
+            if (item.isBool || ['AND', 'OR', 'NOT', 'XOR'].includes(item.prefix)) {
+                badgeHtml = `<span class="tok-bool">${escapeHtml(item.prefix)}</span>`;
+                snippetClass = 'snippet-bool';
+            } else if (item.prefix === '(') {
+                const ph = item.placeholder || 'clause';
+                badgeHtml = `<span class="tok-op">(</span><span class="param-placeholder">${escapeHtml(ph)}</span><span class="tok-op">)</span>`;
+                snippetClass = 'snippet-op';
+            } else if (item.prefix === '-') {
+                const ph = item.placeholder || 'term';
+                badgeHtml = `<span class="tok-op">-</span><span class="param-placeholder">${escapeHtml(ph)}</span>`;
+                snippetClass = 'snippet-op';
+            } else if (item.placeholder) {
                 const kw = item.prefix.replace(/[:(]/, '');
                 const op = item.prefix.slice(kw.length);
                 badgeHtml = `<span class="tok-kw">${escapeHtml(kw)}</span><span class="tok-op">${escapeHtml(op)}</span><span class="param-placeholder">${escapeHtml(item.placeholder)}</span>`;
+                if (item.suffix) {
+                    badgeHtml += `<span class="tok-op">${escapeHtml(item.suffix)}</span>`;
+                }
             } else if (item.prefix.startsWith('{value}') || item.prefix.includes('{value}')) {
                 badgeHtml = highlightQuerySyntax(item.prefix);
             } else {
@@ -900,7 +918,8 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
 
             return {
                 badgeHtml,
-                snippetText: item.prefix + (item.placeholder || ''),
+                snippetClass,
+                snippetText: item.prefix + (item.placeholder || '') + (item.suffix || ''),
                 desc: item.desc,
                 hasSub: !!item.hasSub,
                 insertPrefix: item.insertPrefix,
@@ -972,7 +991,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             row.className = `query-suggestion-item ${idx === activeIdx ? 'is-selected' : ''}`;
             row.dataset.index = idx;
             row.innerHTML = `
-                <span class="query-suggestion-snippet">${item.badgeHtml}</span>
+                <span class="query-suggestion-snippet ${item.snippetClass || ''}">${item.badgeHtml}</span>
                 <span class="query-suggestion-desc">${escapeHtml(item.desc)}</span>
             `;
 
