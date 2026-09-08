@@ -526,8 +526,9 @@ const SIZE_LIST = [
 const TOP_LEVEL_KEYWORDS = [
     { prefix: 'mime:', placeholder: 'type', desc: 'MIME type filter (prompts MIME types list)', hasSub: true, insertPrefix: 'mime:' },
     { prefix: 'ext:', placeholder: 'extension', desc: 'File extension filter (prompts extensions list)', hasSub: true, insertPrefix: 'ext:' },
-    { prefix: 'dir:', placeholder: 'path', desc: 'Directory scope: restrict search to folder path', insertPrefix: 'dir:"' },
-    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename with wildcards (e.g. *test*)', insertPrefix: 'filename:*' },
+    { prefix: 'dir:', placeholder: 'path', desc: 'Directory scope: restrict search to folder path', insertPrefix: 'dir:' },
+    { prefix: 'filename:', placeholder: 'pattern', desc: 'Filename match with optional wildcards (e.g. report*.pdf)', insertPrefix: 'filename:' },
+    { prefix: 'filetype:', placeholder: 'type', desc: 'File type filter (alias for MIME types / extensions)', hasSub: true, insertPrefix: 'mime:' },
     { prefix: 'title:', placeholder: 'text', desc: 'Document title metadata field search', insertPrefix: 'title:' },
     { prefix: 'author:', placeholder: 'name', desc: 'Author / creator metadata search', insertPrefix: 'author:' },
     { prefix: 'size:', placeholder: 'comparison', desc: 'File size threshold (prompts size list)', hasSub: true, insertPrefix: 'size:' },
@@ -544,6 +545,7 @@ const TOP_LEVEL_KEYWORDS = [
 const TEXT_SNIPPET_PATTERNS = [
     { prefix: '{value}', placeholder: '', desc: 'Standard search: match all entered words (AND)', insertPrefix: '{value}' },
     { prefix: '"{value}"', placeholder: '', desc: 'Exact phrase search: match terms in exact order', insertPrefix: '"{value}"' },
+    { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}' },
     { prefix: 'filename:*{value}*', placeholder: '', desc: 'Filename wildcard search with user input', insertPrefix: 'filename:*{value}*' },
     { prefix: 'title:{value}', placeholder: '', desc: 'Document title metadata search with user input', insertPrefix: 'title:{value}' },
     { prefix: 'author:{value}', placeholder: '', desc: 'Author / creator search with user input', insertPrefix: 'author:{value}' },
@@ -584,6 +586,65 @@ function highlightQuerySyntax(raw) {
     });
 }
 
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function scoreKeywordItem(item, q) {
+    if (!q) return 0;
+    const rawPrefix = item.prefix.toLowerCase();
+    const prefixClean = rawPrefix.replace(/[:(]/g, '');
+    const full = (item.prefix + (item.placeholder || '')).toLowerCase();
+    const desc = (item.desc || '').toLowerCase();
+
+    // Tier 0: exact keyword match (e.g. 'or' === 'or', 'and' === 'and', 'mime' === 'mime')
+    if (prefixClean === q || rawPrefix === q || rawPrefix === q + ':') {
+        return 0;
+    }
+    // Tier 1: keyword starts with query (e.g. 'fil' -> 'filename', 'or' -> 'order')
+    if (prefixClean.startsWith(q) || rawPrefix.startsWith(q)) {
+        return 10 + (prefixClean.length - q.length);
+    }
+    // Tier 2: full snippet starts with query (e.g. '{val' -> '{value}')
+    if (full.startsWith(q)) {
+        return 30 + (full.length - q.length);
+    }
+    // Tier 3: word boundary in prefix or template
+    const escQ = escapeRegex(q);
+    const wordBoundRegex = new RegExp('\\b' + escQ, 'i');
+    if (wordBoundRegex.test(item.prefix) || wordBoundRegex.test(full)) {
+        return 50;
+    }
+    // Tier 4: substring in template/prefix
+    if (item.prefix.toLowerCase().includes(q) || full.includes(q)) {
+        return 70;
+    }
+    // Tier 5: word boundary in description
+    if (wordBoundRegex.test(desc)) {
+        return 100;
+    }
+    // Tier 6: substring in description
+    if (desc.includes(q)) {
+        return 150;
+    }
+    return Infinity;
+}
+
+function scoreSecondaryItem(val, desc, q) {
+    if (!q) return 0;
+    const v = val.toLowerCase();
+    const d = (desc || '').toLowerCase();
+    if (v === q) return 0;
+    if (v.startsWith(q)) return 10 + (v.length - q.length);
+    const escQ = escapeRegex(q);
+    const wordBoundRegex = new RegExp('\\b' + escQ, 'i');
+    if (wordBoundRegex.test(v)) return 30;
+    if (v.includes(q)) return 50;
+    if (wordBoundRegex.test(d)) return 100;
+    if (d.includes(q)) return 150;
+    return Infinity;
+}
+
 function setupQueryFieldEditor(inputEl, contextType = 'general') {
     if (!inputEl || inputEl.dataset.queryEditorInit) return;
     inputEl.dataset.queryEditorInit = 'true';
@@ -617,12 +678,12 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
     // Autocomplete Suggestions Dropdown
     let dropdown = null;
     let activeIdx = -1;
-    let currentContext = null;
     let currentMatches = [];
+    let currentContext = null;
 
     function closeDropdown() {
-        if (dropdown) {
-            dropdown.remove();
+        if (dropdown && dropdown.parentNode) {
+            dropdown.parentNode.removeChild(dropdown);
             dropdown = null;
             activeIdx = -1;
             currentContext = null;
@@ -650,9 +711,14 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         // 1. Secondary: mime:
         if (tokenLower.startsWith('mime:')) {
             const query = tokenBeforeCursor.slice(5).toLowerCase();
-            const matches = MIME_TYPES_LIST.filter(m =>
-                !query || m.value.toLowerCase().includes(query) || m.desc.toLowerCase().includes(query)
-            ).map(m => ({
+            const scored = MIME_TYPES_LIST.map((m, idx) => ({
+                item: m,
+                idx,
+                score: scoreSecondaryItem(m.value, m.desc, query)
+            })).filter(x => x.score < Infinity);
+            scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
+
+            const matches = scored.map(({ item: m }) => ({
                 badgeHtml: `<span class="tok-kw">mime</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(m.value)}</span>`,
                 snippetText: `mime:${m.value}`,
                 desc: m.desc,
@@ -671,9 +737,14 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         // 2. Secondary: ext:
         if (tokenLower.startsWith('ext:')) {
             const query = tokenBeforeCursor.slice(4).toLowerCase();
-            const matches = EXTENSIONS_LIST.filter(e =>
-                !query || e.value.toLowerCase().includes(query) || e.desc.toLowerCase().includes(query)
-            ).map(e => ({
+            const scored = EXTENSIONS_LIST.map((e, idx) => ({
+                item: e,
+                idx,
+                score: scoreSecondaryItem(e.value, e.desc, query)
+            })).filter(x => x.score < Infinity);
+            scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
+
+            const matches = scored.map(({ item: e }) => ({
                 badgeHtml: `<span class="tok-kw">ext</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(e.value)}</span>`,
                 snippetText: `ext:${e.value}`,
                 desc: e.desc,
@@ -692,9 +763,14 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         // 3. Secondary: size:
         if (tokenLower.startsWith('size:')) {
             const query = tokenBeforeCursor.slice(5).toLowerCase();
-            const matches = SIZE_LIST.filter(s =>
-                !query || s.value.toLowerCase().includes(query) || s.desc.toLowerCase().includes(query)
-            ).map(s => ({
+            const scored = SIZE_LIST.map((s, idx) => ({
+                item: s,
+                idx,
+                score: scoreSecondaryItem(s.value, s.desc, query)
+            })).filter(x => x.score < Infinity);
+            scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
+
+            const matches = scored.map(({ item: s }) => ({
                 badgeHtml: `<span class="tok-kw">size</span><span class="tok-op">:</span><span class="tok-val">${escapeHtml(s.value)}</span>`,
                 snippetText: `size:${s.value}`,
                 desc: s.desc,
@@ -721,11 +797,14 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         }
 
         const query = tokenBeforeCursor.toLowerCase();
-        const matches = baseList.filter(item => {
-            if (!query) return true;
-            const full = item.prefix + (item.placeholder || '');
-            return full.toLowerCase().includes(query) || item.desc.toLowerCase().includes(query);
-        }).map(item => {
+        const scored = baseList.map((item, idx) => ({
+            item,
+            idx,
+            score: scoreKeywordItem(item, query)
+        })).filter(x => x.score < Infinity);
+        scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
+
+        const matches = scored.map(({ item }) => {
             let badgeHtml = '';
             if (item.placeholder) {
                 const kw = item.prefix.replace(/[:(]/, '');
