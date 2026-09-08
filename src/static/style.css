@@ -1842,10 +1842,49 @@ footer.app-footer {
 }
 
 .form-preset-select {
-    min-width: 280px;
+    min-width: 290px;
     padding: 0.6rem 1.1rem;
     min-height: 42px;
     font-size: 0.9rem;
+}
+
+/* Form Preset Dropdown - Highlighted / Distinguished Styling */
+.form-preset-select,
+.custom-select-wrapper.form-preset-select .custom-select-trigger {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.14) 0%, rgba(20, 24, 45, 0.88) 100%) !important;
+    border: 1px solid rgba(139, 92, 246, 0.45) !important;
+    color: #f5f3ff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25), 0 0 16px rgba(139, 92, 246, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    letter-spacing: 0.01em;
+}
+
+.custom-select-wrapper.form-preset-select .custom-select-trigger:hover,
+.form-preset-select:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(24, 29, 54, 0.94) 100%) !important;
+    border-color: rgba(139, 92, 246, 0.65) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), 0 0 20px rgba(139, 92, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.custom-select-wrapper.form-preset-select.is-open .custom-select-trigger,
+.custom-select-wrapper.form-preset-select .custom-select-trigger:focus-visible,
+.form-preset-select:focus {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.26) 0%, rgba(26, 31, 58, 0.98) 100%) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3), 0 0 24px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.custom-select-wrapper.form-preset-select .custom-select-arrow {
+    color: #a78bfa !important;
+}
+
+.custom-select-wrapper.form-preset-select.is-open .custom-select-arrow {
+    color: #c4b5fd !important;
+}
+
+.custom-select-wrapper.form-preset-select .custom-select-menu {
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 24px rgba(139, 92, 246, 0.18) !important;
 }
 
 .btn-manage-forms {
