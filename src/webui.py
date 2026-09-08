@@ -188,7 +188,13 @@ class ConfigManager:
         raw_topdirs = rcl_conf.getConfParam('topdirs') or ""
         topdirs = [os.path.expanduser(d) for d in shlex.split(raw_topdirs)]
         config['dirs'] = dict.fromkeys(topdirs, config['confdir'])
-        config['commonprefix'] = extract_common_prefix(topdirs)
+        raw_prefix = extract_common_prefix(topdirs)
+        if raw_prefix == '/data/':
+            config['commonprefix'] = ''
+        elif raw_prefix.startswith('/data/'):
+            config['commonprefix'] = raw_prefix[len('/data/'):]
+        else:
+            config['commonprefix'] = raw_prefix
 
         # Extra configuration directories
         extra_dirs_env = os.environ.get('RECOLL_EXTRACONFDIRS')
@@ -287,13 +293,18 @@ class ConfigManager:
         dir_list: List[str] = []
         for top in top_dirs:
             encoded_top = top.encode('utf-8', 'surrogateescape')
-            found_dirs = [encoded_top]
+            is_data_root = top.rstrip('/') == '/data'
+            found_dirs = [] if is_data_root else [encoded_top]
             for depth in range(1, max_depth + 1):
-                pattern = encoded_top + b'/*' * depth
+                pattern = encoded_top.rstrip(b'/') + b'/*' * depth
                 found_dirs.extend(glob.glob(pattern))
             valid_dirs = [d for d in found_dirs if os.path.isdir(d)]
-            parent_path = encoded_top.rsplit(b'/', 1)[0]
-            relative_dirs = [d.replace(parent_path + b'/', b'', 1) for d in valid_dirs]
+            if is_data_root:
+                prefix = encoded_top.rstrip(b'/') + b'/'
+                relative_dirs = [d[len(prefix):] for d in valid_dirs if d.startswith(prefix)]
+            else:
+                parent_path = encoded_top.rsplit(b'/', 1)[0]
+                relative_dirs = [d.replace(parent_path + b'/', b'', 1) for d in valid_dirs]
             dir_list.extend([d.decode('utf-8', 'surrogateescape') for d in relative_dirs])
         return ['<all>'] + dir_list
 
@@ -699,11 +710,19 @@ class SearchQuery:
     def parse(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         req = bottle.request.query
         def_sort_idx = config.get('defsortidx', 0) if config else 0
+        raw_dir = (req.get('dir') or '<all>').strip()
+        if raw_dir.startswith('/data/'):
+            raw_dir = raw_dir[len('/data/'):]
+        elif raw_dir.startswith('data/'):
+            raw_dir = raw_dir[len('data/'):]
+        elif raw_dir in ('/data', 'data'):
+            raw_dir = '<all>'
+
         query_data = {
             'query': req.get('query', '').strip(),
             'before': req.get('before', '').strip(),
             'after': req.get('after', '').strip(),
-            'dir': req.get('dir') or '<all>',
+            'dir': raw_dir,
             'sort': req.get('sort') or SORT_OPTIONS[def_sort_idx][0],
             'ascending': int(req.get('ascending', 0) or 0),
             'page': int(req.get('page', 1) or 1),
@@ -792,6 +811,12 @@ class RecollSearchEngine:
                 val = getattr(doc, field, '')
                 item[field] = val if val is not None else ''
 
+            # Omit /data/ from search results so paths start directly with folders contained in /data
+            if item.get('url', '').startswith('file:///data/'):
+                item['url'] = 'file:///' + item['url'][len('file:///data/'):]
+            elif item.get('url', '') == 'file:///data':
+                item['url'] = 'file:///'
+
             # Handle PDF first-match page positioning
             if getattr(doc, 'mtype', '') == 'application/pdf' and item.get('url', '').startswith('file://'):
                 try:
@@ -835,12 +860,15 @@ class RecollSearchEngine:
             matching_confs = [
                 conf for d, conf in config['dirs'].items()
                 if os.path.commonprefix([os.path.basename(d), scope_dir]) == os.path.basename(d)
+                or d.rstrip('/') == '/data'
+                or os.path.exists(os.path.join(d, scope_dir))
             ]
             if not matching_confs:
-                bottle.abort(400, f"No matching database for search directory: {scope_dir}")
-            conf_dir = matching_confs[0]
-            if len(matching_confs) > 1:
-                extra_dbs.extend([ConfigManager.resolve_db_dir(c) for c in matching_confs[1:]])
+                conf_dir = config['confdir']
+            else:
+                conf_dir = matching_confs[0]
+                if len(matching_confs) > 1:
+                    extra_dbs.extend([ConfigManager.resolve_db_dir(c) for c in matching_confs[1:]])
 
         if config.get('extradbs'):
             extra_dbs.extend(config['extradbs'])
@@ -1498,6 +1526,7 @@ def settings_page():
     config = ConfigManager.get_config()
     forms = SearchFormsManager.get_forms(config['confdir'])
     settings_vars = dict(config)
+    settings_vars['dirs'] = [d for d in config['dirs'] if d.rstrip('/') != '/data']
     settings_vars['forms'] = forms
     settings_vars['forms_json'] = json.dumps(forms)
     return bottle.template('settings', **settings_vars)
@@ -1570,6 +1599,8 @@ def save_settings():
         if val is not None:
             bottle.response.set_cookie(key, str(val), max_age=315360000, expires=315360000)
     for d in config['dirs']:
+        if d.rstrip('/') == '/data':
+            continue
         cookie_name = f"mount_{urlquote(d, '')}"
         mount_val = bottle.request.query.get(cookie_name)
         if mount_val is not None:

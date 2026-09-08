@@ -436,6 +436,59 @@ class TestContainerEndpoints(unittest.TestCase):
         s_data = json.loads(s_content)
         self.assertEqual(s_data.get("status"), "cancelled")
 
+    def test_settings_page_omits_data_mount_option(self):
+        """Verify settings page does not show /data mount option or section when only /data is present."""
+        status, html = self._http_request("/settings")
+        self.assertEqual(status, 200)
+        self.assertNotIn('name="mount_/data"', html)
+        self.assertNotIn('name="mount_data"', html)
+        self.assertNotIn('Directory Mounts &amp; Remote URLs', html)
+
+    def test_folder_scope_starts_with_contained_folders(self):
+        """Verify Folder Scope selector starts directly with folders in /data and omits /data/."""
+        status, html = self._http_request("/")
+        self.assertEqual(status, 200)
+        self.assertIn('id="folders"', html)
+        self.assertIn('value="&lt;all&gt;"', html)
+        self.assertIn('value="000">000</option>', html)
+        self.assertNotIn('value="data"', html)
+        self.assertNotIn('value="/data"', html)
+
+    def test_folder_scope_search_execution(self):
+        """Verify searches scoped with dir=000 execute successfully without /data/."""
+        status, html = self._http_request("/results?query=pdf&dir=000")
+        self.assertEqual(status, 200)
+        self.assertIn('dir:&quot;000&quot;', html)
+        self.assertIn('000979.doc', html)
+        self.assertNotIn('No matching database for search directory', html)
+
+    def test_search_results_omit_data_path(self):
+        """Verify search results, JSON export, and CSV export omit /data/ path."""
+        # 1. HTML search results for subfolder file
+        status, html = self._http_request("/results?query=" + urllib.parse.quote("filename:000979.doc"))
+        self.assertEqual(status, 200)
+        self.assertIn('title="file:///000/000979.doc">000</a>', html)
+        self.assertNotIn('/data/000', html)
+
+        # 2. HTML search results for root file in /data
+        status_root, html_root = self._http_request("/results?query=" + urllib.parse.quote("filename:000.pdf"))
+        self.assertEqual(status_root, 200)
+        self.assertIn('title="file:///000.pdf">/</a>', html_root)
+        self.assertNotIn('/data/000.pdf', html_root)
+
+        # 3. JSON export
+        status_json, content_json = self._http_request("/json?query=" + urllib.parse.quote("filename:000979.doc"))
+        self.assertEqual(status_json, 200)
+        json_data = json.loads(content_json)
+        self.assertEqual(len(json_data["results"]), 1)
+        self.assertEqual(json_data["results"][0]["url"], "file:///000/000979.doc")
+
+        # 4. CSV export
+        status_csv, content_csv = self._http_request("/csv?query=" + urllib.parse.quote("filename:000979.doc"))
+        self.assertEqual(status_csv, 200)
+        self.assertIn("file:///000/000979.doc", content_csv)
+        self.assertNotIn("file:///data/000/000979.doc", content_csv)
+
 
 if __name__ == "__main__":
     unittest.main()
