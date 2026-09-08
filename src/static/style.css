@@ -25,6 +25,7 @@
     --shadow-color: rgba(0, 0, 0, 0.4);
     --glow-color: rgba(139, 92, 246, 0.25);
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 /* Reset & Base */
@@ -669,7 +670,7 @@ input.form-control:focus {
     display: inline-block;
     color: rgba(255, 255, 255, 0.25);
     margin-right: 4px;
-    font-family: monospace;
+    font-family: var(--font-mono);
 }
 
 /* ==========================================================================
@@ -1095,7 +1096,7 @@ input.form-control:focus {
     border-radius: 6px;
     font-size: 0.75rem;
     color: var(--text-muted);
-    font-family: monospace;
+    font-family: var(--font-mono);
 }
 
 /* Pulse Dot */
@@ -1411,7 +1412,7 @@ input.form-control:focus {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.12);
     color: #cbd5e1;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
 }
 
 .result-label-filename svg {
@@ -2012,7 +2013,7 @@ select.form-preset-select:focus {
     border-radius: 8px;
     border: 1px solid rgba(139, 92, 246, 0.25);
     color: #c4b5fd;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.88rem;
     word-break: break-all;
     max-width: 100%;
@@ -2180,7 +2181,7 @@ select.form-preset-select:focus {
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--accent-hover);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
 }
 
 .archive-progress-track {
@@ -2465,7 +2466,7 @@ select.form-preset-select:focus {
 /* Custom Form Builder - Query Language Code Fields */
 .form-control-query,
 input.form-control-query {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-family: var(--font-mono) !important;
     font-size: 0.85rem !important;
     letter-spacing: 0.025em;
     background: rgba(10, 14, 26, 0.92) !important;
@@ -2478,7 +2479,7 @@ input.form-control-query {
 
 .form-control-query::placeholder {
     color: rgba(148, 163, 184, 0.5);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: var(--font-mono);
     font-style: italic;
     opacity: 1;
 }
@@ -2554,7 +2555,7 @@ input.form-control-query:active {
     padding: 10px 14px;
     min-height: 42px;
     box-sizing: border-box;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: var(--font-mono);
     font-size: 0.85rem;
     line-height: 20px;
     letter-spacing: 0.025em;
@@ -2619,7 +2620,7 @@ input.form-control-query:active {
     min-height: 46px !important;
     line-height: normal !important;
     font-size: 1.02rem !important;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-family: var(--font-mono) !important;
     letter-spacing: 0.025em !important;
     width: 100%;
     border-radius: 12px;
@@ -2657,7 +2658,7 @@ input.form-control-query:active {
 
 .query-editor-wrap input.form-control-query::placeholder {
     color: rgba(148, 163, 184, 0.5) !important;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-family: var(--font-mono);
     font-style: italic;
     opacity: 1;
 }
@@ -2808,7 +2809,7 @@ input.form-control-query:active {
 }
 
 .query-suggestion-snippet {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.82rem;
     font-weight: 600;
     color: #38bdf8;
@@ -2879,7 +2880,7 @@ input.form-control-query:active {
 
 #schema-fields-table td code {
     font-size: 0.85rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     background: rgba(255, 255, 255, 0.05);
     padding: 0.15rem 0.4rem;
     border-radius: 4px;
