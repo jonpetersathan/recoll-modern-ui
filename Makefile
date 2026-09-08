@@ -1,6 +1,6 @@
 NAME := recoll-modern-ui
 IMAGE := tenasi/$(NAME)
-VERSION := 0.3.0
+VERSION := 0.9.0
 BUILD_PATH := ./build
 CONTAINER_NAME := recoll
 PORT := 8080
@@ -37,7 +37,7 @@ test:
 		echo "Error: Container $(CONTAINER_NAME) is not running. Start it with 'make run' first." >&2; \
 		exit 1; \
 	fi
-	@echo "[1/4] Waiting for Web UI readiness..."
+	@echo "[1/6] Waiting for Web UI readiness..."
 	@for i in $$(seq 1 30); do \
 		if curl -s -f http://127.0.0.1:$(PORT)/ >/dev/null 2>&1; then \
 			echo "      Web UI is responding (attempt $$i)"; \
@@ -49,16 +49,18 @@ test:
 		fi; \
 		sleep 1; \
 	done
-	@echo "[2/4] Testing HTML UI root endpoint..."
+	@echo "[2/6] Testing HTML UI root endpoint..."
 	@curl -s -f http://127.0.0.1:$(PORT)/ | grep -q "Recoll" || { echo "Error: Root endpoint response did not contain expected content." >&2; exit 1; }
 	@echo "      Root endpoint OK (contains Recoll UI)"
-	@echo "[3/4] Testing Static Assets delivery..."
+	@echo "[3/6] Testing Static Assets delivery..."
 	@curl -s -f http://127.0.0.1:$(PORT)/static/style.css >/dev/null || { echo "Error: Failed to fetch static CSS." >&2; exit 1; }
 	@echo "      Static assets OK"
-	@echo "[4/4] Testing JSON API and Search Query..."
+	@echo "[4/6] Testing JSON API and Search Query..."
 	@curl -s -f "http://127.0.0.1:$(PORT)/json?query=000" | grep -q '"results"' || { echo "Error: JSON API query failed." >&2; exit 1; }
 	@echo "      JSON search endpoint OK"
-	@echo "[5/5] Testing Advanced Search, Form Builder, and JSON Persistence..."
+	@echo "[5/6] Testing Modular Architecture & Subsystems Unit Tests..."
+	@$(DOCKER) exec -i $(CONTAINER_NAME) python3 - < test/test_modular_units.py
+	@echo "[6/6] Testing Advanced Search, Form Builder, and Endpoints Integration..."
 	@$(DOCKER) exec -i -e RECOLL_TEST_URL=http://127.0.0.1:$(PORT) $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
 	@echo "All tests passed successfully!"
 
