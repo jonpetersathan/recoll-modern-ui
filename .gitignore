@@ -3,5 +3,5 @@
 *~
 __pycache__/
 .DS_Store
-test/data/000
-test/config/xapiandb
+test/data/
+test/config/

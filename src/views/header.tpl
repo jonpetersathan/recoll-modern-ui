@@ -21,7 +21,7 @@
                 </a>
                 <div class="header-title">
                     <h1><a href="./">Recoll Search</a></h1>
-                    <p>Blazing Fast File Index And Query Solution/p>
+                    <p>Blazing Fast File Index And Query Solution</p>
                 </div>
             </div>
             <div class="header-actions">
