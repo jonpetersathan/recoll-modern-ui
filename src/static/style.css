@@ -2697,13 +2697,17 @@ input.form-control-query:active {
     right: 0;
     height: 100%;
     box-sizing: border-box;
-    display: flex;
-    align-items: center;
+    display: block;
     padding: 0 16px 0 44px;
     min-height: 46px;
+    line-height: 46px;
     font-size: 1.02rem;
-    line-height: normal;
+    font-family: var(--font-mono);
     letter-spacing: 0.025em;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
     border: none;
 }
 
@@ -2740,7 +2744,7 @@ input.form-control-query:active {
     padding: 0 16px 0 44px !important;
     height: 100% !important;
     min-height: 46px !important;
-    line-height: normal !important;
+    line-height: 46px !important;
     font-size: 1.02rem !important;
     font-family: var(--font-mono) !important;
     letter-spacing: 0.025em !important;

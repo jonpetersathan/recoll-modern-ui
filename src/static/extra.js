@@ -710,7 +710,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         if (!inputEl.value) {
             backdrop.innerHTML = '';
         } else {
-            backdrop.innerHTML = highlightQuerySyntax(inputEl.value) + (inputEl.value.endsWith(' ') ? ' ' : '');
+            backdrop.innerHTML = highlightQuerySyntax(inputEl.value);
         }
         backdrop.scrollLeft = inputEl.scrollLeft;
     }
