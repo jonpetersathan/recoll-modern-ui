@@ -32,6 +32,12 @@ function initRecollApp() {
         }
         // Press 'Escape' to close open datepickers, open dropdowns, open modals, or blur active inputs
         if (e.key === 'Escape') {
+            const openQueryDropdowns = document.querySelectorAll('.query-autocomplete-dropdown');
+            if (openQueryDropdowns.length > 0) {
+                openQueryDropdowns.forEach(d => d.remove());
+                return;
+            }
+
             const openDatepickers = document.querySelectorAll('.custom-datepicker-popover.is-open');
             if (openDatepickers.length > 0) {
                 openDatepickers.forEach(p => p.classList.remove('is-open', 'drop-up'));
@@ -459,6 +465,282 @@ function compileQueryFromForm(form, container) {
 }
 
 // ============================================================================
+// Query Syntax Autocomplete & Real-Time Highlighting Engine
+// ============================================================================
+
+const QUERY_SUGGESTIONS_TEXT = [
+    { snippet: '{value}', desc: 'Standard search: match all entered words (AND)' },
+    { snippet: '"{value}"', desc: 'Exact phrase search: match terms in exact order' },
+    { snippet: 'filename:*{value}*', desc: 'Filename wildcard search (* matches any text)' },
+    { snippet: 'title:{value}', desc: 'Document title metadata field search' },
+    { snippet: 'author:{value}', desc: 'Author / creator metadata search' },
+    { snippet: 'dir:"{value}"', desc: 'Directory Scope: restrict search to folder path' },
+    { snippet: 'ext:{value}', desc: 'File extension match (e.g. ext:pdf)' },
+    { snippet: 'mime:{value}', desc: 'MIME type filter (e.g. mime:application/pdf)' },
+    { snippet: 'size>{value}', desc: 'Minimum file size threshold (e.g. 500k, 10m)' },
+    { snippet: 'size<{value}', desc: 'Maximum file size threshold (e.g. 1m, 50m)' },
+    { snippet: 'date:{value}', desc: 'Date range filter (e.g. 2026-01-01/2026-12-31)' },
+    { snippet: '"{value}"p4', desc: 'Proximity: match words within 4 words of each other' },
+    { snippet: '-{value}', desc: 'Exclusion / NOT operator (-word)' },
+    { snippet: '({value})', desc: 'Grouping clause: combine OR / AND sub-clauses' }
+];
+
+const QUERY_SUGGESTIONS_GENERAL = [
+    { snippet: 'mime:application/pdf', desc: 'PDF Documents (*.pdf)' },
+    { snippet: 'mime:application/msword', desc: 'Word Documents (*.doc)' },
+    { snippet: 'mime:application/vnd.openxmlformats-officedocument.wordprocessingml.document', desc: 'Word Documents (*.docx)' },
+    { snippet: 'mime:application/vnd.ms-excel', desc: 'Excel Spreadsheets (*.xls)' },
+    { snippet: 'mime:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', desc: 'Excel Spreadsheets (*.xlsx)' },
+    { snippet: 'mime:text/csv', desc: 'CSV Data Spreadsheets (*.csv)' },
+    { snippet: 'mime:text/html', desc: 'HTML Web Documents (*.html)' },
+    { snippet: 'mime:text/plain', desc: 'Plain Text Files (*.txt)' },
+    { snippet: 'mime:message/rfc822', desc: 'Email Messages (*.eml, *.msg)' },
+    { snippet: 'mime:audio/*', desc: 'All Audio & Music Formats' },
+    { snippet: 'mime:image/*', desc: 'All Image Formats (*.png, *.jpg)' },
+    { snippet: 'ext:pdf', desc: 'PDF file extension' },
+    { snippet: 'ext:docx', desc: 'DOCX file extension' },
+    { snippet: 'ext:xlsx', desc: 'XLSX file extension' },
+    { snippet: 'ext:csv', desc: 'CSV file extension' },
+    { snippet: 'ext:eml OR ext:msg', desc: 'Email file extensions' },
+    { snippet: 'dir:/archive', desc: 'Files inside /archive subfolder' },
+    { snippet: 'dir:/documents', desc: 'Files inside /documents subfolder' },
+    { snippet: 'filename:*report*', desc: 'Filename wildcard matching report' },
+    { snippet: 'filename:*INV*', desc: 'Filename wildcard matching invoice INV' },
+    { snippet: 'title:Invoice', desc: 'Document title metadata containing Invoice' },
+    { snippet: 'author:"John Doe"', desc: 'Author metadata field' },
+    { snippet: 'size>10m', desc: 'Files strictly larger than 10 Megabytes' },
+    { snippet: 'size<1m', desc: 'Files strictly smaller than 1 Megabyte' },
+    { snippet: 'NOT mime:application/zip', desc: 'Exclude ZIP compressed archives' },
+    { snippet: 'AND', desc: 'Boolean AND operator (both conditions must match)' },
+    { snippet: 'OR', desc: 'Boolean OR operator (either condition matches)' },
+    { snippet: 'NOT', desc: 'Boolean NOT operator (inverts next condition)' },
+    { snippet: '-', desc: 'Negation prefix to exclude term (e.g. -temp)' }
+];
+
+function highlightQuerySyntax(raw) {
+    if (!raw) return '';
+    const escaped = raw
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // 1: {value} placeholder
+    // 2: keywords: filename, title, author, mime, dir, ext, size, date, keyword, recipient, AND, OR, NOT
+    // 3: operators: * , / : ( ) " - + &gt; &lt; or p\d+
+    // 4: literal strings / words
+    const tokenRegex = /(\{value\})|(\b(?:filename|title|author|mime|dir|ext|size|date|keyword|recipient|AND|OR|NOT)\b)|([*:,/()"\-+]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+&{}]+)/g;
+
+    return escaped.replace(tokenRegex, (match, valPh, kw, op, word) => {
+        if (valPh) {
+            return `<span class="tok-val">${valPh}</span>`;
+        } else if (kw) {
+            return `<span class="tok-kw">${kw}</span>`;
+        } else if (op) {
+            return `<span class="tok-op">${op}</span>`;
+        } else if (word) {
+            return `<span class="tok-val">${word}</span>`;
+        }
+        return match;
+    });
+}
+
+function setupQueryFieldEditor(inputEl, contextType = 'general') {
+    if (!inputEl || inputEl.dataset.queryEditorInit) return;
+    inputEl.dataset.queryEditorInit = 'true';
+
+    // Wrap in .query-editor-wrap
+    const wrap = document.createElement('div');
+    wrap.className = 'query-editor-wrap';
+    inputEl.parentNode.insertBefore(wrap, inputEl);
+    wrap.appendChild(inputEl);
+
+    // Backdrop for real-time syntax highlighting
+    const backdrop = document.createElement('div');
+    backdrop.className = 'query-highlight-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    wrap.insertBefore(backdrop, inputEl);
+
+    function updateHighlight() {
+        if (!inputEl.value) {
+            backdrop.innerHTML = '';
+        } else {
+            backdrop.innerHTML = highlightQuerySyntax(inputEl.value) + (inputEl.value.endsWith(' ') ? ' ' : '');
+        }
+        backdrop.scrollLeft = inputEl.scrollLeft;
+    }
+
+    inputEl.addEventListener('input', updateHighlight);
+    inputEl.addEventListener('scroll', () => { backdrop.scrollLeft = inputEl.scrollLeft; });
+    inputEl.addEventListener('change', updateHighlight);
+    updateHighlight();
+
+    // Autocomplete Suggestions Dropdown
+    const suggestionsList = contextType === 'text' ? QUERY_SUGGESTIONS_TEXT : QUERY_SUGGESTIONS_GENERAL;
+    let dropdown = null;
+    let activeIdx = -1;
+    let currentMatches = [];
+
+    function closeDropdown() {
+        if (dropdown) {
+            dropdown.remove();
+            dropdown = null;
+            activeIdx = -1;
+            currentMatches = [];
+        }
+    }
+
+    function renderDropdown(matches) {
+        currentMatches = matches;
+        activeIdx = matches.length > 0 ? 0 : -1;
+
+        if (!dropdown || !dropdown.isConnected) {
+            dropdown = document.createElement('div');
+            dropdown.className = 'query-autocomplete-dropdown';
+            wrap.appendChild(dropdown);
+        }
+
+        const rect = wrap.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow < 280 && rect.top > 280) {
+            dropdown.classList.add('drop-up');
+        } else {
+            dropdown.classList.remove('drop-up');
+        }
+
+        dropdown.innerHTML = '';
+
+        const header = document.createElement('div');
+        header.className = 'query-autocomplete-header';
+        header.innerHTML = `<span>Query Syntax Suggestions</span><span>${matches.length} available</span>`;
+        dropdown.appendChild(header);
+
+        if (matches.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'query-suggestion-empty';
+            empty.textContent = 'No matching query operators found.';
+            dropdown.appendChild(empty);
+            return;
+        }
+
+        matches.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = `query-suggestion-item ${idx === activeIdx ? 'is-selected' : ''}`;
+            row.dataset.index = idx;
+            row.innerHTML = `
+                <span class="query-suggestion-snippet">${escapeHtml(item.snippet)}</span>
+                <span class="query-suggestion-desc">${escapeHtml(item.desc)}</span>
+            `;
+
+            row.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // prevent blur
+                selectSuggestion(item);
+            });
+            dropdown.appendChild(row);
+        });
+
+        scrollActiveIntoView();
+    }
+
+    function scrollActiveIntoView() {
+        if (!dropdown) return;
+        const selected = dropdown.querySelector('.query-suggestion-item.is-selected');
+        if (selected) {
+            selected.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function filterAndShow() {
+        const val = inputEl.value.trim().toLowerCase();
+        let matches;
+        if (!val) {
+            // When field is empty, show all available options
+            matches = suggestionsList;
+        } else {
+            matches = suggestionsList.filter(s =>
+                s.snippet.toLowerCase().includes(val) || s.desc.toLowerCase().includes(val)
+            );
+            if (matches.length === 0) {
+                const words = val.split(/[\s:/*]+/).filter(Boolean);
+                matches = suggestionsList.filter(s =>
+                    words.some(w => s.snippet.toLowerCase().includes(w) || s.desc.toLowerCase().includes(w))
+                );
+            }
+        }
+        renderDropdown(matches);
+    }
+
+    function selectSuggestion(item) {
+        inputEl.value = item.snippet;
+        updateHighlight();
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        closeDropdown();
+        inputEl.focus();
+    }
+
+    inputEl.addEventListener('focus', () => {
+        updateHighlight();
+        filterAndShow();
+    });
+
+    inputEl.addEventListener('click', () => {
+        updateHighlight();
+        if (!dropdown) filterAndShow();
+    });
+
+    inputEl.addEventListener('input', () => {
+        filterAndShow();
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+        if (!dropdown) {
+            if (e.key === 'ArrowDown' || (e.key === ' ' && e.ctrlKey)) {
+                filterAndShow();
+                e.preventDefault();
+            }
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (currentMatches.length > 0) {
+                activeIdx = (activeIdx + 1) % currentMatches.length;
+                updateSelectedRow();
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (currentMatches.length > 0) {
+                activeIdx = (activeIdx - 1 + currentMatches.length) % currentMatches.length;
+                updateSelectedRow();
+            }
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (activeIdx >= 0 && activeIdx < currentMatches.length) {
+                e.preventDefault();
+                e.stopPropagation();
+                selectSuggestion(currentMatches[activeIdx]);
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            closeDropdown();
+        }
+    });
+
+    function updateSelectedRow() {
+        if (!dropdown) return;
+        dropdown.querySelectorAll('.query-suggestion-item').forEach((row, idx) => {
+            row.classList.toggle('is-selected', idx === activeIdx);
+        });
+        scrollActiveIntoView();
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!wrap.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+}
+
+// ============================================================================
 // Settings Custom Form Builder & Manager
 // ============================================================================
 
@@ -682,27 +964,12 @@ function initSettingsFormManager() {
                 </div>
             </div>
 
-            <!-- Text Config: Operator Format -->
-            <div class="field-text-config" style="${fType === 'text' ? '' : 'display: none;'}">
-                <div class="settings-field" style="margin-top: 0.5rem;">
-                    <label class="settings-label">Query Operator / Target</label>
-                    <select class="form-control field-format-select">
-                        <option value="{value}" ${fFormat === '{value}' ? 'selected' : ''}>Search Terms (AND) - {value}</option>
-                        <option value='"{value}"' ${fFormat === '"{value}"' ? 'selected' : ''}>Exact Phrase - "{value}"</option>
-                        <option value="or_terms" ${fFormat === 'or_terms' ? 'selected' : ''}>Any Words (OR) - (word1 OR word2)</option>
-                        <option value="not_terms" ${fFormat === 'not_terms' ? 'selected' : ''}>Exclude Words (NOT) - -word1 -word2</option>
-                        <option value="proximity" ${fFormat === 'proximity' ? 'selected' : ''}>Proximity Search - "words"p4</option>
-                        <option value="title:{value}" ${fFormat === 'title:{value}' ? 'selected' : ''}>Document Title - title:{value}</option>
-                        <option value="author:{value}" ${fFormat === 'author:{value}' ? 'selected' : ''}>Author / Creator - author:{value}</option>
-                        <option value="filename:{value}" ${fFormat === 'filename:{value}' ? 'selected' : ''}>Filename / Wildcard - filename:{value}</option>
-                        <option value='dir:"{value}"' ${fFormat === 'dir:"{value}"' ? 'selected' : ''}>Directory Scope - dir:"{value}"</option>
-                        <option value="custom" ${!['{value}', '"{value}"', 'or_terms', 'not_terms', 'proximity', 'title:{value}', 'author:{value}', 'filename:{value}', 'dir:"{value}"'].includes(fFormat) ? 'selected' : ''}>Custom Pattern...</option>
-                    </select>
-                </div>
-                <div class="settings-field field-custom-format-wrap" style="${!['{value}', '"{value}"', 'or_terms', 'not_terms', 'proximity', 'title:{value}', 'author:{value}', 'filename:{value}', 'dir:"{value}"'].includes(fFormat) ? '' : 'display: none;'} margin-top: 0.5rem;">
-                    <label class="settings-label">Custom Query Pattern</label>
-                    <span class="settings-helper">Use {value} as placeholder, e.g. filename:*{value}*</span>
-                    <input class="form-control form-control-query field-custom-format-input" value="${escapeHtml(fFormat)}" spellcheck="false" autocomplete="off">
+            <!-- Text Config: Query Snippet -->
+            <div class="field-text-config" style="${fType === 'text' ? '' : 'display: none;'} margin-top: 0.5rem;">
+                <div class="settings-field">
+                    <label class="settings-label">Query Snippet</label>
+                    <span class="settings-helper">Use {value} as placeholder for user input, e.g. filename:*{value}* or title:{value}</span>
+                    <input class="form-control form-control-query field-custom-format-input" value="${escapeHtml(fFormat)}" placeholder="e.g. {value} or filename:*{value}*" spellcheck="false" autocomplete="off">
                 </div>
             </div>
 
@@ -752,8 +1019,6 @@ function initSettingsFormManager() {
         const checkboxConfig = card.querySelector('.field-checkbox-config');
         const selectConfig = card.querySelector('.field-select-config');
         const staticConfig = card.querySelector('.field-static-config');
-        const formatSelect = card.querySelector('.field-format-select');
-        const customFormatWrap = card.querySelector('.field-custom-format-wrap');
         const optionsTbody = card.querySelector('.options-tbody');
 
         function renderOptionRow(optLabel = '', optQuery = '') {
@@ -765,6 +1030,7 @@ function initSettingsFormManager() {
             `;
             tr.querySelector('.btn-del-opt').addEventListener('click', () => tr.remove());
             optionsTbody.appendChild(tr);
+            setupQueryFieldEditor(tr.querySelector('.opt-query-input'), 'general');
         }
 
         options.forEach(opt => {
@@ -785,9 +1051,9 @@ function initSettingsFormManager() {
             staticConfig.style.display = isStatic ? 'block' : 'none';
         });
 
-        formatSelect.addEventListener('change', () => {
-            customFormatWrap.style.display = formatSelect.value === 'custom' ? 'block' : 'none';
-        });
+        setupQueryFieldEditor(card.querySelector('.field-custom-format-input'), 'text');
+        setupQueryFieldEditor(card.querySelector('.field-checkbox-query-input'), 'general');
+        setupQueryFieldEditor(card.querySelector('.field-static-query-input'), 'general');
 
         // Reordering and deletion handlers
         card.querySelector('.btn-del-field').addEventListener('click', () => {
@@ -885,12 +1151,7 @@ function initSettingsFormManager() {
                 } else if (fType === 'static_query' || fType === 'static') {
                     fieldObj.query = card.querySelector('.field-static-query-input').value.trim();
                 } else {
-                    const fmtSelect = card.querySelector('.field-format-select').value;
-                    if (fmtSelect === 'custom') {
-                        fieldObj.query_format = card.querySelector('.field-custom-format-input').value.trim() || '{value}';
-                    } else {
-                        fieldObj.query_format = fmtSelect;
-                    }
+                    fieldObj.query_format = card.querySelector('.field-custom-format-input').value.trim() || '{value}';
                 }
                 fields.push(fieldObj);
             }
