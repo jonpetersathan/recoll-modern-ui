@@ -892,11 +892,15 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         header.innerHTML = `<span>${ctx.header}</span>`;
         dropdown.appendChild(header);
 
+        const listContainer = document.createElement('div');
+        listContainer.className = 'query-autocomplete-list';
+        dropdown.appendChild(listContainer);
+
         if (currentMatches.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'query-suggestion-empty';
             empty.textContent = 'No matching query operators found.';
-            dropdown.appendChild(empty);
+            listContainer.appendChild(empty);
             return;
         }
 
@@ -918,7 +922,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
                 e.preventDefault(); // prevent blur
                 selectSuggestion(item);
             });
-            dropdown.appendChild(row);
+            listContainer.appendChild(row);
         });
 
         scrollActiveIntoView();

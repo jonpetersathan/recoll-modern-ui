@@ -572,7 +572,7 @@ input.form-control:focus {
 
 /* Custom Scrollbar */
 .custom-select-menu::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
 }
 
 .custom-select-menu::-webkit-scrollbar-track {
@@ -581,12 +581,16 @@ input.form-control:focus {
 }
 
 .custom-select-menu::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.18);
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 .custom-select-menu::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.45);
+    background: rgba(168, 85, 247, 0.5);
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 .custom-select-menu::-webkit-scrollbar-button {
@@ -2268,12 +2272,12 @@ select.form-preset-select:focus {
 @supports not selector(::-webkit-scrollbar) {
     .modal-body {
         scrollbar-width: thin;
-        scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
     }
 }
 
 .modal-body::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
 }
 
 .modal-body::-webkit-scrollbar-track {
@@ -2282,12 +2286,16 @@ select.form-preset-select:focus {
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.3);
+    background: rgba(255, 255, 255, 0.18);
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 .modal-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.6);
+    background: rgba(168, 85, 247, 0.5);
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 .modal-body::-webkit-scrollbar-button {
@@ -2663,48 +2671,66 @@ input.form-control-query:active {
     left: 0;
     right: 0;
     min-width: 340px;
-    max-height: 250px;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    background: rgba(12, 16, 32, 0.97);
+    max-height: none;
+    overflow: hidden !important;
+    background: rgba(12, 16, 32, 0.98);
     border: 1px solid rgba(139, 92, 246, 0.45);
     border-radius: 10px;
     backdrop-filter: blur(14px);
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(139, 92, 246, 0.22);
     z-index: 1050;
-    padding: 6px;
+    padding: 6px 4px 6px 6px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
     animation: queryDropFade 0.15s ease-out;
 }
 
+.query-autocomplete-list {
+    max-height: 220px;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 4px;
+}
+
 @supports not selector(::-webkit-scrollbar) {
+    .query-autocomplete-list,
     .query-autocomplete-dropdown {
         scrollbar-width: thin !important;
-        scrollbar-color: rgba(139, 92, 246, 0.45) transparent !important;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent !important;
     }
 }
 
+.query-autocomplete-list::-webkit-scrollbar,
 .query-autocomplete-dropdown::-webkit-scrollbar {
-    width: 6px !important;
+    width: 8px !important;
     height: 0px !important;
 }
 
+.query-autocomplete-list::-webkit-scrollbar-track,
 .query-autocomplete-dropdown::-webkit-scrollbar-track {
     background: transparent !important;
-    margin: 6px 0 !important;
+    margin: 4px 0 !important;
 }
 
+.query-autocomplete-list::-webkit-scrollbar-thumb,
 .query-autocomplete-dropdown::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.45) !important;
+    background: rgba(255, 255, 255, 0.18) !important;
     border-radius: 9999px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
 }
 
+.query-autocomplete-list::-webkit-scrollbar-thumb:hover,
 .query-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.75) !important;
+    background: rgba(168, 85, 247, 0.5) !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
 }
 
+.query-autocomplete-list::-webkit-scrollbar-button,
 .query-autocomplete-dropdown::-webkit-scrollbar-button,
 ::-webkit-scrollbar-button {
     display: none !important;
@@ -2712,6 +2738,7 @@ input.form-control-query:active {
     height: 0 !important;
 }
 
+.query-autocomplete-list::-webkit-scrollbar-corner,
 .query-autocomplete-dropdown::-webkit-scrollbar-corner {
     background: transparent !important;
 }
