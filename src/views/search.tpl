@@ -92,9 +92,10 @@
                     <span>Folder Scope</span>
                 </label>
                 <select id="folders" name="dir" class="form-control">
-                %for d in sorted(dirs, key=str.lower):
+                %folder_list = [d for d in dirs if d != '<all>']
+                %for d in (['<all>'] if '<all>' in dirs else []) + sorted(folder_list, key=str.lower):
                     %space = "&nbsp;" * (4 * d.count('/'))
-                    %if d in query['dir']:
+                    %if d == query['dir']:
                     %selected = "selected"
                     %else:
                     %selected = ""

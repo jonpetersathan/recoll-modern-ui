@@ -84,6 +84,7 @@
             </div>
         </div>
 
+        %if dirs:
         <!-- Mounts & Locations -->
         <div class="settings-section">
             <div class="settings-section-title">
@@ -100,6 +101,7 @@
                 %end
             </div>
         </div>
+        %end
 
         <!-- Export & Integrations -->
         <div class="settings-section">

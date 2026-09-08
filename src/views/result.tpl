@@ -54,15 +54,22 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    %urllabel = d['url'].replace('file://', '')
-                    %if config.get('shortenpaths', 0):
-                        %if len(config.get('commonprefix', '')) > 0 and len(urllabel) > len(config['commonprefix']):
-                            %urllabel = urllabel.replace(config['commonprefix'], "")
+                    %raw_path = d['url'].replace('file://', '')
+                    %if raw_path.startswith('/data/'):
+                        %raw_path = raw_path[6:]
+                    %elif raw_path.startswith('/'):
+                        %raw_path = raw_path[1:]
+                    %end
+                    %if config.get('shortenpaths', 0) and len(config.get('commonprefix', '')) > 0:
+                        %if raw_path.startswith(config['commonprefix']):
+                            %raw_path = raw_path[len(config['commonprefix']):].lstrip('/')
                         %end
                     %end
-                    %urllabel = os.path.dirname(urllabel)
-                    %if len(urllabel) == 0:
-                        %urllabel = config.get('commonprefix', '/')
+                    %urldir = os.path.dirname(raw_path)
+                    %if len(urldir) == 0 or urldir == '.':
+                        %urllabel = '/'
+                    %else:
+                        %urllabel = urldir
                     %end
                     <a href="{{os.path.dirname(url)}}" title="{{d['url']}}">{{urllabel}}</a>
                 </div>
