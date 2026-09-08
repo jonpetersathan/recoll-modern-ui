@@ -131,11 +131,114 @@ SORT_OPTIONS: List[Tuple[str, str]] = [
 DOCUMENT_FIELDS: List[str] = [
     'abstract', 'author', 'collapsecount', 'dbytes', 'dmtime',
     'fbytes', 'filename', 'fmtime', 'ipath', 'keywords',
-    'mtime', 'mtype', 'origcharset', 'relevancyrating', 'sig',
+    'mtime', 'mtype', 'mtype_label', 'origcharset', 'relevancyrating', 'sig',
     'size', 'title', 'url', 'label', 'snippet', 'time',
 ]
 
 VALID_FILENAME_CHARS = f"_-{string.ascii_letters}{string.digits}"
+
+# Map of standard MIME types to user-friendly labels matching the dropdown scheme: Name (mime:<type>)
+MIME_LABELS: Dict[str, str] = {
+    # Documents
+    'application/pdf': 'PDF Document (mime:application/pdf)',
+    'text/plain': 'Plain Text (mime:text/plain)',
+    'text/html': 'HTML Document (mime:text/html)',
+    'application/msword': 'Word Document (mime:application/msword)',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document (mime:application/vnd.openxmlformats-officedocument.wordprocessingml.document)',
+    'application/vnd.wordperfect': 'WordPerfect Document (mime:application/vnd.wordperfect)',
+    'text/rtf': 'Rich Text (mime:text/rtf)',
+    'application/rtf': 'Rich Text (mime:application/rtf)',
+    'application/vnd.oasis.opendocument.text': 'OpenDocument Text (mime:application/vnd.oasis.opendocument.text)',
+    'application/vnd.oasis.opendocument.spreadsheet': 'Spreadsheet (mime:application/vnd.oasis.opendocument.spreadsheet)',
+    'application/vnd.oasis.opendocument.presentation': 'Presentation (mime:application/vnd.oasis.opendocument.presentation)',
+
+    # Spreadsheets & Databases
+    'application/vnd.ms-excel': 'Spreadsheet (mime:application/vnd.ms-excel)',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Spreadsheet (mime:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)',
+    'text/x-csv': 'Spreadsheet (mime:text/x-csv)',
+    'text/csv': 'Spreadsheet (mime:text/csv)',
+    'application/x-dbf': 'Database File (mime:application/x-dbf)',
+
+    # Presentations
+    'application/vnd.ms-powerpoint': 'Presentation (mime:application/vnd.ms-powerpoint)',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'Presentation (mime:application/vnd.openxmlformats-officedocument.presentationml.presentation)',
+
+    # Source code & Data
+    'text/x-python': 'Python Source (mime:text/x-python)',
+    'text/x-java': 'Java Source (mime:text/x-java)',
+    'text/x-c': 'C Source (mime:text/x-c)',
+    'text/x-c++': 'C++ Source (mime:text/x-c++)',
+    'text/x-fortran': 'Fortran Source (mime:text/x-fortran)',
+    'text/x-shellscript': 'Shell Script (mime:text/x-shellscript)',
+    'text/xml': 'XML Document (mime:text/xml)',
+    'application/xml': 'XML Document (mime:application/xml)',
+    'application/json': 'JSON Document (mime:application/json)',
+    'application/javascript': 'JavaScript Source (mime:application/javascript)',
+    'text/javascript': 'JavaScript Source (mime:text/javascript)',
+    'text/markdown': 'Markdown Document (mime:text/markdown)',
+
+    # Archives
+    'application/zip': 'Archive (mime:application/zip)',
+    'application/x-tar': 'Archive (mime:application/x-tar)',
+    'application/gzip': 'Archive (mime:application/gzip)',
+    'application/x-bzip2': 'Archive (mime:application/x-bzip2)',
+    'application/x-7z-compressed': 'Archive (mime:application/x-7z-compressed)',
+    'application/x-rar-compressed': 'Archive (mime:application/x-rar-compressed)',
+
+    # Media & Images
+    'application/postscript': 'PostScript Document (mime:application/postscript)',
+    'application/x-shockwave-flash': 'Flash File (mime:application/x-shockwave-flash)',
+    'image/fits': 'FITS Image (mime:image/fits)',
+    'image/jpeg': 'JPEG Image (mime:image/jpeg)',
+    'image/png': 'PNG Image (mime:image/png)',
+    'image/gif': 'GIF Image (mime:image/gif)',
+    'image/svg+xml': 'SVG Image (mime:image/svg+xml)',
+    'image/webp': 'WebP Image (mime:image/webp)',
+    'image/tiff': 'TIFF Image (mime:image/tiff)',
+    'audio/mpeg': 'Audio / Media (mime:audio/mpeg)',
+    'audio/x-wav': 'Audio / Media (mime:audio/x-wav)',
+    'audio/ogg': 'Audio / Media (mime:audio/ogg)',
+    'audio/flac': 'Audio / Media (mime:audio/flac)',
+    'video/mp4': 'Video / Media (mime:video/mp4)',
+    'video/quicktime': 'Video / Media (mime:video/quicktime)',
+
+    # Generic
+    'inode/directory': 'Directory (mime:inode/directory)',
+    'application/octet-stream': 'Binary Data (mime:application/octet-stream)',
+}
+
+
+def format_mimetype_label(mtype: str, filename: str = '') -> str:
+    """Format MIME type into human-readable label matching the dropdown scheme: Name (mime:<type>)."""
+    clean = (mtype or '').strip()
+    if (not clean or clean == 'application/octet-stream') and filename:
+        guessed, _ = mimetypes.guess_type(filename)
+        if guessed:
+            clean = guessed
+
+    if not clean:
+        ext = os.path.splitext(filename)[1].lstrip('.').lower()
+        return f"{ext.upper()} File (ext:{ext})" if ext else "Unknown File"
+
+    if clean in MIME_LABELS:
+        return MIME_LABELS[clean]
+
+    if clean.startswith('audio/'):
+        return f"Audio / Media (mime:{clean})"
+    if clean.startswith('video/'):
+        return f"Video / Media (mime:{clean})"
+    if clean.startswith('image/'):
+        subtype = clean.split('/', 1)[1].replace('x-', '').replace('-', ' ').title()
+        return f"{subtype} Image (mime:{clean})"
+    if clean.startswith('text/'):
+        subtype = clean.split('/', 1)[1].replace('x-', '').replace('-', ' ').title()
+        return f"{subtype} (mime:{clean})"
+    if '/' in clean:
+        major, minor = clean.split('/', 1)
+        clean_sub = minor.replace('vnd.', '').replace('x-', '').replace('-', ' ').title()
+        return f"{clean_sub} Document (mime:{clean})"
+
+    return f"Document (mime:{clean})"
 
 
 def sanitize_filename(filename: str) -> str:
@@ -841,6 +944,9 @@ class RecollSearchEngine:
             item['sha'] = hashlib.sha1(f"{item.get('url', '')}{item.get('ipath', '')}".encode('utf-8')).hexdigest()
             item['time'] = format_timestamp(str(item.get('mtime', 0)), config['timefmt'])
             item['rcludi'] = getattr(doc, 'rcludi', '')
+            if not item.get('filename') and item.get('url'):
+                item['filename'] = os.path.basename(item['url'].split('#')[0])
+            item['mtype_label'] = format_mimetype_label(item.get('mtype', ''), item.get('filename', ''))
 
             # Snippet abstract generation
             if query_data.get('snippets', 1):

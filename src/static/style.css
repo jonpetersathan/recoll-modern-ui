@@ -1322,31 +1322,102 @@ input.form-control:focus {
     color: var(--text-muted);
 }
 
-/* URL Breadcrumb */
+/* URL Breadcrumb & Meta Labels */
 .search-result-url {
     display: flex;
     align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
     font-size: 0.82rem;
-    margin-top: 4px;
-    overflow-wrap: break-word;
-    word-break: break-all;
+    margin-top: 5px;
+    line-height: 1.4;
 }
 
-.search-result-url svg {
+.result-path-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.result-path-wrap svg,
+.search-result-url > svg {
     width: 13px;
     height: 13px;
     color: #10b981;
     flex-shrink: 0;
 }
 
+.result-path-wrap a,
 .search-result-url a {
     color: #34d399;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.15s ease;
+    overflow-wrap: break-word;
+    word-break: break-all;
 }
 
+.result-path-wrap a:hover,
 .search-result-url a:hover {
     color: #6ee7b7;
     text-decoration: underline;
+}
+
+/* Result Meta Labels next to green path */
+.result-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 6px;
+    line-height: 1.3;
+    white-space: nowrap;
+    user-select: text;
+    transition: all 0.2s ease;
+}
+
+.result-label svg {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+}
+
+/* Full Filename Label */
+.result-label-filename {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.result-label-filename svg {
+    color: #94a3b8;
+}
+
+.result-label-filename:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+/* MIME Type Label (matching dropdown scheme) */
+.result-label-mtype {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.28);
+    color: #c084fc;
+}
+
+.result-label-mtype svg {
+    color: var(--accent);
+}
+
+.result-label-mtype:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.45);
+    color: #f3e8ff;
 }
 
 /* Snippet */

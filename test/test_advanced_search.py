@@ -676,6 +676,32 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertIn("file:///000/000979.doc", content_csv)
         self.assertNotIn("file:///data/000/000979.doc", content_csv)
 
+    def test_search_results_filename_and_mime_labels(self):
+        """Verify search results display full filename and MIME type labels matching dropdown scheme."""
+        # 1. Test Word Document (.doc)
+        status_doc, html_doc = self._http_request("/results?query=" + urllib.parse.quote("filename:000979.doc"))
+        self.assertEqual(status_doc, 200)
+        self.assertIn('class="result-label result-label-filename"', html_doc)
+        self.assertIn('>000979.doc<', html_doc)
+        self.assertIn('class="result-label result-label-mtype"', html_doc)
+        self.assertIn('Word Document (mime:application/msword)', html_doc)
+
+        # 2. Test PDF Document (.pdf)
+        status_pdf, html_pdf = self._http_request("/results?query=" + urllib.parse.quote("filename:000.pdf"))
+        self.assertEqual(status_pdf, 200)
+        self.assertIn('class="result-label result-label-filename"', html_pdf)
+        self.assertIn('>000.pdf<', html_pdf)
+        self.assertIn('class="result-label result-label-mtype"', html_pdf)
+        self.assertIn('PDF Document (mime:application/pdf)', html_pdf)
+
+        # 3. Test JSON search endpoint exposes mtype_label
+        status_json, content_json = self._http_request("/json?query=" + urllib.parse.quote("filename:000979.doc"))
+        self.assertEqual(status_json, 200)
+        res_json = json.loads(content_json)
+        self.assertEqual(len(res_json["results"]), 1)
+        self.assertEqual(res_json["results"][0]["filename"], "000979.doc")
+        self.assertEqual(res_json["results"][0]["mtype_label"], "Word Document (mime:application/msword)")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,27 +51,50 @@
                     %end
                 </div>
                 <div class="search-result-url">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    %raw_path = d['url'].replace('file://', '')
-                    %if raw_path.startswith('/data/'):
-                        %raw_path = raw_path[6:]
-                    %elif raw_path.startswith('/'):
-                        %raw_path = raw_path[1:]
-                    %end
-                    %if config.get('shortenpaths', 0) and len(config.get('commonprefix', '')) > 0:
-                        %if raw_path.startswith(config['commonprefix']):
-                            %raw_path = raw_path[len(config['commonprefix']):].lstrip('/')
+                    <span class="result-path-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        %raw_path = d['url'].replace('file://', '')
+                        %if raw_path.startswith('/data/'):
+                            %raw_path = raw_path[6:]
+                        %elif raw_path.startswith('/'):
+                            %raw_path = raw_path[1:]
                         %end
+                        %if config.get('shortenpaths', 0) and len(config.get('commonprefix', '')) > 0:
+                            %if raw_path.startswith(config['commonprefix']):
+                                %raw_path = raw_path[len(config['commonprefix']):].lstrip('/')
+                            %end
+                        %end
+                        %urldir = os.path.dirname(raw_path)
+                        %if len(urldir) == 0 or urldir == '.':
+                            %urllabel = '/'
+                        %else:
+                            %urllabel = urldir
+                        %end
+                        <a href="{{os.path.dirname(url)}}" title="{{d['url']}}">{{urllabel}}</a>
+                    </span>
+                    %res_filename = d.get('filename') or os.path.basename(d['url'].split('#')[0]) or ''
+                    %if res_filename:
+                    <span class="result-label result-label-filename" title="Full filename: {{res_filename}}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                            <polyline points="13 2 13 9 20 9"></polyline>
+                        </svg>
+                        <span class="result-label-text">{{res_filename}}</span>
+                    </span>
                     %end
-                    %urldir = os.path.dirname(raw_path)
-                    %if len(urldir) == 0 or urldir == '.':
-                        %urllabel = '/'
-                    %else:
-                        %urllabel = urldir
+                    %res_mtype = d.get('mtype_label') or d.get('mtype', '')
+                    %if res_mtype:
+                    <span class="result-label result-label-mtype" title="MIME file type: {{res_mtype}}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                        <span class="result-label-text">{{res_mtype}}</span>
+                    </span>
                     %end
-                    <a href="{{os.path.dirname(url)}}" title="{{d['url']}}">{{urllabel}}</a>
                 </div>
             </div>
         </div>
