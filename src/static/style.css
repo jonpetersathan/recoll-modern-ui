@@ -187,8 +187,22 @@ header.app-header {
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 8px 32px var(--shadow-color);
     position: relative;
+    z-index: 50;
     overflow: visible;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-card:focus-within,
+.search-card:has(.query-autocomplete-dropdown),
+.search-card.has-active-dropdown {
+    z-index: 1000;
+}
+
+#search-form:focus-within,
+#search-form:has(.query-autocomplete-dropdown),
+#search-form.has-active-dropdown {
+    position: relative;
+    z-index: 1000;
 }
 
 .search-card:hover {
@@ -1055,6 +1069,8 @@ input.form-control:focus {
 
 /* Status / Results Summary Bar */
 .status-bar {
+    position: relative;
+    z-index: 1;
     width: 100%;
     display: flex;
     justify-content: space-between;
@@ -1161,6 +1177,8 @@ input.form-control:focus {
 
 /* Results Container */
 .results-container {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -1520,6 +1538,8 @@ input.form-control:focus {
 
 /* Pagination / Tab Navigation */
 .pagination-wrapper {
+    position: relative;
+    z-index: 1;
     width: 100%;
     display: flex;
     justify-content: center;
@@ -2706,11 +2726,10 @@ input.form-control-query:active {
     min-width: 340px;
     max-height: none;
     overflow: hidden !important;
-    background: rgba(12, 16, 32, 0.98);
+    background: #0d1222;
     border: 1px solid rgba(139, 92, 246, 0.45);
     border-radius: 10px;
-    backdrop-filter: blur(14px);
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(139, 92, 246, 0.22);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(139, 92, 246, 0.22);
     z-index: 1050;
     padding: 6px 4px 6px 6px;
     display: flex;

@@ -722,6 +722,14 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         if (parentQueryInputWrap && !parentQueryInputWrap.querySelector('.query-autocomplete-dropdown')) {
             parentQueryInputWrap.classList.remove('has-active-dropdown');
         }
+        const parentSearchCard = wrap.closest('.search-card');
+        if (parentSearchCard && !parentSearchCard.querySelector('.query-autocomplete-dropdown')) {
+            parentSearchCard.classList.remove('has-active-dropdown');
+        }
+        const parentSearchForm = wrap.closest('#search-form');
+        if (parentSearchForm && !parentSearchForm.querySelector('.query-autocomplete-dropdown')) {
+            parentSearchForm.classList.remove('has-active-dropdown');
+        }
         activeIdx = -1;
         currentContext = null;
         currentMatches = [];
@@ -889,6 +897,10 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
         if (parentRow) parentRow.classList.add('has-active-dropdown');
         const parentQueryInputWrap = wrap.closest('.query-input-wrap');
         if (parentQueryInputWrap) parentQueryInputWrap.classList.add('has-active-dropdown');
+        const parentSearchCard = wrap.closest('.search-card');
+        if (parentSearchCard) parentSearchCard.classList.add('has-active-dropdown');
+        const parentSearchForm = wrap.closest('#search-form');
+        if (parentSearchForm) parentSearchForm.classList.add('has-active-dropdown');
 
         const rect = wrap.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
