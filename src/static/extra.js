@@ -702,7 +702,7 @@ function initSettingsFormManager() {
                 <div class="settings-field field-custom-format-wrap" style="${!['{value}', '"{value}"', 'or_terms', 'not_terms', 'proximity', 'title:{value}', 'author:{value}', 'filename:{value}', 'dir:"{value}"'].includes(fFormat) ? '' : 'display: none;'} margin-top: 0.5rem;">
                     <label class="settings-label">Custom Query Pattern</label>
                     <span class="settings-helper">Use {value} as placeholder, e.g. filename:*{value}*</span>
-                    <input class="form-control field-custom-format-input" value="${escapeHtml(fFormat)}">
+                    <input class="form-control form-control-query field-custom-format-input" value="${escapeHtml(fFormat)}" spellcheck="false" autocomplete="off">
                 </div>
             </div>
 
@@ -710,7 +710,7 @@ function initSettingsFormManager() {
             <div class="field-checkbox-config" style="${fType === 'checkbox' ? '' : 'display: none;'} margin-top: 0.5rem;">
                 <div class="settings-field">
                     <label class="settings-label">Query Snippet When Checked</label>
-                    <input class="form-control field-checkbox-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. mime:application/pdf">
+                    <input class="form-control form-control-query field-checkbox-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. mime:application/pdf" spellcheck="false" autocomplete="off">
                 </div>
             </div>
 
@@ -719,7 +719,7 @@ function initSettingsFormManager() {
                 <div class="settings-field">
                     <label class="settings-label">Static Recoll Query *</label>
                     <span class="settings-helper">This query clause is automatically added to searches using this form (not visible in the search form)</span>
-                    <input class="form-control field-static-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. dir:/archive OR mime:application/pdf">
+                    <input class="form-control form-control-query field-static-query-input" value="${escapeHtml(fQuery)}" placeholder="e.g. dir:/archive OR mime:application/pdf" spellcheck="false" autocomplete="off">
                 </div>
             </div>
 
@@ -760,7 +760,7 @@ function initSettingsFormManager() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input class="form-control opt-label-input" value="${escapeHtml(optLabel)}" placeholder="e.g. Invoices" required></td>
-                <td><input class="form-control opt-query-input" value="${escapeHtml(optQuery)}" placeholder="e.g. filename:*INV*"></td>
+                <td><input class="form-control form-control-query opt-query-input" value="${escapeHtml(optQuery)}" placeholder="e.g. filename:*INV*" spellcheck="false" autocomplete="off"></td>
                 <td style="text-align: center;"><button type="button" class="btn-icon btn-icon-danger btn-del-opt">&times;</button></td>
             `;
             tr.querySelector('.btn-del-opt').addEventListener('click', () => tr.remove());

@@ -2343,6 +2343,41 @@ footer.app-footer {
     font-size: 0.88rem;
 }
 
+/* Custom Form Builder - Query Language Code Fields */
+.form-control-query,
+input.form-control-query {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.025em;
+    background: rgba(10, 14, 26, 0.92) !important;
+    border: 1px solid rgba(139, 92, 246, 0.38) !important;
+    color: #38bdf8 !important;
+    border-radius: 8px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.form-control-query::placeholder {
+    color: rgba(148, 163, 184, 0.5);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-style: italic;
+    opacity: 1;
+}
+
+.form-control-query:focus,
+input.form-control-query:focus {
+    background: rgba(8, 12, 24, 0.98) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28), 0 0 14px rgba(139, 92, 246, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+    color: #f8fafc !important;
+    outline: none !important;
+}
+
+.options-table .form-control.form-control-query {
+    font-size: 0.84rem !important;
+    padding: 8px 12px;
+}
+
 /* Schema Viewer Modal Table */
 #schema-fields-table table {
     width: 100%;
