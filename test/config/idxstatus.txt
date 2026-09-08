@@ -1,8 +1,0 @@
-phase = 7
-docsdone = 906
-filesdone = 860
-fileerrors = 23
-dbtotdocs = 906
-totfiles = 860
-fn = 
-hasmonitor = 0
