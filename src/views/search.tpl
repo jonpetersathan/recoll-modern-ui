@@ -93,11 +93,12 @@
                     </svg>
                     <span>Folder Scope</span>
                 </label>
-                <select id="folders" name="dir" class="form-control">
+                <select id="folders" name="dir" class="form-control" multiple>
                 %folder_list = [d for d in dirs if d != '<all>']
+                %active_dirs = query.get('dirs') if 'dirs' in query else ([query['dir']] if isinstance(query.get('dir'), str) else query.get('dir', ['<all>']))
                 %for d in (['<all>'] if '<all>' in dirs else []) + sorted(folder_list, key=str.lower):
                     %space = "&nbsp;" * (4 * d.count('/'))
-                    %if d == query['dir']:
+                    %if d in active_dirs or (d == '<all>' and ('<all>' in active_dirs or not active_dirs)):
                     %selected = "selected"
                     %else:
                     %selected = ""

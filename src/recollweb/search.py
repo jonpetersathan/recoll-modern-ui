@@ -4,6 +4,7 @@ Recoll search query compilation, database interaction, and result extraction.
 
 import datetime
 import hashlib
+import json
 import os
 import urllib.parse
 import urllib.request
@@ -30,13 +31,47 @@ class SearchQuery:
         """
         req = bottle.request.query
         def_sort_idx = config.get('defsortidx', 0) if config else 0
-        raw_dir = (req.get('dir') or '<all>').strip()
-        if raw_dir.startswith('/data/'):
-            raw_dir = raw_dir[len('/data/'):]
-        elif raw_dir.startswith('data/'):
-            raw_dir = raw_dir[len('data/'):]
-        elif raw_dir in ('/data', 'data'):
-            raw_dir = '<all>'
+
+        # Collect directory values from query string
+        raw_dirs_input = req.getall('dir')
+        if not raw_dirs_input:
+            # Check session persistence cookie
+            cookie_val = bottle.request.get_cookie('recoll_folder_scope')
+            if cookie_val:
+                try:
+                    decoded_cookie = urllib.parse.unquote(cookie_val)
+                    parsed = json.loads(decoded_cookie)
+                    if isinstance(parsed, list):
+                        raw_dirs_input = [str(p) for p in parsed]
+                    elif isinstance(parsed, str):
+                        raw_dirs_input = [parsed]
+                except Exception:
+                    raw_dirs_input = [s.strip() for s in cookie_val.split(',') if s.strip()]
+
+        cleaned_dirs: List[str] = []
+        for raw in raw_dirs_input:
+            if not raw:
+                continue
+            r = str(raw).strip()
+            if r.startswith('/data/'):
+                r = r[len('/data/'):]
+            elif r.startswith('data/'):
+                r = r[len('data/'):]
+            elif r in ('/data', 'data'):
+                r = '<all>'
+            if r and r not in cleaned_dirs:
+                cleaned_dirs.append(r)
+
+        if not cleaned_dirs or ('<all>' in cleaned_dirs and len(cleaned_dirs) == 1):
+            dir_val: Any = '<all>'
+            dirs_val = ['<all>']
+        elif '<all>' in cleaned_dirs and len(cleaned_dirs) > 1:
+            specific = [d for d in cleaned_dirs if d != '<all>']
+            dir_val = specific[0] if len(specific) == 1 else specific
+            dirs_val = specific
+        else:
+            dir_val = cleaned_dirs[0] if len(cleaned_dirs) == 1 else cleaned_dirs
+            dirs_val = cleaned_dirs
 
         def safe_int(value: Any, default: int) -> int:
             try:
@@ -48,7 +83,8 @@ class SearchQuery:
             'query': req.get('query', '').strip(),
             'before': req.get('before', '').strip(),
             'after': req.get('after', '').strip(),
-            'dir': raw_dir,
+            'dir': dir_val,
+            'dirs': dirs_val,
             'sort': req.get('sort') or SORT_OPTIONS[def_sort_idx][0],
             'ascending': safe_int(req.get('ascending', 0), 0),
             'page': safe_int(req.get('page', 1), 1),
@@ -63,15 +99,31 @@ class SearchQuery:
     def to_recoll_string(query_data: Dict[str, Any]) -> str:
         """
         Build Recoll query string from search query dictionary.
+        Combines multiple directory scopes with OR logic: (dir:"..." OR dir:"...").
         """
         qs = query_data.get('query', '')
         after = query_data.get('after', '')
         before = query_data.get('before', '')
         if after or before:
             qs += f" date:{after}/{before}"
-        scope_dir = query_data.get('dir', '<all>')
-        if scope_dir != '<all>':
-            qs += f' dir:"{scope_dir}" '
+
+        scope_dirs = query_data.get('dirs')
+        if scope_dirs is None:
+            scope_dir = query_data.get('dir', '<all>')
+            if isinstance(scope_dir, (list, tuple, set)):
+                scope_dirs = list(scope_dir)
+            elif scope_dir and scope_dir != '<all>':
+                scope_dirs = [scope_dir]
+            else:
+                scope_dirs = []
+
+        valid_dirs = [d.strip() for d in scope_dirs if d and d.strip() != '<all>']
+        if len(valid_dirs) == 1:
+            qs += f' dir:"{valid_dirs[0]}" '
+        elif len(valid_dirs) > 1:
+            dir_or_clause = " OR ".join([f'dir:"{d}"' for d in valid_dirs])
+            qs += f' ({dir_or_clause}) '
+
         return qs.strip()
 
 
@@ -259,17 +311,29 @@ class RecollSearchEngine:
         conf_dir = config['confdir']
         extra_dbs: List[bytes] = []
 
-        scope_dir = query_data.get('dir', '<all>')
-        if scope_dir == '<all>':
+        scope_dirs = query_data.get('dirs')
+        if scope_dirs is None:
+            scope_dir = query_data.get('dir', '<all>')
+            if isinstance(scope_dir, (list, tuple, set)):
+                scope_dirs = list(scope_dir)
+            elif scope_dir and scope_dir != '<all>':
+                scope_dirs = [scope_dir]
+            else:
+                scope_dirs = []
+
+        valid_dirs = [d.strip() for d in scope_dirs if d and d.strip() != '<all>']
+        if not valid_dirs:
             if config.get('extraconfdirs'):
                 extra_dbs.extend(config['extradbs'])
         else:
-            matching_confs = [
-                conf for d, conf in config['dirs'].items()
-                if os.path.commonprefix([os.path.basename(d), scope_dir]) == os.path.basename(d)
-                or d.rstrip('/') == '/data'
-                or os.path.exists(os.path.join(d, scope_dir))
-            ]
+            matching_confs = []
+            for s_dir in valid_dirs:
+                for d, conf in config['dirs'].items():
+                    if (os.path.commonprefix([os.path.basename(d), s_dir]) == os.path.basename(d)
+                        or d.rstrip('/') == '/data'
+                        or os.path.exists(os.path.join(d, s_dir))):
+                        if conf not in matching_confs:
+                            matching_confs.append(conf)
             if not matching_confs:
                 conf_dir = config['confdir']
             else:

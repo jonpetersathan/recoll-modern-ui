@@ -219,6 +219,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "id": "filetype",
             "label": "File Format",
             "type": "select",
+            "multiple": True,
             "helper": "Filter documents by MIME type or file extension",
             "options": [
                 {"label": "Any Format", "query": ""},

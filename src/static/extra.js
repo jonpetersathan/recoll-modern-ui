@@ -79,6 +79,7 @@ function initRecollApp() {
     initSettingsFormManager();
     initFilesDownload();
     initCustomSelects();
+    initFolderScopePersistence();
     initCustomDatepicker();
     initMainQueryEditor();
     initIndexConfig();
@@ -466,6 +467,8 @@ function initAdvancedSearch() {
             if (!fId) return;
             if (input.type === 'checkbox') {
                 values[fId] = input.checked;
+            } else if (input.multiple) {
+                values[fId] = Array.from(input.selectedOptions).map(o => o.value);
             } else {
                 values[fId] = input.value;
             }
@@ -508,15 +511,21 @@ function initAdvancedSearch() {
             const helperHtml = field.helper ? `<span class="field-helper">${escapeHtml(field.helper)}</span>` : '';
 
             if (field.type === 'select') {
+                const isMulti = field.id === 'filetype' || !!field.multiple;
                 let optionsHtml = '';
-                const savedVal = savedValues[field.id] !== undefined ? savedValues[field.id] : '';
+                const savedVal = savedValues[field.id];
                 (field.options || []).forEach(opt => {
-                    const isSelected = String(opt.query || '') === String(savedVal);
+                    let isSelected = false;
+                    if (Array.isArray(savedVal)) {
+                        isSelected = savedVal.includes(opt.query || '');
+                    } else if (savedVal !== undefined && savedVal !== null && savedVal !== '') {
+                        isSelected = String(opt.query || '') === String(savedVal);
+                    }
                     optionsHtml += `<option value="${escapeHtml(opt.query || '')}" ${isSelected ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`;
                 });
                 card.innerHTML = `
                     ${labelHtml}
-                    <select id="${fieldId}" data-field-id="${escapeHtml(field.id)}" class="form-control advanced-field-input">
+                    <select id="${fieldId}" data-field-id="${escapeHtml(field.id)}" class="form-control advanced-field-input" ${isMulti ? 'multiple' : ''}>
                         ${optionsHtml}
                     </select>
                     ${helperHtml}
@@ -725,8 +734,25 @@ function compileQueryFromForm(form, container) {
         if (!input) return;
 
         if (field.type === 'select') {
-            const val = (input.value || '').trim();
-            if (val) clauses.push(val);
+            if (input.multiple) {
+                const selectedOpts = Array.from(input.selectedOptions)
+                    .map(o => (o.value || '').trim())
+                    .filter(v => v !== '' && v !== '<all>');
+                if (selectedOpts.length === 1) {
+                    clauses.push(selectedOpts[0]);
+                } else if (selectedOpts.length > 1) {
+                    const terms = selectedOpts.map(val => {
+                        if ((val.includes(' OR ') || val.includes(' AND ')) && (!val.startsWith('(') || !val.endsWith(')'))) {
+                            return `(${val})`;
+                        }
+                        return val;
+                    });
+                    clauses.push(`(${terms.join(' OR ')})`);
+                }
+            } else {
+                const val = (input.value || '').trim();
+                if (val && val !== '<all>') clauses.push(val);
+            }
         } else if (field.type === 'toggle' || field.type === 'checkbox') {
             if (input.checked) {
                 const q = (field.query || input.dataset.query || '').trim();
@@ -1885,6 +1911,12 @@ function initSettingsFormManager() {
 
             <!-- Select Options Config -->
             <div class="field-select-config" style="${fType === 'select' ? '' : 'display: none;'}">
+                <div class="settings-field" style="margin-bottom: 0.75rem;">
+                    <label class="glass-switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="field-multiple-toggle" ${fieldData.multiple ? 'checked' : ''}>
+                        <span class="settings-label" style="margin-bottom: 0;">Allow Multi-Choice (Select Multiple Entries)</span>
+                    </label>
+                </div>
                 <div class="options-header">
                     <span class="settings-label">Dropdown Options (Label &rarr; Recoll Query)</span>
                     <button type="button" class="btn btn-secondary btn-sm btn-add-option">
@@ -2058,6 +2090,10 @@ function initSettingsFormManager() {
                 };
 
                 if (fType === 'select') {
+                    const multiToggle = card.querySelector('.field-multiple-toggle');
+                    if (multiToggle) {
+                        fieldObj.multiple = !!multiToggle.checked;
+                    }
                     const optionRows = card.querySelectorAll('.options-tbody tr');
                     const options = [];
                     optionRows.forEach(row => {
@@ -2326,17 +2362,22 @@ function initCustomSelects(root = document) {
 
     selects.forEach(select => {
         select.dataset.customized = 'true';
+        const isMultiple = select.multiple || select.hasAttribute('multiple');
 
         // Check if already inside a wrapper
         let wrapper = select.closest('.custom-select-wrapper');
         if (!wrapper) {
             wrapper = document.createElement('div');
-            wrapper.className = 'custom-select-wrapper';
+            wrapper.className = isMultiple ? 'custom-select-wrapper is-multiple' : 'custom-select-wrapper';
             if (select.classList.contains('form-preset-select')) {
                 wrapper.classList.add('form-preset-select');
             }
             select.parentNode.insertBefore(wrapper, select);
             wrapper.appendChild(select);
+        } else {
+            if (isMultiple) {
+                wrapper.classList.add('is-multiple');
+            }
         }
 
         // Create Trigger Button
@@ -2350,11 +2391,34 @@ function initCustomSelects(root = document) {
         const label = document.createElement('span');
         label.className = 'custom-select-label';
 
+        let tagsWrap = null;
+        let clearBtn = null;
+
+        if (isMultiple) {
+            tagsWrap = document.createElement('div');
+            tagsWrap.className = 'custom-select-tags-wrap';
+            tagsWrap.appendChild(label);
+            trigger.appendChild(tagsWrap);
+
+            clearBtn = document.createElement('span');
+            clearBtn.className = 'custom-select-clear';
+            clearBtn.innerHTML = '&times;';
+            clearBtn.title = 'Clear selections';
+            clearBtn.style.display = 'none';
+            clearBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                clearAllSelections();
+            });
+            trigger.appendChild(clearBtn);
+        } else {
+            trigger.appendChild(label);
+        }
+
         const arrow = document.createElement('span');
         arrow.className = 'custom-select-arrow';
         arrow.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
-        trigger.appendChild(label);
         trigger.appendChild(arrow);
         wrapper.appendChild(trigger);
 
@@ -2362,20 +2426,104 @@ function initCustomSelects(root = document) {
         const menu = document.createElement('div');
         menu.className = 'custom-select-menu';
         menu.setAttribute('role', 'listbox');
+        if (isMultiple) {
+            menu.setAttribute('aria-multiselectable', 'true');
+        }
         wrapper.appendChild(menu);
+
+        let searchInput = null;
+        let optionsListContainer = menu;
+
+        // If multi-select, add search filter input and action toolbar
+        if (isMultiple) {
+            const searchWrap = document.createElement('div');
+            searchWrap.className = 'custom-select-search-wrap';
+            searchInput = document.createElement('input');
+            searchInput.type = 'search';
+            searchInput.className = 'custom-select-search-input';
+            searchInput.placeholder = 'Filter options...';
+            searchInput.autocomplete = 'off';
+            searchInput.addEventListener('click', (e) => e.stopPropagation());
+            searchInput.addEventListener('input', () => {
+                const term = searchInput.value.trim().toLowerCase();
+                const optionElements = optionsListContainer.querySelectorAll('.custom-select-option');
+                optionElements.forEach(optEl => {
+                    const text = (optEl.textContent || '').toLowerCase();
+                    optEl.style.display = (!term || text.includes(term)) ? '' : 'none';
+                });
+            });
+            searchWrap.appendChild(searchInput);
+            menu.appendChild(searchWrap);
+
+            const actionsBar = document.createElement('div');
+            actionsBar.className = 'custom-select-menu-actions';
+
+            const selectAllBtn = document.createElement('button');
+            selectAllBtn.type = 'button';
+            selectAllBtn.className = 'custom-select-action-btn btn-action-all';
+            selectAllBtn.textContent = 'Select All';
+            selectAllBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectAllOptions();
+            });
+
+            const clearBarBtn = document.createElement('button');
+            clearBarBtn.type = 'button';
+            clearBarBtn.className = 'custom-select-action-btn btn-action-clear';
+            clearBarBtn.textContent = 'Clear';
+            clearBarBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                clearAllSelections();
+            });
+
+            actionsBar.appendChild(selectAllBtn);
+            actionsBar.appendChild(clearBarBtn);
+            menu.appendChild(actionsBar);
+
+            optionsListContainer = document.createElement('div');
+            optionsListContainer.className = 'custom-select-options-list';
+            menu.appendChild(optionsListContainer);
+        }
 
         let highlightedIndex = -1;
         let typeAheadBuffer = '';
         let typeAheadTimer = null;
 
-        function renderOptions() {
-            menu.innerHTML = '';
-            const selectedOpt = select.options[select.selectedIndex] || select.options[0];
-            if (selectedOpt) {
-                label.textContent = selectedOpt.textContent.trim();
-            } else {
-                label.textContent = '';
+        function clearAllSelections() {
+            let hasAll = false;
+            Array.from(select.options).forEach(opt => {
+                if (opt.value === '<all>' || opt.value === '') {
+                    opt.selected = true;
+                    hasAll = true;
+                } else {
+                    opt.selected = false;
+                }
+            });
+            if (!hasAll) {
+                Array.from(select.options).forEach(opt => opt.selected = false);
             }
+            syncFromNative();
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function selectAllOptions() {
+            Array.from(select.options).forEach(opt => {
+                if (opt.value === '<all>' || opt.value === '') {
+                    opt.selected = false;
+                } else {
+                    opt.selected = true;
+                }
+            });
+            syncFromNative();
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function renderOptions() {
+            optionsListContainer.innerHTML = '';
 
             Array.from(select.options).forEach((opt, idx) => {
                 const optEl = document.createElement('div');
@@ -2391,6 +2539,13 @@ function initCustomSelects(root = document) {
                     optEl.classList.add('is-disabled');
                 }
 
+                if (isMultiple) {
+                    const checkbox = document.createElement('span');
+                    checkbox.className = 'custom-select-checkbox';
+                    checkbox.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                    optEl.appendChild(checkbox);
+                }
+
                 const textSpan = document.createElement('span');
                 textSpan.className = 'custom-select-option-text';
 
@@ -2401,12 +2556,14 @@ function initCustomSelects(root = document) {
                     textSpan.textContent = opt.textContent.trim();
                 }
 
-                const checkSpan = document.createElement('span');
-                checkSpan.className = 'custom-select-check';
-                checkSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-
                 optEl.appendChild(textSpan);
-                optEl.appendChild(checkSpan);
+
+                if (!isMultiple) {
+                    const checkSpan = document.createElement('span');
+                    checkSpan.className = 'custom-select-check';
+                    checkSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                    optEl.appendChild(checkSpan);
+                }
 
                 optEl.addEventListener('mouseenter', () => {
                     setHighlighted(idx);
@@ -2415,44 +2572,50 @@ function initCustomSelects(root = document) {
                 optEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (opt.disabled) return;
-                    selectOption(idx);
+                    if (isMultiple) {
+                        toggleOption(idx);
+                    } else {
+                        selectOption(idx);
+                    }
                 });
 
-                menu.appendChild(optEl);
+                optionsListContainer.appendChild(optEl);
             });
+
+            syncFromNative();
         }
 
-        function openMenu() {
-            // Close any other open dropdowns
-            document.querySelectorAll('.custom-select-wrapper.is-open').forEach(w => {
-                if (w !== wrapper) {
-                    w.classList.remove('is-open', 'drop-up');
-                    const trg = w.querySelector('.custom-select-trigger');
-                    if (trg) trg.setAttribute('aria-expanded', 'false');
-                }
-            });
+        function toggleOption(index) {
+            if (index < 0 || index >= select.options.length) return;
+            const targetOpt = select.options[index];
+            if (targetOpt.disabled) return;
 
-            // Calculate viewport position for drop-up if near bottom
-            const rect = trigger.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            if (spaceBelow < 260 && rect.top > 260) {
-                wrapper.classList.add('drop-up');
+            const isNowSelected = !targetOpt.selected;
+            targetOpt.selected = isNowSelected;
+
+            const isAllOrEmpty = targetOpt.value === '<all>' || targetOpt.value === '';
+            if (isAllOrEmpty) {
+                if (isNowSelected) {
+                    Array.from(select.options).forEach((opt, idx) => {
+                        if (idx !== index) opt.selected = false;
+                    });
+                }
             } else {
-                wrapper.classList.remove('drop-up');
+                Array.from(select.options).forEach(opt => {
+                    if (opt.value === '<all>' || opt.value === '') {
+                        opt.selected = false;
+                    }
+                });
+                const anySelected = Array.from(select.options).some(o => o.selected && o.value !== '<all>' && o.value !== '');
+                if (!anySelected) {
+                    const allOpt = Array.from(select.options).find(o => o.value === '<all>' || o.value === '');
+                    if (allOpt) allOpt.selected = true;
+                }
             }
 
-            wrapper.classList.add('is-open');
-            trigger.setAttribute('aria-expanded', 'true');
-
-            highlightedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
-            updateHighlightScroll();
-        }
-
-        function closeMenu() {
-            wrapper.classList.remove('is-open', 'drop-up');
-            trigger.setAttribute('aria-expanded', 'false');
-            highlightedIndex = -1;
-            clearHighlight();
+            syncFromNative();
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
         function selectOption(index) {
@@ -2463,7 +2626,7 @@ function initCustomSelects(root = document) {
             select.selectedIndex = index;
             label.textContent = opt.textContent.trim();
 
-            menu.querySelectorAll('.custom-select-option').forEach((el, idx) => {
+            optionsListContainer.querySelectorAll('.custom-select-option').forEach((el, idx) => {
                 if (idx === index) {
                     el.classList.add('is-selected');
                     el.setAttribute('aria-selected', 'true');
@@ -2481,23 +2644,63 @@ function initCustomSelects(root = document) {
             select.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
+        function openMenu() {
+            // Close any other open dropdowns
+            document.querySelectorAll('.custom-select-wrapper.is-open').forEach(w => {
+                if (w !== wrapper) {
+                    w.classList.remove('is-open', 'drop-up');
+                    const trg = w.querySelector('.custom-select-trigger');
+                    if (trg) trg.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            // Calculate viewport position for drop-up if near bottom
+            const rect = trigger.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 280 && rect.top > 280) {
+                wrapper.classList.add('drop-up');
+            } else {
+                wrapper.classList.remove('drop-up');
+            }
+
+            wrapper.classList.add('is-open');
+            trigger.setAttribute('aria-expanded', 'true');
+
+            if (isMultiple && searchInput) {
+                searchInput.value = '';
+                const optionElements = optionsListContainer.querySelectorAll('.custom-select-option');
+                optionElements.forEach(optEl => optEl.style.display = '');
+                setTimeout(() => searchInput.focus(), 50);
+            }
+
+            highlightedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
+            updateHighlightScroll();
+        }
+
+        function closeMenu() {
+            wrapper.classList.remove('is-open', 'drop-up');
+            trigger.setAttribute('aria-expanded', 'false');
+            highlightedIndex = -1;
+            clearHighlight();
+        }
+
         function setHighlighted(index) {
             highlightedIndex = index;
-            const items = menu.querySelectorAll('.custom-select-option');
+            const items = optionsListContainer.querySelectorAll('.custom-select-option');
             items.forEach((item, idx) => {
                 item.classList.toggle('is-highlighted', idx === highlightedIndex);
             });
         }
 
         function clearHighlight() {
-            menu.querySelectorAll('.custom-select-option').forEach(item => {
+            optionsListContainer.querySelectorAll('.custom-select-option').forEach(item => {
                 item.classList.remove('is-highlighted');
             });
         }
 
         function updateHighlightScroll() {
             setHighlighted(highlightedIndex);
-            const items = menu.querySelectorAll('.custom-select-option');
+            const items = optionsListContainer.querySelectorAll('.custom-select-option');
             const highlightedItem = items[highlightedIndex];
             if (highlightedItem) {
                 highlightedItem.scrollIntoView({ block: 'nearest' });
@@ -2524,7 +2727,11 @@ function initCustomSelects(root = document) {
                 e.preventDefault();
                 if (isOpen) {
                     if (highlightedIndex >= 0) {
-                        selectOption(highlightedIndex);
+                        if (isMultiple) {
+                            toggleOption(highlightedIndex);
+                        } else {
+                            selectOption(highlightedIndex);
+                        }
                     } else {
                         closeMenu();
                     }
@@ -2570,8 +2777,8 @@ function initCustomSelects(root = document) {
                 if (isOpen) {
                     closeMenu();
                 }
-            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                // Type-ahead jump
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !isMultiple) {
+                // Type-ahead jump (for single-select)
                 if (!isOpen) openMenu();
                 clearTimeout(typeAheadTimer);
                 typeAheadBuffer += e.key.toLowerCase();
@@ -2590,19 +2797,113 @@ function initCustomSelects(root = document) {
 
         // Sync when native select is changed programmatically
         function syncFromNative() {
-            const currentSelected = select.options[select.selectedIndex];
-            if (currentSelected) {
-                label.textContent = currentSelected.textContent.trim();
+            if (!isMultiple) {
+                const currentSelected = select.options[select.selectedIndex];
+                if (currentSelected) {
+                    label.textContent = currentSelected.textContent.trim();
+                } else {
+                    label.textContent = '';
+                }
+                optionsListContainer.querySelectorAll('.custom-select-option').forEach((el, idx) => {
+                    if (idx === select.selectedIndex) {
+                        el.classList.add('is-selected');
+                        el.setAttribute('aria-selected', 'true');
+                    } else {
+                        el.classList.remove('is-selected');
+                        el.removeAttribute('aria-selected');
+                    }
+                });
+                return;
             }
-            menu.querySelectorAll('.custom-select-option').forEach((el, idx) => {
-                if (idx === select.selectedIndex) {
-                    el.classList.add('is-selected');
+
+            // Multi-select sync
+            const selectedOptions = Array.from(select.options).filter(o => o.selected);
+            const specificSelected = selectedOptions.filter(o => o.value !== '<all>' && o.value !== '');
+
+            optionsListContainer.querySelectorAll('.custom-select-option').forEach(el => {
+                const idx = parseInt(el.dataset.index, 10);
+                const opt = select.options[idx];
+                const isSel = opt ? opt.selected : false;
+                el.classList.toggle('is-selected', isSel);
+                if (isSel) {
                     el.setAttribute('aria-selected', 'true');
                 } else {
-                    el.classList.remove('is-selected');
                     el.removeAttribute('aria-selected');
                 }
             });
+
+            // Update trigger tags / summary
+            tagsWrap.innerHTML = '';
+
+            if (specificSelected.length === 0) {
+                const allOpt = selectedOptions.find(o => o.value === '<all>' || o.value === '');
+                label.textContent = allOpt ? allOpt.textContent.trim() : (select.getAttribute('placeholder') || 'Select options...');
+                label.className = 'custom-select-label';
+                tagsWrap.appendChild(label);
+                if (clearBtn) clearBtn.style.display = 'none';
+            } else {
+                if (clearBtn) clearBtn.style.display = 'inline-flex';
+
+                if (specificSelected.length <= 3) {
+                    specificSelected.forEach(opt => {
+                        const tag = document.createElement('span');
+                        tag.className = 'custom-select-tag';
+                        tag.title = opt.textContent.trim();
+                        const tagText = document.createElement('span');
+                        tagText.textContent = opt.textContent.trim();
+                        tag.appendChild(tagText);
+
+                        const rm = document.createElement('span');
+                        rm.className = 'tag-remove';
+                        rm.innerHTML = '&times;';
+                        rm.title = 'Remove';
+                        rm.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            opt.selected = false;
+                            const remaining = Array.from(select.options).filter(o => o.selected && o.value !== '<all>' && o.value !== '');
+                            if (remaining.length === 0) {
+                                const allOpt = Array.from(select.options).find(o => o.value === '<all>' || o.value === '');
+                                if (allOpt) allOpt.selected = true;
+                            }
+                            syncFromNative();
+                            select.dispatchEvent(new Event('change', { bubbles: true }));
+                            select.dispatchEvent(new Event('input', { bubbles: true }));
+                        });
+                        tag.appendChild(rm);
+                        tagsWrap.appendChild(tag);
+                    });
+                } else {
+                    for (let i = 0; i < 2; i++) {
+                        const opt = specificSelected[i];
+                        const tag = document.createElement('span');
+                        tag.className = 'custom-select-tag';
+                        tag.title = opt.textContent.trim();
+                        const tagText = document.createElement('span');
+                        tagText.textContent = opt.textContent.trim();
+                        tag.appendChild(tagText);
+
+                        const rm = document.createElement('span');
+                        rm.className = 'tag-remove';
+                        rm.innerHTML = '&times;';
+                        rm.title = 'Remove';
+                        rm.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            opt.selected = false;
+                            syncFromNative();
+                            select.dispatchEvent(new Event('change', { bubbles: true }));
+                            select.dispatchEvent(new Event('input', { bubbles: true }));
+                        });
+                        tag.appendChild(rm);
+                        tagsWrap.appendChild(tag);
+                    }
+                    const badge = document.createElement('span');
+                    badge.className = 'custom-select-count-badge';
+                    badge.textContent = `+${specificSelected.length - 2} more`;
+                    tagsWrap.appendChild(badge);
+                }
+            }
         }
 
         select.addEventListener('change', syncFromNative);
@@ -2643,6 +2944,16 @@ function initCustomSelects(root = document) {
             syncFromNative();
         });
         observer.observe(select, { childList: true, subtree: true });
+
+        // Expose component instance on the select element for programmatic manipulation
+        select._customSelect = {
+            syncFromNative,
+            openMenu,
+            closeMenu,
+            wrapper,
+            clearAll: clearAllSelections,
+            selectAll: selectAllOptions
+        };
 
         // Initial render
         renderOptions();
@@ -3766,6 +4077,115 @@ window.clearPatternFeedback = clearPatternFeedback;
 window.markConfigDirty = markConfigDirty;
 window.updateConfigBadge = updateConfigBadge;
 window.saveIndexConfig = saveIndexConfig;
+
+/**
+ * Folder Scope Session Persistence
+ * Persists selected folder scopes across user sessions and browser reloads via
+ * localStorage (key: 'recoll_folder_scope') and document.cookie ('recoll_folder_scope').
+ */
+function initFolderScopePersistence() {
+    const foldersSelect = document.getElementById('folders');
+    if (!foldersSelect) return;
+
+    const STORAGE_KEY = 'recoll_folder_scope';
+    const COOKIE_NAME = 'recoll_folder_scope';
+
+    function parseStoredPaths(raw) {
+        if (!raw) return null;
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.map(String);
+            if (typeof parsed === 'string') return [parsed];
+        } catch (_) {
+            return raw.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return null;
+    }
+
+    function getPersistedFolderScope() {
+        const fromStorage = safeStorageGet('localStorage', STORAGE_KEY);
+        const parsedStorage = parseStoredPaths(fromStorage);
+        if (parsedStorage && parsedStorage.length > 0) {
+            return parsedStorage;
+        }
+
+        const cookieMatches = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_NAME + '=([^;]*)'));
+        if (cookieMatches && cookieMatches[1]) {
+            try {
+                const decoded = decodeURIComponent(cookieMatches[1]);
+                const parsedCookie = parseStoredPaths(decoded);
+                if (parsedCookie && parsedCookie.length > 0) {
+                    return parsedCookie;
+                }
+            } catch (_) {}
+        }
+        return null;
+    }
+
+    function persistFolderScope(paths) {
+        const jsonStr = JSON.stringify(paths);
+        safeStorageSet('localStorage', STORAGE_KEY, jsonStr);
+        document.cookie = `${COOKIE_NAME}=${encodeURIComponent(jsonStr)}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+
+    // Check if URL explicitly specifies directory scopes (e.g. results?dir=000)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDirs = urlParams.getAll('dir');
+
+    if (urlDirs.length > 0) {
+        const formatted = urlDirs.map(d => {
+            if (d === '<all>') return '<all>';
+            return d.startsWith('/') ? d : ('/data/' + d);
+        });
+        persistFolderScope(formatted);
+    } else {
+        // Restore from persistence
+        const persisted = getPersistedFolderScope();
+        if (persisted && persisted.length > 0) {
+            const hasAll = persisted.includes('<all>');
+            let anyMatched = false;
+
+            Array.from(foldersSelect.options).forEach(opt => {
+                const val = opt.value;
+                if (hasAll) {
+                    opt.selected = (val === '<all>');
+                    if (val === '<all>') anyMatched = true;
+                } else {
+                    const match = persisted.some(p => {
+                        return p === val ||
+                               p === ('/data/' + val) ||
+                               val === p.replace(/^\/data\//, '') ||
+                               val === p.replace(/^data\//, '');
+                    });
+                    opt.selected = match;
+                    if (match) anyMatched = true;
+                }
+            });
+
+            if (!anyMatched) {
+                const allOpt = Array.from(foldersSelect.options).find(o => o.value === '<all>');
+                if (allOpt) allOpt.selected = true;
+            }
+
+            if (foldersSelect._customSelect && typeof foldersSelect._customSelect.syncFromNative === 'function') {
+                foldersSelect._customSelect.syncFromNative();
+            }
+        }
+    }
+
+    // Save whenever folder scope changes
+    foldersSelect.addEventListener('change', () => {
+        const selected = Array.from(foldersSelect.selectedOptions).map(o => o.value).filter(Boolean);
+        if (selected.length === 0 || selected.includes('<all>')) {
+            persistFolderScope(['<all>']);
+        } else {
+            const formatted = selected.map(d => (d === '<all>' || d.startsWith('/')) ? d : ('/data/' + d));
+            persistFolderScope(formatted);
+        }
+    });
+}
+
+window.initFolderScopePersistence = initFolderScopePersistence;
 
 
 
