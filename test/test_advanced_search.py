@@ -1017,8 +1017,38 @@ class TestContainerEndpoints(unittest.TestCase):
             self.assertIn(f"prefix: '{exact_kw}'", content_js)
             self.assertIn(f"prefix: '{wild_kw}'", content_js)
 
-        # Verify highlightQuerySyntax handles *{value}*
-        self.assertIn("(\\*?\\{value\\}\\*?)", content_js)
+        # Verify highlightQuerySyntax handles *{value}* with {value} placeholder and separate wildcard operator coloring
+        self.assertIn("(\\{value\\})", content_js)
+
+    def test_bugfixes_search_proximity_and_sandbox_persistence(self):
+        """Verify the 4 reported bugfixes:
+        1. User editing search field collapses advanced search on submit
+        2. Wildcards around {value} are styled as operators
+        3. Proximity operator is pN with N placeholder
+        4. Sandbox sample path is saved across session
+        """
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+
+        # 1. Advanced search collapses when main query was edited
+        self.assertIn("userEditedMainQuery", content_js)
+        self.assertIn("recoll_adv_open", content_js)
+
+        # 2. Syntax highlighting separates {value} from wildcards
+        self.assertIn("(\\{value\\})", content_js)
+
+        # 3. Proximity search is pN with N colored as placeholder
+        self.assertIn("prefix: 'pN'", content_js)
+        self.assertIn("placeholder: 'N'", content_js)
+        self.assertIn("prefix: '\"{value}\"pN'", content_js)
+        self.assertIn('<span class="param-placeholder">N</span>', content_js)
+
+        # 4. Sandbox session persistence in index-manager
+        status_im, html_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+        self.assertIn("recoll_sandbox_sample_path", html_im)
+        self.assertIn("safeSessionGet", html_im)
+        self.assertIn("safeSessionSet", html_im)
 
     def test_four_index_status_states_and_colors(self):
         """Verify the 4 required index status labels and their respective color styling:

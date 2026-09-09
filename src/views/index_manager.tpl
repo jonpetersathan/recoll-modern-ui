@@ -367,7 +367,32 @@ let currentRulesData = {{!rules_json}};
 let editingRuleId = null;
 let statusPollInterval = null;
 
+function safeSessionGet(key) {
+    try {
+        return window.sessionStorage ? window.sessionStorage.getItem(key) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function safeSessionSet(key, val) {
+    try {
+        if (window.sessionStorage) window.sessionStorage.setItem(key, val);
+    } catch (_) {}
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    const testSampleInput = document.getElementById('test-sample-path');
+    if (testSampleInput) {
+        const savedSample = safeSessionGet('recoll_sandbox_sample_path');
+        if (savedSample !== null) {
+            testSampleInput.value = savedSample;
+        }
+        testSampleInput.addEventListener('input', function() {
+            safeSessionSet('recoll_sandbox_sample_path', this.value);
+        });
+    }
+
     renderRules();
     startStatusPolling();
     runLiveTest();
@@ -618,12 +643,19 @@ function saveModalRule() {
 }
 
 function loadSamplePath(path) {
-    document.getElementById('test-sample-path').value = path;
+    const input = document.getElementById('test-sample-path');
+    if (input) {
+        input.value = path;
+        safeSessionSet('recoll_sandbox_sample_path', path);
+    }
     runLiveTest();
 }
 
 function runLiveTest() {
-    const samplePath = document.getElementById('test-sample-path').value.trim();
+    const input = document.getElementById('test-sample-path');
+    if (!input) return;
+    const samplePath = input.value.trim();
+    safeSessionSet('recoll_sandbox_sample_path', input.value);
     const resultsCard = document.getElementById('sandbox-results-card');
     const chipsWrap = document.getElementById('sandbox-chips-wrap');
     const rawView = document.getElementById('sandbox-raw-view');

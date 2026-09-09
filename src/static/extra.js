@@ -340,12 +340,14 @@ function safeStorageGet(type, key) {
         return null;
     }
 }
+window.safeStorageGet = safeStorageGet;
 
 function safeStorageSet(type, key, val) {
     try {
         if (window[type]) window[type].setItem(key, val);
     } catch (_) {}
 }
+window.safeStorageSet = safeStorageSet;
 
 window.closeAllQueryDropdowns = function() {
     document.querySelectorAll('.query-editor-wrap').forEach(w => {
@@ -417,6 +419,21 @@ function initAdvancedSearch() {
     const previewEl = document.getElementById('advanced-query-preview');
     const searchForm = document.getElementById('search-form');
     const mainQueryInput = document.querySelector('input[name="query"]');
+    let userEditedMainQuery = false;
+
+    if (mainQueryInput) {
+        mainQueryInput.addEventListener('input', () => {
+            userEditedMainQuery = true;
+        });
+        mainQueryInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const isPanelOpen = panel && panel.style.display !== 'none';
+                if (isPanelOpen) {
+                    userEditedMainQuery = true;
+                }
+            }
+        });
+    }
 
     // Toggle panel visibility
     function setPanelVisibility(show) {
@@ -424,6 +441,9 @@ function initAdvancedSearch() {
         toggleBtn.classList.toggle('active', show);
         toggleBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
         safeStorageSet('sessionStorage', 'recoll_adv_open', show ? '1' : '0');
+        if (show) {
+            userEditedMainQuery = false;
+        }
     }
 
     if (!toggleBtn.hasAttribute('onclick')) {
@@ -540,16 +560,19 @@ function initAdvancedSearch() {
         const inputs = fieldsContainer.querySelectorAll('.advanced-field-input');
         inputs.forEach(input => {
             input.addEventListener('input', () => {
+                userEditedMainQuery = false;
                 saveActiveFormValues();
                 updateCompiledQuery();
             });
             input.addEventListener('change', () => {
+                userEditedMainQuery = false;
                 saveActiveFormValues();
                 updateCompiledQuery();
             });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    userEditedMainQuery = false;
                     executeFormSearch();
                 }
             });
@@ -572,6 +595,7 @@ function initAdvancedSearch() {
         if (typeof window.closeAllQueryDropdowns === 'function') {
             window.closeAllQueryDropdowns();
         }
+        userEditedMainQuery = false;
         saveActiveFormValues();
         const query = updateCompiledQuery();
         if (mainQueryInput && query) {
@@ -588,9 +612,16 @@ function initAdvancedSearch() {
 
     if (searchForm) {
         searchForm.addEventListener('submit', () => {
-            saveActiveFormValues();
             const isPanelOpen = panel && panel.style.display !== 'none';
-            if (isPanelOpen) {
+            const isEditingMain = userEditedMainQuery || (document.activeElement === mainQueryInput);
+
+            if (isPanelOpen && isEditingMain) {
+                // User manually edited the search field and pressed search/enter:
+                // Do not overwrite mainQueryInput with advanced form query, collapse advanced search, and persist
+                setPanelVisibility(false);
+                safeStorageSet('sessionStorage', 'recoll_adv_open', '0');
+            } else if (isPanelOpen) {
+                saveActiveFormValues();
                 const query = updateCompiledQuery();
                 if (mainQueryInput && query) {
                     mainQueryInput.value = query;
@@ -628,6 +659,7 @@ function initAdvancedSearch() {
         }
 
         formSelector.addEventListener('change', () => {
+            userEditedMainQuery = false;
             saveActiveFormValues();
             const formId = formSelector.value;
             safeStorageSet('localStorage', 'recoll_active_form_id', formId);
@@ -638,6 +670,7 @@ function initAdvancedSearch() {
     const resetBtn = document.getElementById('btn-reset-query') || document.querySelector('a[title="Reset Search Query"]');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
+            userEditedMainQuery = false;
             // Collapse advanced search panel and return UI to simple search
             safeStorageSet('sessionStorage', 'recoll_adv_open', '0');
             setPanelVisibility(false);
@@ -865,7 +898,7 @@ const TOP_LEVEL_KEYWORDS = [
     { prefix: '+', placeholder: 'term', desc: 'Inclusion prefix to require term', insertPrefix: '+', isOp: true },
     { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Parenthesize sub-conditions', insertPrefix: '(', isOp: true },
     { prefix: '"', placeholder: 'phrase', suffix: '"', desc: 'Exact phrase search', insertPrefix: '""', isOp: true },
-    { prefix: 'p4', placeholder: '', desc: 'Proximity slack operator (within N words)', insertPrefix: 'p4', isOp: true }
+    { prefix: 'pN', placeholder: 'N', desc: 'Proximity slack operator (within N words)', insertPrefix: 'pN', isOp: true }
 ];
 
 // Text Input field specific patterns (using {value} as user input placeholder)
@@ -873,7 +906,7 @@ const TEXT_SNIPPET_PATTERNS = [
     { prefix: '{value}', placeholder: '', desc: 'Match all entered words (AND)', insertPrefix: '{value}' },
     { prefix: '*{value}*', placeholder: '', desc: 'Wildcard partial match with user input', insertPrefix: '*{value}*' },
     { prefix: '"{value}"', placeholder: '', desc: 'Match terms in exact order', insertPrefix: '"{value}"' },
-    { prefix: '"{value}"p4', placeholder: '', desc: 'Match terms within 4 words', insertPrefix: '"{value}"p4' },
+    { prefix: '"{value}"pN', placeholder: '', desc: 'Match terms within N words (proximity)', insertPrefix: '"{value}"pN' },
 
     // Filename & Containers
     { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}', aliases: ['fn'] },
@@ -950,16 +983,19 @@ function highlightQuerySyntax(raw) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
-    // 1: {value} placeholder (with optional enclosing wildcards *{value}*)
-    // 2: boolean operators: AND, OR, NOT, XOR
-    // 3: keywords: all canonical fields & aliases, or any custom field name preceding a colon (or size with </>/colons)
-    // 4: operators: * , / : ( ) " - + ? &gt; &lt; or p\d+
-    // 5: literal strings / words
-    const tokenRegex = /(\*?\{value\}\*?)|(\b(?:AND|OR|NOT|XOR)\b)|(\bsize(?=[:<>]|&gt;|&lt;)|(?:\b(?:filename|fn|containerfilename|cfn|title|subject|caption|author|creator|from|recipient|to|mime|mimetype|contenttype|mtype|filetype|ext|fileextension|dir|date|keyword|keywords|tag|tags|abstract|summary|description|annotation|annot|pa|pdfannot|[a-zA-Z_][a-zA-Z0-9_-]*)(?=:)))|([*:,/()"\-+?]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+?&{}]+)/g;
+    // 1: {value} placeholder
+    // 2: proximity parameter pN with placeholder N: \bp[Nn]\b
+    // 3: boolean operators: AND, OR, NOT, XOR
+    // 4: keywords: all canonical fields & aliases, or any custom field name preceding a colon (or size with </>/colons)
+    // 5: operators: * , / : ( ) " - + ? &gt; &lt; or p\d+
+    // 6: literal strings / words
+    const tokenRegex = /(\{value\})|(\bp[Nn]\b)|(\b(?:AND|OR|NOT|XOR)\b)|(\bsize(?=[:<>]|&gt;|&lt;)|(?:\b(?:filename|fn|containerfilename|cfn|title|subject|caption|author|creator|from|recipient|to|mime|mimetype|contenttype|mtype|filetype|ext|fileextension|dir|date|keyword|keywords|tag|tags|abstract|summary|description|annotation|annot|pa|pdfannot|[a-zA-Z_][a-zA-Z0-9_-]*)(?=:)))|([*:,/()"\-+?]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+?&{}]+)/g;
 
-    return escaped.replace(tokenRegex, (match, valPh, boolOp, kw, op, word) => {
+    return escaped.replace(tokenRegex, (match, valPh, proxN, boolOp, kw, op, word) => {
         if (valPh) {
             return `<span class="tok-val">${valPh}</span>`;
+        } else if (proxN) {
+            return `<span class="tok-op">p</span><span class="param-placeholder">${proxN.slice(1)}</span>`;
         } else if (boolOp) {
             return `<span class="tok-bool">${boolOp}</span>`;
         } else if (kw) {
@@ -1000,6 +1036,9 @@ function scoreKeywordItem(item, q, contextType = 'general') {
     }
 
     // Tier 0: exact keyword match (e.g. 'or' === 'or', 'and' === 'and', 'mime' === 'mime')
+    if (rawPrefix === 'pn' && (/^p\d+$/i.test(q) || q === 'p' || q === 'pn')) {
+        return 0.1;
+    }
     if (prefixClean === q || rawPrefix === q || rawPrefix === q + ':') {
         return (contextType === 'text' && !rawPrefix.includes('{value}')) ? 0.3 : 0;
     }
@@ -1294,8 +1333,12 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
                 const ph = item.placeholder || 'term';
                 badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span><span class="param-placeholder">${escapeHtml(ph)}</span>`;
                 snippetClass = 'snippet-op';
-            } else if (item.prefix.startsWith('p') && /^\bp\d+\b$/.test(item.prefix)) {
-                badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span>`;
+            } else if (item.prefix === 'pN' || (item.prefix.startsWith('p') && /^\bp[0-9N]+\b$/i.test(item.prefix))) {
+                if (item.prefix.toLowerCase() === 'pn' || item.placeholder === 'N') {
+                    badgeHtml = `<span class="tok-op">p</span><span class="param-placeholder">N</span>`;
+                } else {
+                    badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span>`;
+                }
                 snippetClass = 'snippet-op';
             } else if (item.placeholder) {
                 const kw = item.prefix.replace(/[:(]/, '');
@@ -1313,7 +1356,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             return {
                 badgeHtml,
                 snippetClass,
-                snippetText: item.prefix + (item.placeholder || '') + (item.suffix || ''),
+                snippetText: (item.prefix === 'pN' ? 'pN' : (item.prefix + (item.placeholder || '') + (item.suffix || ''))),
                 desc: item.desc,
                 hasSub: !!item.hasSub,
                 insertPrefix: item.insertPrefix,
