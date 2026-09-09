@@ -194,6 +194,8 @@ class SearchFormsManager:
                             'query': str(opt.get('query', '')).strip(),
                         })
                 clean_field['options'] = clean_options
+                if 'multiple' in f:
+                    clean_field['multiple'] = bool(f['multiple'])
             elif ftype in ('toggle', 'checkbox'):
                 clean_field['type'] = 'toggle'
                 clean_field['query'] = str(f.get('query', '')).strip()

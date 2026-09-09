@@ -514,12 +514,15 @@ function initAdvancedSearch() {
                 const isMulti = field.id === 'filetype' || !!field.multiple;
                 let optionsHtml = '';
                 const savedVal = savedValues[field.id];
+                const hasExplicitSelection = Array.isArray(savedVal) ? (savedVal.length > 0) : (savedVal !== undefined && savedVal !== null && savedVal !== '');
                 (field.options || []).forEach(opt => {
                     let isSelected = false;
                     if (Array.isArray(savedVal)) {
                         isSelected = savedVal.includes(opt.query || '');
                     } else if (savedVal !== undefined && savedVal !== null && savedVal !== '') {
                         isSelected = String(opt.query || '') === String(savedVal);
+                    } else if (!hasExplicitSelection && (!opt.query || opt.query === '<all>')) {
+                        isSelected = true;
                     }
                     optionsHtml += `<option value="${escapeHtml(opt.query || '')}" ${isSelected ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`;
                 });
@@ -2447,10 +2450,64 @@ function initCustomSelects(root = document) {
             searchInput.addEventListener('input', () => {
                 const term = searchInput.value.trim().toLowerCase();
                 const optionElements = optionsListContainer.querySelectorAll('.custom-select-option');
+                let firstMatchIdx = -1;
                 optionElements.forEach(optEl => {
                     const text = (optEl.textContent || '').toLowerCase();
-                    optEl.style.display = (!term || text.includes(term)) ? '' : 'none';
+                    const matches = (!term || text.includes(term));
+                    optEl.style.display = matches ? '' : 'none';
+                    if (matches && firstMatchIdx === -1 && !optEl.classList.contains('is-disabled')) {
+                        firstMatchIdx = parseInt(optEl.dataset.index, 10);
+                    }
                 });
+                if (firstMatchIdx !== -1) {
+                    setHighlighted(firstMatchIdx);
+                } else {
+                    clearHighlight();
+                }
+            });
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeMenu();
+                    trigger.focus();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const visibleOptions = Array.from(optionsListContainer.querySelectorAll('.custom-select-option'))
+                        .filter(el => el.style.display !== 'none' && !el.classList.contains('is-disabled'));
+                    const targetEl = visibleOptions.find(el => el.classList.contains('is-highlighted')) || visibleOptions[0];
+                    if (targetEl) {
+                        const idx = parseInt(targetEl.dataset.index, 10);
+                        toggleOption(idx);
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const visibleOptions = Array.from(optionsListContainer.querySelectorAll('.custom-select-option'))
+                        .filter(el => el.style.display !== 'none' && !el.classList.contains('is-disabled'));
+                    if (visibleOptions.length > 0) {
+                        let curVisIdx = visibleOptions.findIndex(el => el.classList.contains('is-highlighted'));
+                        let nextVisIdx = (curVisIdx + 1) % visibleOptions.length;
+                        const nextEl = visibleOptions[nextVisIdx];
+                        const idx = parseInt(nextEl.dataset.index, 10);
+                        setHighlighted(idx);
+                        nextEl.scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const visibleOptions = Array.from(optionsListContainer.querySelectorAll('.custom-select-option'))
+                        .filter(el => el.style.display !== 'none' && !el.classList.contains('is-disabled'));
+                    if (visibleOptions.length > 0) {
+                        let curVisIdx = visibleOptions.findIndex(el => el.classList.contains('is-highlighted'));
+                        let prevVisIdx = curVisIdx <= 0 ? visibleOptions.length - 1 : curVisIdx - 1;
+                        const prevEl = visibleOptions[prevVisIdx];
+                        const idx = parseInt(prevEl.dataset.index, 10);
+                        setHighlighted(idx);
+                        prevEl.scrollIntoView({ block: 'nearest' });
+                    }
+                }
             });
             searchWrap.appendChild(searchInput);
             menu.appendChild(searchWrap);
@@ -2513,7 +2570,7 @@ function initCustomSelects(root = document) {
             Array.from(select.options).forEach(opt => {
                 if (opt.value === '<all>' || opt.value === '') {
                     opt.selected = false;
-                } else {
+                } else if (!opt.disabled) {
                     opt.selected = true;
                 }
             });
@@ -2599,6 +2656,11 @@ function initCustomSelects(root = document) {
                     Array.from(select.options).forEach((opt, idx) => {
                         if (idx !== index) opt.selected = false;
                     });
+                } else {
+                    const anyOtherSelected = Array.from(select.options).some(o => o.selected && o.value !== '<all>' && o.value !== '');
+                    if (!anyOtherSelected) {
+                        targetOpt.selected = true;
+                    }
                 }
             } else {
                 Array.from(select.options).forEach(opt => {
@@ -2848,7 +2910,7 @@ function initCustomSelects(root = document) {
                     specificSelected.forEach(opt => {
                         const tag = document.createElement('span');
                         tag.className = 'custom-select-tag';
-                        tag.title = opt.textContent.trim();
+                        tag.title = (opt.value && opt.value !== '<all>') ? opt.value : opt.textContent.trim();
                         const tagText = document.createElement('span');
                         tagText.textContent = opt.textContent.trim();
                         tag.appendChild(tagText);
@@ -2878,7 +2940,7 @@ function initCustomSelects(root = document) {
                         const opt = specificSelected[i];
                         const tag = document.createElement('span');
                         tag.className = 'custom-select-tag';
-                        tag.title = opt.textContent.trim();
+                        tag.title = (opt.value && opt.value !== '<all>') ? opt.value : opt.textContent.trim();
                         const tagText = document.createElement('span');
                         tagText.textContent = opt.textContent.trim();
                         tag.appendChild(tagText);
@@ -2891,6 +2953,11 @@ function initCustomSelects(root = document) {
                             e.preventDefault();
                             e.stopPropagation();
                             opt.selected = false;
+                            const remaining = Array.from(select.options).filter(o => o.selected && o.value !== '<all>' && o.value !== '');
+                            if (remaining.length === 0) {
+                                const allOpt = Array.from(select.options).find(o => o.value === '<all>' || o.value === '');
+                                if (allOpt) allOpt.selected = true;
+                            }
                             syncFromNative();
                             select.dispatchEvent(new Event('change', { bubbles: true }));
                             select.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2944,6 +3011,10 @@ function initCustomSelects(root = document) {
             syncFromNative();
         });
         observer.observe(select, { childList: true, subtree: true });
+
+        select.addEventListener('focus', () => {
+            trigger.focus();
+        });
 
         // Expose component instance on the select element for programmatic manipulation
         select._customSelect = {
@@ -4106,6 +4177,13 @@ function initFolderScopePersistence() {
         const fromStorage = safeStorageGet('localStorage', STORAGE_KEY);
         const parsedStorage = parseStoredPaths(fromStorage);
         if (parsedStorage && parsedStorage.length > 0) {
+            try {
+                const cookieMatches = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_NAME + '=([^;]*)'));
+                if (!cookieMatches) {
+                    const jsonStr = JSON.stringify(parsedStorage);
+                    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(jsonStr)}; path=/; max-age=31536000; SameSite=Lax`;
+                }
+            } catch (_) {}
             return parsedStorage;
         }
 
@@ -4115,6 +4193,7 @@ function initFolderScopePersistence() {
                 const decoded = decodeURIComponent(cookieMatches[1]);
                 const parsedCookie = parseStoredPaths(decoded);
                 if (parsedCookie && parsedCookie.length > 0) {
+                    safeStorageSet('localStorage', STORAGE_KEY, JSON.stringify(parsedCookie));
                     return parsedCookie;
                 }
             } catch (_) {}
