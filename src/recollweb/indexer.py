@@ -10,6 +10,7 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
+from recollweb.config import RecollConfManager
 from recollweb.logging import logger
 
 
@@ -242,6 +243,16 @@ class IndexManager:
             cls._append_log(f"Failed to purge index: {exc}")
             logger.error("INDEX_PURGE_ERROR: %s", exc)
             return {"success": False, "error": str(exc)}
+
+    @classmethod
+    def get_index_config(cls, conf_dir: str) -> Dict[str, Any]:
+        """Fetch the current 9 managed index configuration parameters."""
+        return RecollConfManager.get_index_config(conf_dir)
+
+    @classmethod
+    def update_index_config(cls, conf_dir: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate, update, and atomically save index configuration parameters."""
+        return RecollConfManager.update_index_config(conf_dir, updates)
 
     @classmethod
     def _run_indexer_worker(cls, conf_dir: str, full: bool):

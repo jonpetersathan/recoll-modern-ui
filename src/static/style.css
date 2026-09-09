@@ -4042,3 +4042,370 @@ input.form-control-query:active {
 .status-msg-error {
     color: #f87171;
 }
+
+/* ==========================================================================
+   Index Configuration Card & Chip List Styling
+   ========================================================================== */
+
+.recoll-conf-code, .field-code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    color: var(--accent-hover);
+    background: rgba(139, 92, 246, 0.12);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.config-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    transition: all 0.25s ease;
+}
+
+.config-status-badge.is-dirty {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+}
+
+/* Chip Tag Container */
+.chip-tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+    min-height: 86px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: rgba(15, 19, 34, 0.65);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chip-tag-container:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+}
+
+.chip-tag-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chip-tag-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+/* Badge Chip Item */
+.config-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(139, 92, 246, 0.14);
+    border: 1px solid rgba(139, 92, 246, 0.28);
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.config-chip:hover {
+    background: rgba(139, 92, 246, 0.24);
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+    color: #ffffff;
+}
+
+.config-chip .chip-text {
+    cursor: pointer;
+    word-break: break-all;
+}
+
+.config-chip .chip-text:hover {
+    text-decoration: underline dotted;
+}
+
+.config-chip .chip-remove-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 1.15rem;
+    line-height: 1;
+    padding: 0 2px;
+    margin-left: 2px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.config-chip .chip-remove-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.config-chip.is-editing {
+    padding: 2px 6px;
+    background: rgba(15, 19, 34, 0.9);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--glow-color);
+}
+
+.config-chip .chip-edit-input {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    outline: none;
+    min-width: 70px;
+    padding: 2px 4px;
+}
+
+/* Duplicate Highlight Pulse Animation */
+@keyframes chipDuplicateFlash {
+    0% {
+        transform: scale(1);
+        border-color: rgba(245, 158, 11, 0.4);
+        box-shadow: 0 0 0 rgba(245, 158, 11, 0);
+    }
+    50% {
+        transform: scale(1.1);
+        background: rgba(245, 158, 11, 0.35);
+        border-color: #f59e0b;
+        box-shadow: 0 0 16px rgba(245, 158, 11, 0.7);
+        color: #ffffff;
+    }
+    100% {
+        transform: scale(1);
+        border-color: rgba(139, 92, 246, 0.28);
+        box-shadow: 0 0 0 rgba(245, 158, 11, 0);
+    }
+}
+
+.config-chip.chip-duplicate-highlight {
+    animation: chipDuplicateFlash 1.2s ease-in-out;
+}
+
+/* Chip Add Toolbar */
+.chip-add-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 0.85rem;
+}
+
+.chip-input-wrap {
+    flex: 1;
+}
+
+.chip-add-input {
+    font-family: var(--font-mono) !important;
+    font-size: 0.86rem !important;
+}
+
+.chip-count-badge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+/* Duplicate Warning Alert */
+.pattern-feedback-msg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 0.65rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+    font-size: 0.82rem;
+    font-weight: 500;
+    animation: fadeIn 0.2s ease;
+}
+
+.pattern-feedback-msg.is-error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+/* Config Toggles Grid */
+.config-toggles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.config-toggle-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(15, 19, 34, 0.55);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    transition: all 0.25s ease;
+}
+
+.config-toggle-card:hover {
+    background: rgba(15, 19, 34, 0.8);
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.toggle-text-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.toggle-card-label {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+/* Input Unit Wrapper (MB, chars) */
+.input-unit-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-unit-wrap input {
+    padding-right: 52px;
+}
+
+.input-unit-label {
+    position: absolute;
+    right: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    pointer-events: none;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   Modern Toast Notifications System
+   ========================================================================== */
+#toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    max-width: 420px;
+}
+
+.toast-item {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    background: rgba(15, 19, 34, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 500;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(139, 92, 246, 0.2);
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+}
+
+.toast-item.toast-visible {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast-item.toast-hiding {
+    transform: translateX(120%);
+    opacity: 0;
+}
+
+.toast-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.15s ease;
+}
+
+.toast-close:hover {
+    color: var(--text-primary);
+}
+
+.toast-item.toast-success {
+    border-color: rgba(16, 185, 129, 0.4);
+}
+.toast-item.toast-success .toast-icon {
+    color: #34d399;
+}
+
+.toast-item.toast-error {
+    border-color: rgba(239, 68, 68, 0.4);
+}
+.toast-item.toast-error .toast-icon {
+    color: #f87171;
+}
+
+.toast-item.toast-warning {
+    border-color: rgba(245, 158, 11, 0.4);
+}
+.toast-item.toast-warning .toast-icon {
+    color: #fbbf24;
+}
+
+.toast-item.toast-info {
+    border-color: rgba(139, 92, 246, 0.4);
+}
+.toast-item.toast-info .toast-icon {
+    color: #a78bfa;
+}

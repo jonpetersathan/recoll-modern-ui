@@ -529,12 +529,47 @@ def register_routes(app: bottle.Bottle):
         conf_dir = config['confdir']
         status_info = IndexManager.get_status(conf_dir)
         rules_data = MetadataRulesManager.get_rules(conf_dir)
+        index_config = IndexManager.get_index_config(conf_dir)
 
         view_vars = dict(status_info)
         view_vars['rules'] = rules_data.get('rules', [])
         view_vars['rules_json'] = json.dumps(rules_data)
         view_vars['extractor_path'] = rules_data.get('extractor_path', '')
+        view_vars['index_config'] = index_config
+        view_vars['index_config_json'] = json.dumps(index_config)
         return bottle.template('index_manager', **view_vars)
+
+    @app.route('/api/index/config', method=['GET'])
+    def api_get_index_config():
+        """
+        Return the 9 managed index configuration parameters as JSON.
+        """
+        try:
+            config = ConfigManager.get_config()
+            conf_data = IndexManager.get_index_config(config['confdir'])
+            return json_response({'success': True, 'config': conf_data})
+        except Exception as exc:
+            logger.error("API_INDEX_CONFIG_GET_ERROR: %s", exc)
+            return json_error(f"Failed to load index configuration: {exc}", status=500)
+
+    @app.route('/api/index/config', method=['POST'])
+    def api_save_index_config():
+        """
+        Validate, deduplicate, and update index configuration parameters in recoll.conf.
+        """
+        try:
+            config = ConfigManager.get_config()
+            data = parse_json_request()
+            if not data or not isinstance(data, dict):
+                return json_error("Empty or invalid JSON payload.", status=400)
+
+            updated_config = IndexManager.update_index_config(config['confdir'], data)
+            return json_response({'success': True, 'config': updated_config})
+        except ValueError as val_err:
+            return json_error(str(val_err), status=400)
+        except Exception as exc:
+            logger.error("API_INDEX_CONFIG_POST_ERROR: %s", exc)
+            return json_error(f"Failed to save index configuration: {exc}", status=500)
 
     @app.route('/api/index/status', method=['GET'])
     def api_index_status():

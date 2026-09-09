@@ -81,6 +81,7 @@ function initRecollApp() {
     initCustomSelects();
     initCustomDatepicker();
     initMainQueryEditor();
+    initIndexConfig();
 }
 
 if (document.readyState === 'loading') {
@@ -3219,6 +3220,552 @@ function initCustomDatepicker() {
         });
     }
 }
+
+/* ==========================================================================
+   Global Toast Notification Utility
+   ========================================================================== */
+
+window.showToast = function(message, type = 'info', duration = 4000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast-item toast-${type}`;
+
+    let iconSvg = '';
+    if (type === 'success') {
+        iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    } else if (type === 'error') {
+        iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
+    } else if (type === 'warning') {
+        iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+    } else {
+        iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+    }
+
+    toast.innerHTML = `
+        ${iconSvg}
+        <div class="toast-content">${escapeHtml(message)}</div>
+        <button type="button" class="toast-close" title="Dismiss">&times;</button>
+    `;
+
+    container.appendChild(toast);
+    void toast.offsetWidth; // Trigger CSS reflow
+    toast.classList.add('toast-visible');
+
+    const closeToast = () => {
+        toast.classList.remove('toast-visible');
+        toast.classList.add('toast-hiding');
+        setTimeout(() => { toast.remove(); }, 350);
+    };
+
+    toast.querySelector('.toast-close').addEventListener('click', closeToast);
+    if (duration > 0) {
+        setTimeout(closeToast, duration);
+    }
+};
+
+/* ==========================================================================
+   Milestone 1: Index Configuration (recoll.conf) Manager
+   ========================================================================== */
+
+var currentConfigData = {
+    skippedNames: [],
+    indexallfilenames: true,
+    noaspell: false,
+    indexstemmingpositions: true,
+    thrQSlices: "1",
+    idxthreads: 2,
+    idxflushmb: 50,
+    idxabsml: 250,
+    pdfocrmode: 'off'
+};
+var originalConfigData = null;
+var isConfigDirty = false;
+
+window.isIndexConfigDirty = function() {
+    return isConfigDirty;
+};
+
+function initIndexConfig() {
+    const card = document.getElementById('index-config-card');
+    if (!card) return;
+
+    if (!currentConfigData) {
+        currentConfigData = {
+            skippedNames: [],
+            indexallfilenames: true,
+            noaspell: false,
+            indexstemmingpositions: true,
+            thrQSlices: "1",
+            idxthreads: 2,
+            idxflushmb: 50,
+            idxabsml: 250,
+            pdfocrmode: 'off'
+        };
+    }
+
+    // Enter key handler for adding new pattern
+    const patternInput = document.getElementById('input-new-pattern');
+    if (patternInput) {
+        patternInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddSkippedName();
+            }
+        });
+    }
+
+    // If server rendered initial config in template, populate immediately
+    if (window.INITIAL_INDEX_CONFIG && typeof window.INITIAL_INDEX_CONFIG === 'object') {
+        const initData = window.INITIAL_INDEX_CONFIG;
+        currentConfigData = {
+            skippedNames: Array.isArray(initData.skippedNames) ? [...initData.skippedNames] : [],
+            indexallfilenames: Boolean(initData.indexallfilenames),
+            noaspell: Boolean(initData.noaspell),
+            indexstemmingpositions: Boolean(initData.indexstemmingpositions),
+            thrQSlices: initData.thrQSlices != null ? String(initData.thrQSlices) : "1",
+            idxthreads: initData.idxthreads != null ? initData.idxthreads : 2,
+            idxflushmb: initData.idxflushmb != null ? initData.idxflushmb : 50,
+            idxabsml: initData.idxabsml != null ? initData.idxabsml : 250,
+            pdfocrmode: initData.pdfocrmode || 'off'
+        };
+        originalConfigData = JSON.parse(JSON.stringify(currentConfigData));
+        renderConfigFields();
+    }
+
+    // Always fetch latest configuration from backend
+    loadIndexConfig();
+}
+
+async function loadIndexConfig(isReset = false) {
+    const statusEl = document.getElementById('config-save-status');
+    if (statusEl) {
+        statusEl.textContent = 'Loading recoll.conf...';
+        statusEl.className = 'status-msg';
+    }
+
+    try {
+        const res = await fetch('/api/index/config');
+        const data = await res.json();
+        if (data.success && data.config) {
+            currentConfigData = {
+                skippedNames: Array.isArray(data.config.skippedNames) ? [...data.config.skippedNames] : [],
+                indexallfilenames: Boolean(data.config.indexallfilenames),
+                noaspell: Boolean(data.config.noaspell),
+                indexstemmingpositions: Boolean(data.config.indexstemmingpositions),
+                thrQSlices: data.config.thrQSlices != null ? String(data.config.thrQSlices) : "1",
+                idxthreads: data.config.idxthreads != null ? data.config.idxthreads : 2,
+                idxflushmb: data.config.idxflushmb != null ? data.config.idxflushmb : 50,
+                idxabsml: data.config.idxabsml != null ? data.config.idxabsml : 250,
+                pdfocrmode: data.config.pdfocrmode || 'off'
+            };
+            originalConfigData = JSON.parse(JSON.stringify(currentConfigData));
+            isConfigDirty = false;
+            updateConfigBadge();
+
+            renderConfigFields();
+
+            if (statusEl) {
+                statusEl.textContent = isReset ? 'Configuration reloaded.' : '';
+                statusEl.className = 'status-msg status-msg-success';
+                if (isReset) {
+                    showToast('Configuration reloaded from disk', 'info', 2500);
+                    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+                }
+            }
+        } else {
+            throw new Error(data.error || 'Failed to load configuration');
+        }
+    } catch (err) {
+        console.error('Failed to load index configuration:', err);
+        if (statusEl) {
+            statusEl.textContent = 'Error loading configuration: ' + err.message;
+            statusEl.className = 'status-msg status-msg-error';
+        }
+        showToast('Failed to load index configuration: ' + err.message, 'error');
+    }
+}
+
+function renderConfigFields() {
+    renderSkippedNamesChips();
+
+    const elAllNames = document.getElementById('conf-indexallfilenames');
+    if (elAllNames) elAllNames.checked = currentConfigData.indexallfilenames;
+
+    const elNoAspell = document.getElementById('conf-noaspell');
+    if (elNoAspell) elNoAspell.checked = currentConfigData.noaspell;
+
+    const elStemPos = document.getElementById('conf-indexstemmingpositions');
+    if (elStemPos) elStemPos.checked = currentConfigData.indexstemmingpositions;
+
+    const elPdfOcr = document.getElementById('conf-pdfocrmode');
+    if (elPdfOcr) {
+        elPdfOcr.value = currentConfigData.pdfocrmode;
+        // Re-sync custom select wrapper if active
+        const wrapper = elPdfOcr.closest('.custom-select-wrapper');
+        if (wrapper) {
+            const label = wrapper.querySelector('.custom-select-label');
+            const selectedOption = elPdfOcr.options[elPdfOcr.selectedIndex];
+            if (label && selectedOption) label.textContent = selectedOption.textContent;
+        }
+    }
+
+    const elThreads = document.getElementById('conf-idxthreads');
+    if (elThreads) elThreads.value = currentConfigData.idxthreads;
+
+    const elSlices = document.getElementById('conf-thrQSlices');
+    if (elSlices) elSlices.value = currentConfigData.thrQSlices;
+
+    const elFlush = document.getElementById('conf-idxflushmb');
+    if (elFlush) elFlush.value = currentConfigData.idxflushmb;
+
+    const elAbsml = document.getElementById('conf-idxabsml');
+    if (elAbsml) elAbsml.value = currentConfigData.idxabsml;
+}
+
+function renderSkippedNamesChips() {
+    const container = document.getElementById('skipped-names-chip-list');
+    const countEl = document.getElementById('skipped-names-count');
+    if (!container) return;
+
+    if (countEl) {
+        countEl.textContent = `${currentConfigData.skippedNames.length} pattern${currentConfigData.skippedNames.length === 1 ? '' : 's'}`;
+    }
+
+    if (currentConfigData.skippedNames.length === 0) {
+        container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 6px 0;">
+                No skipped patterns configured. All supported files will be indexed.
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    currentConfigData.skippedNames.forEach((pattern, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'config-chip';
+        chip.dataset.index = index;
+        chip.dataset.pattern = pattern;
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'chip-text';
+        textSpan.textContent = pattern;
+        textSpan.title = 'Click to edit pattern';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'chip-remove-btn';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = `Remove "${pattern}"`;
+
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeSkippedName(index);
+        });
+
+        textSpan.addEventListener('click', () => {
+            enableChipInlineEdit(chip, textSpan, index);
+        });
+
+        chip.appendChild(textSpan);
+        chip.appendChild(removeBtn);
+        container.appendChild(chip);
+    });
+}
+
+function enableChipInlineEdit(chip, textSpan, index) {
+    if (chip.classList.contains('is-editing')) return;
+    chip.classList.add('is-editing');
+
+    const currentVal = currentConfigData.skippedNames[index];
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chip-edit-input';
+    input.value = currentVal;
+    input.spellcheck = false;
+
+    chip.replaceChild(input, textSpan);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    function commitEdit() {
+        if (finished) return;
+        finished = true;
+
+        const newVal = input.value.trim();
+        if (!newVal || newVal === currentVal) {
+            chip.classList.remove('is-editing');
+            chip.replaceChild(textSpan, input);
+            return;
+        }
+
+        // Check for duplicate with other entries (exact string equality)
+        const duplicateIndex = currentConfigData.skippedNames.findIndex((p, i) => i !== index && p === newVal);
+        if (duplicateIndex !== -1) {
+            showPatternFeedback(`Pattern "${newVal}" already exists in skippedNames list`, true);
+            highlightDuplicateChip(duplicateIndex);
+            showToast(`Duplicate pattern "${newVal}" rejected`, 'warning');
+            chip.classList.remove('is-editing');
+            chip.replaceChild(textSpan, input);
+            return;
+        }
+
+        currentConfigData.skippedNames[index] = newVal;
+        markConfigDirty();
+        renderSkippedNamesChips();
+        showToast(`Pattern updated to "${newVal}"`, 'info', 2000);
+    }
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            commitEdit();
+        } else if (e.key === 'Escape') {
+            finished = true;
+            chip.classList.remove('is-editing');
+            chip.replaceChild(textSpan, input);
+        }
+    });
+    input.addEventListener('blur', commitEdit);
+}
+
+function removeSkippedName(index) {
+    const removed = currentConfigData.skippedNames.splice(index, 1)[0];
+    markConfigDirty();
+    renderSkippedNamesChips();
+    showToast(`Removed pattern "${removed}"`, 'info', 2000);
+}
+
+function handleAddSkippedName() {
+    const input = document.getElementById('input-new-pattern');
+    if (!input) return;
+    const raw = input.value.trim();
+    if (!raw) return;
+
+    // Support space-separated or comma-separated tokens
+    const tokens = raw.split(/[\s,]+/).filter(Boolean);
+    let addedCount = 0;
+    let duplicateTokens = [];
+
+    tokens.forEach(token => {
+        const exists = currentConfigData.skippedNames.some(p => p === token);
+        if (exists) {
+            duplicateTokens.push(token);
+        } else {
+            currentConfigData.skippedNames.push(token);
+            addedCount++;
+        }
+    });
+
+    if (duplicateTokens.length > 0) {
+        const firstDup = duplicateTokens[0];
+        showPatternFeedback(`Pattern "${firstDup}" is already in the skipped names list!`, true);
+        const dupIdx = currentConfigData.skippedNames.findIndex(p => p === firstDup);
+        if (dupIdx !== -1) highlightDuplicateChip(dupIdx);
+        showToast(`Duplicate pattern "${firstDup}" rejected`, 'warning');
+    } else {
+        clearPatternFeedback();
+    }
+
+    if (addedCount > 0) {
+        input.value = '';
+        markConfigDirty();
+        renderSkippedNamesChips();
+        const container = document.getElementById('skipped-names-chip-list');
+        if (container) container.scrollTop = container.scrollHeight;
+        showToast(`Added ${addedCount} pattern${addedCount > 1 ? 's' : ''}`, 'success', 2000);
+    }
+}
+
+function highlightDuplicateChip(index) {
+    const container = document.getElementById('skipped-names-chip-list');
+    if (!container) return;
+    const chip = container.querySelector(`.config-chip[data-index="${index}"]`);
+    if (chip) {
+        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        chip.classList.remove('chip-duplicate-highlight');
+        void chip.offsetWidth;
+        chip.classList.add('chip-duplicate-highlight');
+        setTimeout(() => { chip.classList.remove('chip-duplicate-highlight'); }, 1400);
+    }
+}
+
+function sortSkippedNames() {
+    currentConfigData.skippedNames.sort((a, b) => a.localeCompare(b));
+    markConfigDirty();
+    renderSkippedNamesChips();
+    showToast('Patterns sorted alphabetically', 'info', 2000);
+}
+
+function showPatternFeedback(msg, isError = false) {
+    const alertEl = document.getElementById('pattern-feedback-msg');
+    const textEl = document.getElementById('pattern-feedback-text');
+    if (alertEl && textEl) {
+        textEl.textContent = msg;
+        alertEl.className = 'pattern-feedback-msg' + (isError ? ' is-error' : '');
+        alertEl.style.display = 'flex';
+        setTimeout(clearPatternFeedback, 4500);
+    }
+}
+
+function clearPatternFeedback() {
+    const alertEl = document.getElementById('pattern-feedback-msg');
+    if (alertEl) alertEl.style.display = 'none';
+}
+
+function markConfigDirty() {
+    isConfigDirty = true;
+    updateConfigBadge();
+}
+
+function updateConfigBadge() {
+    const badge = document.getElementById('config-status-badge');
+    const text = document.getElementById('config-status-text');
+    if (!badge || !text) return;
+
+    if (isConfigDirty) {
+        badge.className = 'config-status-badge is-dirty';
+        text.textContent = 'Unsaved Changes';
+    } else {
+        badge.className = 'config-status-badge';
+        text.textContent = 'Active Configuration';
+    }
+}
+
+async function saveIndexConfig() {
+    const btnSave = document.getElementById('btn-save-index-config');
+    const btnIcon = document.getElementById('btn-save-config-icon');
+    const btnText = document.getElementById('btn-save-config-text');
+    const statusEl = document.getElementById('config-save-status');
+
+    const elAllNames = document.getElementById('conf-indexallfilenames');
+    const elNoAspell = document.getElementById('conf-noaspell');
+    const elStemPos = document.getElementById('conf-indexstemmingpositions');
+    const elPdfOcr = document.getElementById('conf-pdfocrmode');
+    const elThreads = document.getElementById('conf-idxthreads');
+    const elSlices = document.getElementById('conf-thrQSlices');
+    const elFlush = document.getElementById('conf-idxflushmb');
+    const elAbsml = document.getElementById('conf-idxabsml');
+
+    const idxthreadsVal = parseInt(elThreads ? elThreads.value : '2', 10);
+    const thrQSlicesVal = parseInt(elSlices ? elSlices.value : '1', 10);
+    const idxflushmbVal = parseInt(elFlush ? elFlush.value : '50', 10);
+    const idxabsmlVal = parseInt(elAbsml ? elAbsml.value : '250', 10);
+
+    // Validation
+    if (isNaN(idxthreadsVal) || idxthreadsVal < 0) {
+        showToast('Indexer Threads must be a non-negative number', 'error');
+        if (elThreads) elThreads.focus();
+        return;
+    }
+    if (isNaN(thrQSlicesVal) || thrQSlicesVal < 1) {
+        showToast('Thread Queue Slices must be at least 1', 'error');
+        if (elSlices) elSlices.focus();
+        return;
+    }
+    if (isNaN(idxflushmbVal) || idxflushmbVal < 1) {
+        showToast('Index Flush Threshold must be at least 1 MB', 'error');
+        if (elFlush) elFlush.focus();
+        return;
+    }
+    if (isNaN(idxabsmlVal) || idxabsmlVal < 0) {
+        showToast('Max Abstract Length must be a non-negative number', 'error');
+        if (elAbsml) elAbsml.focus();
+        return;
+    }
+
+    const payload = {
+        skippedNames: currentConfigData.skippedNames,
+        indexallfilenames: elAllNames ? elAllNames.checked : true,
+        noaspell: elNoAspell ? elNoAspell.checked : false,
+        indexstemmingpositions: elStemPos ? elStemPos.checked : true,
+        pdfocrmode: elPdfOcr ? elPdfOcr.value : 'off',
+        idxthreads: idxthreadsVal,
+        thrQSlices: String(thrQSlicesVal),
+        idxflushmb: idxflushmbVal,
+        idxabsml: idxabsmlVal
+    };
+
+    // UI Loading state
+    if (btnSave) btnSave.disabled = true;
+    if (btnIcon) {
+        btnIcon.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>`;
+    }
+    if (btnText) btnText.textContent = 'Saving Configuration...';
+    if (statusEl) {
+        statusEl.textContent = 'Writing updates to recoll.conf...';
+        statusEl.className = 'status-msg';
+    }
+
+    try {
+        const res = await fetch('/api/index/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            currentConfigData = {
+                skippedNames: data.config.skippedNames || payload.skippedNames,
+                indexallfilenames: Boolean(data.config.indexallfilenames),
+                noaspell: Boolean(data.config.noaspell),
+                indexstemmingpositions: Boolean(data.config.indexstemmingpositions),
+                thrQSlices: data.config.thrQSlices != null ? String(data.config.thrQSlices) : String(payload.thrQSlices),
+                idxthreads: data.config.idxthreads != null ? data.config.idxthreads : payload.idxthreads,
+                idxflushmb: data.config.idxflushmb != null ? data.config.idxflushmb : payload.idxflushmb,
+                idxabsml: data.config.idxabsml != null ? data.config.idxabsml : payload.idxabsml,
+                pdfocrmode: data.config.pdfocrmode || payload.pdfocrmode
+            };
+            originalConfigData = JSON.parse(JSON.stringify(currentConfigData));
+            isConfigDirty = false;
+            updateConfigBadge();
+
+            if (statusEl) {
+                statusEl.textContent = 'recoll.conf configuration saved successfully!';
+                statusEl.className = 'status-msg status-msg-success';
+                setTimeout(() => { statusEl.textContent = ''; }, 4500);
+            }
+            showToast('Index configuration saved successfully!', 'success', 3500);
+        } else {
+            throw new Error(data.error || 'Unknown server error');
+        }
+    } catch (err) {
+        console.error('Failed to save index configuration:', err);
+        if (statusEl) {
+            statusEl.textContent = 'Error saving config: ' + err.message;
+            statusEl.className = 'status-msg status-msg-error';
+        }
+        showToast('Failed to save config: ' + err.message, 'error');
+    } finally {
+        if (btnSave) btnSave.disabled = false;
+        if (btnIcon) {
+            btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`;
+        }
+        if (btnText) btnText.textContent = 'Save Index Configuration';
+    }
+}
+
+// Bind globally for inline onclick handlers
+window.initIndexConfig = initIndexConfig;
+window.loadIndexConfig = loadIndexConfig;
+window.renderConfigFields = renderConfigFields;
+window.renderSkippedNamesChips = renderSkippedNamesChips;
+window.removeSkippedName = removeSkippedName;
+window.handleAddSkippedName = handleAddSkippedName;
+window.highlightDuplicateChip = highlightDuplicateChip;
+window.sortSkippedNames = sortSkippedNames;
+window.showPatternFeedback = showPatternFeedback;
+window.clearPatternFeedback = clearPatternFeedback;
+window.markConfigDirty = markConfigDirty;
+window.updateConfigBadge = updateConfigBadge;
+window.saveIndexConfig = saveIndexConfig;
 
 
 

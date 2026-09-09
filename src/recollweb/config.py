@@ -17,6 +17,7 @@ from recollweb.constants import (
     DOCUMENT_FIELDS,
     SORT_OPTIONS,
 )
+from recollweb.logging import logger
 from recollweb.utils import extract_common_prefix
 
 
@@ -211,3 +212,402 @@ class ConfigManager:
                 relative_dirs = [d.replace(parent_path + b'/', b'', 1) for d in valid_dirs]
             dir_list.extend([d.decode('utf-8', 'surrogateescape') for d in relative_dirs])
         return ['<all>'] + dir_list
+
+
+MANAGED_INDEX_PARAMS: Dict[str, Dict[str, Any]] = {
+    "skippedNames": {
+        "type": list,
+        "default": [],
+        "description": "List of wildcard patterns for skipped files/directories",
+    },
+    "indexallfilenames": {
+        "type": bool,
+        "default": True,
+        "description": "Index filenames of unprocessed/unsupported files",
+    },
+    "thrQSlices": {
+        "type": str,
+        "default": "1",
+        "description": "Thread queue slice configuration",
+    },
+    "idxthreads": {
+        "type": int,
+        "default": 2,
+        "description": "Number of indexing threads",
+    },
+    "pdfocrmode": {
+        "type": str,
+        "default": "off",
+        "allowed": ["off", "auto", "always"],
+        "description": "PDF OCR processing policy",
+    },
+    "noaspell": {
+        "type": bool,
+        "default": False,
+        "description": "Disable aspell dictionary generation",
+    },
+    "indexstemmingpositions": {
+        "type": bool,
+        "default": True,
+        "description": "Index word positions for stemmed terms",
+    },
+    "idxflushmb": {
+        "type": int,
+        "default": 50,
+        "description": "Index flush threshold in megabytes",
+    },
+    "idxabsml": {
+        "type": int,
+        "default": 250,
+        "description": "Maximum stored abstract length in bytes",
+    },
+}
+
+CANONICAL_PARAM_MAP: Dict[str, str] = {
+    "skippednames": "skippedNames",
+    "indexallfilenames": "indexallfilenames",
+    "thrqslices": "thrQSlices",
+    "idxthreads": "idxthreads",
+    "pdfocrmode": "pdfocrmode",
+    "noaspell": "noaspell",
+    "indexstemmingpositions": "indexstemmingpositions",
+    "idxflushmb": "idxflushmb",
+    "idxabsml": "idxabsml",
+    "idxabsmlen": "idxabsml",
+}
+
+
+def deduplicate_patterns(patterns: Any) -> List[str]:
+    """
+    Deduplicate list of wildcard patterns while strictly preserving insertion order.
+    Whitespace is stripped, and empty strings or items containing '/' are dropped.
+    """
+    if isinstance(patterns, str):
+        try:
+            raw_items = shlex.split(patterns)
+        except Exception:
+            raw_items = patterns.split()
+    elif isinstance(patterns, (list, tuple)):
+        raw_items = patterns
+    else:
+        return []
+
+    seen = set()
+    unique: List[str] = []
+    for item in raw_items:
+        clean = str(item).strip()
+        if clean and '/' not in clean and clean not in seen:
+            seen.add(clean)
+            unique.append(clean)
+    return unique
+
+
+class RecollConfManager:
+    """
+    Parser, validator, and atomic serializer for recoll.conf configuration parameters.
+    """
+
+    @classmethod
+    def get_config_path(cls, conf_dir: Optional[str] = None) -> str:
+        target_dir = conf_dir or get_config_dir()
+        return os.path.join(target_dir, "recoll.conf")
+
+    @classmethod
+    def get_index_config(cls, conf_dir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Parse and return the 9 managed index configuration parameters from recoll.conf.
+        Missing parameters fall back to their system defaults.
+        """
+        config_path = cls.get_config_path(conf_dir)
+        config: Dict[str, Any] = {k: v["default"] for k, v in MANAGED_INDEX_PARAMS.items()}
+
+        if not os.path.isfile(config_path):
+            return config
+
+        try:
+            with open(config_path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except Exception as exc:
+            logger.error("RECOLL_CONF_READ_ERROR: %s", exc)
+            return config
+
+        i = 0
+        n = len(lines)
+        current_section: Optional[str] = None
+
+        while i < n:
+            line = lines[i]
+            stripped = line.strip()
+
+            # Detect section header
+            if stripped.startswith("[") and stripped.endswith("]"):
+                current_section = stripped[1:-1].strip()
+                i += 1
+                continue
+
+            # Only parse global section parameters
+            if current_section is not None or stripped.startswith("#") or not stripped:
+                i += 1
+                continue
+
+            if "=" in stripped:
+                raw_key, raw_val = stripped.split("=", 1)
+                key_lower = raw_key.strip().lower()
+                canonical_key = CANONICAL_PARAM_MAP.get(key_lower)
+
+                # Collect line continuations
+                raw_parts = [raw_val.rstrip("\r\n").rstrip().rstrip("\\").strip()]
+                cur_line = line
+                while cur_line.rstrip("\r\n").rstrip().endswith("\\") and i + 1 < n:
+                    i += 1
+                    cur_line = lines[i]
+                    raw_parts.append(cur_line.rstrip("\r\n").rstrip().rstrip("\\").strip())
+
+                if canonical_key in MANAGED_INDEX_PARAMS:
+                    full_val = " ".join(p for p in raw_parts if p)
+                    spec = MANAGED_INDEX_PARAMS[canonical_key]
+
+                    if canonical_key == "skippedNames":
+                        config[canonical_key] = deduplicate_patterns(full_val)
+                    elif spec["type"] is bool:
+                        clean_val = full_val.split("#", 1)[0].strip().lower()
+                        config[canonical_key] = clean_val in ("1", "true", "yes", "on")
+                    elif spec["type"] is int:
+                        clean_val = full_val.split("#", 1)[0].strip()
+                        try:
+                            config[canonical_key] = int(clean_val)
+                        except ValueError:
+                            pass
+                    else:  # str
+                        clean_val = full_val.split("#", 1)[0].strip()
+                        if canonical_key == "pdfocrmode":
+                            clean_val = clean_val.lower()
+                            if clean_val in spec.get("allowed", []):
+                                config[canonical_key] = clean_val
+                        else:
+                            config[canonical_key] = clean_val
+            i += 1
+
+        return config
+
+    @classmethod
+    def _serialize_param(cls, key: str, value: Any) -> List[str]:
+        """
+        Format a configuration parameter into line(s) for recoll.conf.
+        skippedNames is wrapped across lines using trailing backslashes.
+        """
+        if key == "skippedNames":
+            unique = deduplicate_patterns(value)
+            if not unique:
+                return ["skippedNames =\n"]
+            lines = []
+            prefix = "skippedNames = "
+            current_line = prefix
+            for item in unique:
+                pat_str = f'"{item}"' if (" " in item and not (item.startswith('"') and item.endswith('"'))) else item
+                if len(current_line) + len(pat_str) + 1 > 80 and current_line != prefix:
+                    lines.append(current_line + "  \\\n")
+                    current_line = "  " + pat_str
+                else:
+                    if current_line == prefix or current_line.endswith(" "):
+                        current_line += pat_str
+                    else:
+                        current_line += " " + pat_str
+            lines.append(current_line + "\n")
+            return lines
+
+        elif key in ("indexallfilenames", "noaspell", "indexstemmingpositions"):
+            bool_str = "true" if bool(value) else "false"
+            return [f"{key} = {bool_str}\n"]
+
+        else:
+            return [f"{key} = {value}\n"]
+
+    @classmethod
+    def update_index_config(cls, conf_dir: Optional[str], updates: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate updates, apply changes in-place preserving unmanaged settings and comments,
+        and atomically write recoll.conf via a temporary file replacement.
+        """
+        if not isinstance(updates, dict):
+            raise ValueError("Configuration payload must be a JSON dictionary.")
+
+        validated_updates: Dict[str, Any] = {}
+        for raw_k, raw_v in updates.items():
+            k_lower = str(raw_k).strip().lower()
+            if k_lower not in CANONICAL_PARAM_MAP:
+                continue  # Ignore unmanaged keys
+            canonical_k = CANONICAL_PARAM_MAP[k_lower]
+            spec = MANAGED_INDEX_PARAMS[canonical_k]
+
+            if canonical_k == "skippedNames":
+                if not isinstance(raw_v, (list, tuple, str)):
+                    raise ValueError("skippedNames must be a list of wildcard strings.")
+                if isinstance(raw_v, str):
+                    try:
+                        raw_items = shlex.split(raw_v)
+                    except Exception:
+                        raw_items = raw_v.split()
+                else:
+                    raw_items = list(raw_v)
+
+                for item in raw_items:
+                    clean = str(item).strip()
+                    if "/" in clean:
+                        raise ValueError(f"Pattern '{clean}' contains invalid path separator '/'. Patterns must be filenames or simple wildcards.")
+
+                validated_updates[canonical_k] = deduplicate_patterns(raw_items)
+
+            elif spec["type"] is bool:
+                if isinstance(raw_v, bool):
+                    validated_updates[canonical_k] = raw_v
+                elif isinstance(raw_v, (int, str)):
+                    str_v = str(raw_v).strip().lower()
+                    if str_v in ("1", "true", "yes", "on"):
+                        validated_updates[canonical_k] = True
+                    elif str_v in ("0", "false", "no", "off"):
+                        validated_updates[canonical_k] = False
+                    else:
+                        raise ValueError(f"{canonical_k} must be a boolean.")
+                else:
+                    raise ValueError(f"{canonical_k} must be a boolean.")
+
+            elif spec["type"] is int:
+                try:
+                    int_val = int(raw_v)
+                except (ValueError, TypeError):
+                    raise ValueError(f"{canonical_k} must be a valid integer.")
+                if canonical_k == "idxflushmb" and int_val <= 0:
+                    raise ValueError("idxflushmb must be a positive integer in megabytes.")
+                if canonical_k in ("idxthreads", "idxabsml") and int_val < 0:
+                    raise ValueError(f"{canonical_k} must be a non-negative integer.")
+                validated_updates[canonical_k] = int_val
+
+            elif canonical_k == "pdfocrmode":
+                str_v = str(raw_v).strip().lower()
+                if str_v not in spec["allowed"]:
+                    raise ValueError(f"pdfocrmode must be one of: {', '.join(spec['allowed'])}")
+                validated_updates[canonical_k] = str_v
+
+            else:  # thrQSlices
+                str_v = str(raw_v).strip()
+                if not str_v:
+                    raise ValueError("thrQSlices must not be empty.")
+                try:
+                    int_slice = int(str_v)
+                    if int_slice < 1:
+                        raise ValueError("thrQSlices must be at least 1.")
+                except (ValueError, TypeError):
+                    raise ValueError("thrQSlices must be a valid integer.")
+                validated_updates[canonical_k] = str_v
+
+        config_path = cls.get_config_path(conf_dir)
+        original_lines: List[str] = []
+        if os.path.isfile(config_path):
+            with open(config_path, "r", encoding="utf-8", errors="replace") as f:
+                original_lines = f.readlines()
+
+        # Scan original lines to locate section headers and existing managed parameter spans
+        param_spans: Dict[str, Tuple[int, int]] = {}
+        first_section_idx: Optional[int] = None
+        i = 0
+        n = len(original_lines)
+
+        while i < n:
+            line = original_lines[i]
+            stripped = line.strip()
+
+            if stripped.startswith("[") and stripped.endswith("]"):
+                if first_section_idx is None:
+                    first_section_idx = i
+                i += 1
+                continue
+
+            if first_section_idx is not None or stripped.startswith("#") or not stripped:
+                i += 1
+                continue
+
+            if "=" in stripped:
+                raw_k = stripped.split("=", 1)[0].strip().lower()
+                canonical_k = CANONICAL_PARAM_MAP.get(raw_k)
+                start_idx = i
+                end_idx = i
+                cur_line = original_lines[end_idx]
+                while cur_line.rstrip("\r\n").rstrip().endswith("\\") and end_idx + 1 < n:
+                    end_idx += 1
+                    cur_line = original_lines[end_idx]
+
+                if canonical_k in MANAGED_INDEX_PARAMS:
+                    param_spans[canonical_k] = (start_idx, end_idx)
+                i = end_idx + 1
+                continue
+            i += 1
+
+        # Determine keys needing insertion (keys updated but not present in file)
+        keys_to_insert = [k for k in validated_updates if k not in param_spans]
+
+        # Reconstruct updated lines
+        new_lines: List[str] = []
+        inserted_new = False
+        i = 0
+
+        while i < n:
+            # Insert missing parameters before the first section header
+            if first_section_idx is not None and i == first_section_idx and not inserted_new:
+                for k in keys_to_insert:
+                    new_lines.extend(cls._serialize_param(k, validated_updates[k]))
+                inserted_new = True
+
+            matched_key: Optional[str] = None
+            span_end = i
+            for k, (s, e) in param_spans.items():
+                if i == s:
+                    matched_key = k
+                    span_end = e
+                    break
+
+            if matched_key is not None:
+                if matched_key in validated_updates:
+                    new_lines.extend(cls._serialize_param(matched_key, validated_updates[matched_key]))
+                else:
+                    new_lines.extend(original_lines[i:span_end + 1])
+                i = span_end + 1
+            else:
+                new_lines.append(original_lines[i])
+                i += 1
+
+        # If no section header was present, append new parameters at end of file
+        if not inserted_new and keys_to_insert:
+            if new_lines and not new_lines[-1].endswith("\n"):
+                new_lines[-1] += "\n"
+            for k in keys_to_insert:
+                new_lines.extend(cls._serialize_param(k, validated_updates[k]))
+
+        # Atomic write via temporary file
+        target_dir = os.path.dirname(os.path.abspath(config_path))
+        os.makedirs(target_dir, exist_ok=True)
+        tmp_path = f"{config_path}.tmp.{os.getpid()}"
+
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.writelines(new_lines)
+                f.flush()
+                os.fsync(f.fileno())
+
+            # Preserve file mode if original file exists
+            if os.path.isfile(config_path):
+                st = os.stat(config_path)
+                try:
+                    os.chmod(tmp_path, st.st_mode)
+                except OSError:
+                    pass
+
+            os.replace(tmp_path, config_path)
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+        return cls.get_index_config(conf_dir)

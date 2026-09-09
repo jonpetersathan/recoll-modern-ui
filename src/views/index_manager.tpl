@@ -257,6 +257,229 @@
     </div>
 </div>
 
+<!-- ==========================================================================
+     Section: Dedicated Index Configuration (recoll.conf) Card
+     ========================================================================== -->
+<div id="index-config-card" class="settings-card" onmousemove="updateGlow(event, this)" style="margin-top: 2rem;">
+    <div class="card-glow"></div>
+
+    <!-- Header Section with Live Status Badge -->
+    <div class="settings-header" style="justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                    <line x1="1" y1="14" x2="7" y2="14"></line>
+                    <line x1="9" y1="8" x2="15" y2="8"></line>
+                    <line x1="17" y1="16" x2="23" y2="16"></line>
+                </svg>
+            </div>
+            <div>
+                <h2 class="settings-title">Index Configuration (<code class="recoll-conf-code">recoll.conf</code>)</h2>
+                <p class="settings-helper">Customize file exclusion rules, crawler thread allocation, OCR triggers, and Xapian database cache sizes</p>
+            </div>
+        </div>
+        <div class="config-status-badge" id="config-status-badge">
+            <span class="status-dot-pulse"></span>
+            <span id="config-status-text">Active Configuration</span>
+        </div>
+    </div>
+
+    <!-- Parameter 1: skippedNames (Interactive Chip / Tag List) -->
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <div style="display: inline-flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    <line x1="9" y1="14" x2="15" y2="14"></line>
+                </svg>
+                <span>Excluded Filename Patterns (<code class="field-code">skippedNames</code>)</span>
+            </div>
+            <div class="section-title-actions" style="margin-left: auto;">
+                <span class="chip-count-badge" id="skipped-names-count">0 patterns</span>
+            </div>
+        </div>
+        <p class="settings-helper" style="margin-bottom: 0.75rem;">
+            Files and directories matching these wildcard patterns (e.g. <code>*.vmdk</code>, <code>.DS_Store</code>) are completely skipped during indexing. Click any tag to edit inline, click <strong>&times;</strong> to remove, or add new patterns below. Duplicate patterns are automatically rejected.
+        </p>
+
+        <!-- Interactive Chips List -->
+        <div class="chip-tag-container" id="skipped-names-chip-list">
+            <!-- Dynamically populated chips -->
+        </div>
+
+        <!-- Add Pattern Toolbar -->
+        <div class="chip-add-toolbar">
+            <div class="chip-input-wrap">
+                <input type="text" id="input-new-pattern" class="form-control chip-add-input" placeholder="Enter pattern (e.g. *.iso, .git, ~*)... Press Enter to add" autocomplete="off" spellcheck="false">
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-add-pattern" onclick="handleAddSkippedName()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Add Pattern</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-sort-patterns" onclick="sortSkippedNames()" title="Sort alphabetically">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="7 15 12 20 17 15"></polyline>
+                    <polyline points="7 9 12 4 17 9"></polyline>
+                </svg>
+                <span>Sort A-Z</span>
+            </button>
+        </div>
+
+        <!-- Inline Duplicate Prevention / Validation Feedback -->
+        <div id="pattern-feedback-msg" class="pattern-feedback-msg" style="display: none;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span id="pattern-feedback-text"></span>
+        </div>
+    </div>
+
+    <!-- Parameters 2, 3, 4, 5: Indexing Directives & PDF OCR -->
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Indexing Directives &amp; OCR Engine</span>
+        </div>
+
+        <div class="config-toggles-grid">
+            <!-- Toggle 1: indexallfilenames -->
+            <div class="config-toggle-card">
+                <div class="toggle-text-wrap">
+                    <label class="toggle-card-label" for="conf-indexallfilenames">Index All Filenames</label>
+                    <span class="settings-helper"><code>indexallfilenames</code>: Index file names even for unextractable or unsupported file types</span>
+                </div>
+                <label class="toggle-switch-wrapper">
+                    <input type="checkbox" id="conf-indexallfilenames" name="indexallfilenames" class="toggle-switch-input" onchange="markConfigDirty()">
+                    <span class="toggle-switch-slider"></span>
+                </label>
+            </div>
+
+            <!-- Toggle 2: noaspell -->
+            <div class="config-toggle-card">
+                <div class="toggle-text-wrap">
+                    <label class="toggle-card-label" for="conf-noaspell">Disable Aspell Spelling</label>
+                    <span class="settings-helper"><code>noaspell</code>: Skip aspell dictionary generation to reduce indexing time and memory</span>
+                </div>
+                <label class="toggle-switch-wrapper">
+                    <input type="checkbox" id="conf-noaspell" name="noaspell" class="toggle-switch-input" onchange="markConfigDirty()">
+                    <span class="toggle-switch-slider"></span>
+                </label>
+            </div>
+
+            <!-- Toggle 3: indexstemmingpositions -->
+            <div class="config-toggle-card">
+                <div class="toggle-text-wrap">
+                    <label class="toggle-card-label" for="conf-indexstemmingpositions">Index Stemming Positions</label>
+                    <span class="settings-helper"><code>indexstemmingpositions</code>: Store word positions for stemmed forms to accelerate phrase searches</span>
+                </div>
+                <label class="toggle-switch-wrapper">
+                    <input type="checkbox" id="conf-indexstemmingpositions" name="indexstemmingpositions" class="toggle-switch-input" onchange="markConfigDirty()">
+                    <span class="toggle-switch-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Select Dropdown: pdfocrmode -->
+        <div class="config-field-row" style="margin-top: 1rem;">
+            <div class="settings-field" style="max-width: 480px;">
+                <label class="settings-label" for="conf-pdfocrmode">PDF OCR Mode (<code>pdfocrmode</code>)</label>
+                <span class="settings-helper">Select Optical Character Recognition execution policy for PDF documents</span>
+                <select id="conf-pdfocrmode" name="pdfocrmode" class="form-control" onchange="markConfigDirty()">
+                    <option value="off">off &mdash; Never run OCR on PDFs</option>
+                    <option value="auto">auto &mdash; Run OCR only when PDF has no selectable text</option>
+                    <option value="always">always &mdash; Force OCR on all PDF pages</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parameters 6, 7, 8, 9: Threads & Performance Tuning -->
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+            </svg>
+            <span>Performance &amp; Memory Allocation</span>
+        </div>
+
+        <div class="settings-grid">
+            <!-- Numeric 1: idxthreads -->
+            <div class="settings-field">
+                <label class="settings-label" for="conf-idxthreads">Indexer Threads (<code>idxthreads</code>)</label>
+                <span class="settings-helper">Worker thread count for document reading and processing (0 or 1 for single-threaded)</span>
+                <input type="number" id="conf-idxthreads" name="idxthreads" class="form-control" min="0" max="64" step="1" placeholder="e.g. 2" oninput="markConfigDirty()">
+            </div>
+
+            <!-- Numeric 2: thrQSlices -->
+            <div class="settings-field">
+                <label class="settings-label" for="conf-thrQSlices">Thread Queue Slices (<code>thrQSlices</code>)</label>
+                <span class="settings-helper">Queue depth multiplier for multithreaded indexing pipelines</span>
+                <input type="number" id="conf-thrQSlices" name="thrQSlices" class="form-control" min="1" max="10" step="1" placeholder="e.g. 1" oninput="markConfigDirty()">
+            </div>
+
+            <!-- Numeric 3: idxflushmb -->
+            <div class="settings-field">
+                <label class="settings-label" for="conf-idxflushmb">Index Flush Threshold (<code>idxflushmb</code>)</label>
+                <span class="settings-helper">Megabytes of memory before flushing document updates to Xapian disk storage</span>
+                <div class="input-unit-wrap">
+                    <input type="number" id="conf-idxflushmb" name="idxflushmb" class="form-control" min="10" max="4096" step="10" placeholder="e.g. 50" oninput="markConfigDirty()">
+                    <span class="input-unit-label">MB</span>
+                </div>
+            </div>
+
+            <!-- Numeric 4: idxabsml -->
+            <div class="settings-field">
+                <label class="settings-label" for="conf-idxabsml">Max Abstract Length (<code>idxabsml</code>)</label>
+                <span class="settings-helper">Maximum character length for synthetic abstract excerpt generation</span>
+                <div class="input-unit-wrap">
+                    <input type="number" id="conf-idxabsml" name="idxabsml" class="form-control" min="50" max="10000" step="25" placeholder="e.g. 250" oninput="markConfigDirty()">
+                    <span class="input-unit-label">chars</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Actions Bar with Loading & Feedback -->
+    <div class="settings-actions" style="margin-top: 1.75rem;">
+        <button type="button" class="btn btn-primary" id="btn-save-index-config" onclick="saveIndexConfig()">
+            <span id="btn-save-config-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+            </span>
+            <span id="btn-save-config-text">Save Index Configuration</span>
+        </button>
+
+        <button type="button" class="btn btn-secondary" id="btn-reset-index-config" onclick="loadIndexConfig(true)" title="Discard uncommitted edits and reload from disk">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>Reload Config</span>
+        </button>
+
+        <span id="config-save-status" class="status-msg"></span>
+    </div>
+</div>
+
 <!-- Polished Rule Configuration Modal -->
 <div id="rule-modal" class="modal-backdrop" style="display: none;">
     <div class="modal-dialog">
@@ -364,6 +587,8 @@
 
 <script>
 let currentRulesData = {{!rules_json}};
+let initialIndexConfig = {{!index_config_json}};
+if (initialIndexConfig) window.INITIAL_INDEX_CONFIG = initialIndexConfig;
 let editingRuleId = null;
 let statusPollInterval = null;
 
