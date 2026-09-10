@@ -67,6 +67,7 @@ from recollweb.errors import (
 )
 from recollweb.indexer import IndexManager
 from recollweb.metadata import MetadataRulesManager
+from recollweb.browser import BrowserManager
 
 try:
     from recollweb.routes import (

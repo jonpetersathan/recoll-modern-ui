@@ -186,6 +186,8 @@ function initRecollApp() {
     initCustomDatepicker();
     initMainQueryEditor();
     initIndexConfig();
+    initActiveNavTab();
+    initFileBrowser();
 }
 
 if (document.readyState === 'loading') {
@@ -4346,6 +4348,351 @@ function initFolderScopePersistence() {
 }
 
 window.initFolderScopePersistence = initFolderScopePersistence;
+
+// ============================================================================
+// Milestone 4: Active Navigation Tab Highlighter
+// ============================================================================
+function initActiveNavTab() {
+    const path = window.location.pathname;
+    const navBtns = document.querySelectorAll('.nav-action-btn');
+    if (!navBtns.length) return;
+
+    let activeLink = null;
+    if (path.includes('browser')) {
+        activeLink = document.querySelector('.nav-action-btn[href*="browser"]');
+    } else if (path.includes('index-manager')) {
+        activeLink = document.querySelector('.nav-action-btn[href*="index-manager"]');
+    } else if (path.includes('settings')) {
+        activeLink = document.querySelector('.nav-action-btn[href*="settings"]');
+    } else if (path === '/' || path.endsWith('/results') || path.endsWith('/')) {
+        activeLink = document.querySelector('.nav-action-btn[href="./"]') || document.querySelector('.nav-action-btn[href="/"]');
+    }
+
+    if (activeLink) {
+        navBtns.forEach(btn => btn.classList.remove('active'));
+        activeLink.classList.add('active');
+    }
+}
+
+window.initActiveNavTab = initActiveNavTab;
+
+// ============================================================================
+// Milestone 4: Read-Only File and Folder Browser Controller (R4)
+// ============================================================================
+function initFileBrowser() {
+    const browserBox = document.getElementById('browser-box');
+    const browserTable = document.getElementById('browser-table');
+    const tbody = document.getElementById('browser-tbody');
+    if (!browserBox || !browserTable || !tbody) return;
+
+    const breadcrumbsNav = document.getElementById('browser-breadcrumbs');
+    const btnUp = document.getElementById('btn-browser-up');
+    const btnRefresh = document.getElementById('btn-browser-refresh');
+    const filterInput = document.getElementById('browser-filter-input');
+    const btnClearFilter = document.getElementById('btn-browser-clear-filter');
+    const itemsCountEl = document.getElementById('browser-items-count');
+    const pathDisplayEl = document.getElementById('browser-current-path-display');
+    const emptyStateEl = document.getElementById('browser-empty');
+    const noFilterResultsEl = document.getElementById('browser-no-filter-results');
+    const errorStateEl = document.getElementById('browser-error');
+    const errorTextEl = document.getElementById('browser-error-text');
+    const btnRoot = document.getElementById('btn-browser-root');
+
+    let currentPath = '/data';
+    let currentEntries = [];
+    let currentBreadcrumbs = [];
+    let isLoading = false;
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function getFileIconClass(mimetype) {
+        const mt = (mimetype || '').toLowerCase();
+        if (mt.includes('pdf')) return 'icon-pdf';
+        if (mt.includes('image')) return 'icon-image';
+        if (mt.includes('word') || mt.includes('document')) return 'icon-doc';
+        if (mt.includes('excel') || mt.includes('sheet') || mt.includes('csv')) return 'icon-sheet';
+        if (mt.includes('presentation') || mt.includes('powerpoint')) return 'icon-presentation';
+        if (mt.includes('zip') || mt.includes('tar') || mt.includes('gzip') || mt.includes('compressed')) return 'icon-archive';
+        return 'icon-generic';
+    }
+
+    function getFileIconSvg(mimetype) {
+        const mt = (mimetype || '').toLowerCase();
+        if (mt.includes('pdf')) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>';
+        }
+        if (mt.includes('image')) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+        }
+        if (mt.includes('word') || mt.includes('document')) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+        }
+        if (mt.includes('excel') || mt.includes('sheet') || mt.includes('csv')) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><line x1="12" y1="9" x2="12" y2="21"></line></svg>';
+        }
+        if (mt.includes('presentation') || mt.includes('powerpoint')) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
+        }
+        if (mt.includes('zip') || mt.includes('tar') || mt.includes('gzip') || mt.includes('compressed')) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>';
+        }
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+    }
+
+    function renderBreadcrumbs(crumbs) {
+        if (!breadcrumbsNav) return;
+        currentBreadcrumbs = crumbs || [];
+
+        let html = '';
+        currentBreadcrumbs.forEach((crumb, idx) => {
+            const isLast = (idx === currentBreadcrumbs.length - 1);
+            if (idx > 0) {
+                html += '<span class="browser-crumb-separator" aria-hidden="true">/</span>';
+            }
+            const iconSvg = (idx === 0) ? '<svg class="crumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>' : '';
+            if (isLast) {
+                html += `<span class="browser-crumb current" aria-current="page" data-path="${escapeHtml(crumb.path)}">${iconSvg}<span>${escapeHtml(crumb.name)}</span></span>`;
+            } else {
+                html += `<a href="browser?path=${encodeURIComponent(crumb.path)}" class="browser-crumb" data-path="${escapeHtml(crumb.path)}">${iconSvg}<span>${escapeHtml(crumb.name)}</span></a>`;
+            }
+        });
+
+        breadcrumbsNav.innerHTML = html;
+
+        if (btnUp) {
+            const hasParent = currentBreadcrumbs.length > 1;
+            btnUp.disabled = !hasParent;
+            btnUp.setAttribute('data-parent', hasParent ? currentBreadcrumbs[currentBreadcrumbs.length - 2].path : '');
+        }
+    }
+
+    function renderTable(entries, filterText = '') {
+        if (!tbody) return;
+
+        const term = (filterText || '').trim().toLowerCase();
+        const filtered = term ? entries.filter(e => (e.name || '').toLowerCase().includes(term)) : entries;
+
+        if (errorStateEl) errorStateEl.style.display = 'none';
+
+        if (entries.length === 0) {
+            tbody.innerHTML = '';
+            if (emptyStateEl) emptyStateEl.style.display = 'block';
+            if (noFilterResultsEl) noFilterResultsEl.style.display = 'none';
+            browserTable.style.display = 'none';
+            return;
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '';
+            if (emptyStateEl) emptyStateEl.style.display = 'none';
+            if (noFilterResultsEl) noFilterResultsEl.style.display = 'block';
+            browserTable.style.display = 'none';
+            return;
+        }
+
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+        if (noFilterResultsEl) noFilterResultsEl.style.display = 'none';
+        browserTable.style.display = 'table';
+
+        let html = '';
+        for (const entry of filtered) {
+            const isDir = !!entry.is_dir;
+            const nameEsc = escapeHtml(entry.name);
+            const pathEsc = escapeHtml(entry.path);
+            const mimeEsc = escapeHtml(entry.mimetype || '');
+            const mimeLabelEsc = escapeHtml(entry.mimetype_label || (isDir ? 'Directory' : 'File'));
+            const sizeHumanEsc = escapeHtml(entry.size_human || (isDir ? '-' : '0 B'));
+            const mtimeHumanEsc = escapeHtml(entry.mtime_human || '');
+
+            let iconHtml = '';
+            let nameLinkHtml = '';
+            let actionBtnHtml = '';
+
+            if (isDir) {
+                iconHtml = `<div class="browser-item-icon folder-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>`;
+                nameLinkHtml = `<a href="browser?path=${encodeURIComponent(entry.path)}" class="browser-entry-link dir-link" data-path="${pathEsc}"><span class="entry-name-text">${nameEsc}</span></a>`;
+                actionBtnHtml = `<a href="browser?path=${encodeURIComponent(entry.path)}" class="btn btn-secondary btn-xs btn-open-folder" data-path="${pathEsc}" title="Open Folder"><span>Open</span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></a>`;
+            } else {
+                const iconCls = getFileIconClass(entry.mimetype);
+                const iconSvg = getFileIconSvg(entry.mimetype);
+                iconHtml = `<div class="browser-item-icon file-icon ${iconCls}">${iconSvg}</div>`;
+                nameLinkHtml = `<a href="/api/browser/download?path=${encodeURIComponent(entry.path)}" class="browser-entry-link file-link" data-path="${pathEsc}" title="Download ${nameEsc}"><span class="entry-name-text">${nameEsc}</span></a>`;
+                actionBtnHtml = `<a href="/api/browser/download?path=${encodeURIComponent(entry.path)}" class="btn btn-secondary btn-xs btn-download-file" title="Download File"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download</span></a>`;
+            }
+
+            html += `
+                <tr class="browser-row ${isDir ? 'is-directory' : 'is-file'}" data-name="${nameEsc}" data-path="${pathEsc}" data-is-dir="${isDir ? 'true' : 'false'}">
+                    <td class="col-icon">${iconHtml}</td>
+                    <td class="col-name">${nameLinkHtml}</td>
+                    <td class="col-mimetype">
+                        <span class="mimetype-tag ${isDir ? 'tag-dir' : ''}" title="${mimeEsc}">${mimeLabelEsc}</span>
+                    </td>
+                    <td class="col-size"><span class="size-text font-mono">${sizeHumanEsc}</span></td>
+                    <td class="col-mtime"><span class="mtime-text font-mono">${mtimeHumanEsc}</span></td>
+                    <td class="col-action">${actionBtnHtml}</td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = html;
+    }
+
+    function updateStats(data) {
+        if (pathDisplayEl) {
+            const spanText = pathDisplayEl.querySelector('.browser-path-text') || pathDisplayEl;
+            spanText.textContent = data.current_path || currentPath;
+        }
+
+        if (itemsCountEl) {
+            const total = data.total_entries !== undefined ? data.total_entries : currentEntries.length;
+            const dirs = data.total_dirs !== undefined ? data.total_dirs : currentEntries.filter(e => e.is_dir).length;
+            const files = data.total_files !== undefined ? data.total_files : (total - dirs);
+
+            itemsCountEl.innerHTML = `
+                <strong>${total}</strong> item${total !== 1 ? 's' : ''}
+                <span class="stats-divider">&bull;</span>
+                <span>${dirs} folder${dirs !== 1 ? 's' : ''}</span>
+                <span class="stats-divider">&bull;</span>
+                <span>${files} file${files !== 1 ? 's' : ''}</span>
+            `;
+        }
+    }
+
+    function showBrowserError(message) {
+        if (browserTable) browserTable.style.display = 'none';
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+        if (noFilterResultsEl) noFilterResultsEl.style.display = 'none';
+        if (errorStateEl) {
+            errorStateEl.style.display = 'block';
+            if (errorTextEl) errorTextEl.textContent = message || 'Unable to load directory.';
+        }
+    }
+
+    async function loadDirectory(path, pushState = true) {
+        if (isLoading) return;
+        isLoading = true;
+
+        if (tbody) tbody.style.opacity = '0.5';
+
+        try {
+            const targetUrl = '/api/browser/list' + (path ? ('?path=' + encodeURIComponent(path)) : '');
+            const resp = await fetch(targetUrl);
+            const data = await resp.json();
+
+            if (!resp.ok || !data || !data.success) {
+                showBrowserError(data && data.error ? data.error : `HTTP ${resp.status}: Access denied or folder not found`);
+                return;
+            }
+
+            currentPath = data.current_path || path || '/data';
+            currentEntries = data.entries || [];
+            currentBreadcrumbs = data.breadcrumbs || [];
+
+            renderBreadcrumbs(currentBreadcrumbs);
+            if (filterInput) filterInput.value = '';
+            if (btnClearFilter) btnClearFilter.style.display = 'none';
+            renderTable(currentEntries);
+            updateStats(data);
+
+            if (pushState) {
+                const newUrl = 'browser?path=' + encodeURIComponent(currentPath);
+                window.history.pushState({ path: currentPath }, '', newUrl);
+            }
+        } catch (err) {
+            console.error('Directory load error:', err);
+            showBrowserError(err.message || 'Network error while loading directory.');
+        } finally {
+            isLoading = false;
+            if (tbody) tbody.style.opacity = '1';
+        }
+    }
+
+    // Initialize from embedded JSON if present
+    const initScript = document.getElementById('browser-initial-data');
+    if (initScript && initScript.textContent) {
+        try {
+            const initData = JSON.parse(initScript.textContent);
+            if (initData && initData.success) {
+                currentPath = initData.current_path || '/data';
+                currentEntries = initData.entries || [];
+                currentBreadcrumbs = initData.breadcrumbs || [];
+            }
+        } catch (e) {
+            console.warn('Could not parse embedded browser initial data:', e);
+        }
+    }
+
+    // Global click delegation for folder navigation
+    browserBox.addEventListener('click', function(e) {
+        const link = e.target.closest('.dir-link, .btn-open-folder, .browser-crumb:not(.current)');
+        if (!link) return;
+
+        const targetPath = link.getAttribute('data-path');
+        if (targetPath) {
+            e.preventDefault();
+            loadDirectory(targetPath);
+        }
+    });
+
+    // Up button
+    if (btnUp) {
+        btnUp.addEventListener('click', function() {
+            const parent = btnUp.getAttribute('data-parent');
+            if (parent) {
+                loadDirectory(parent);
+            }
+        });
+    }
+
+    // Refresh button
+    if (btnRefresh) {
+        btnRefresh.addEventListener('click', function() {
+            loadDirectory(currentPath, false);
+        });
+    }
+
+    // Return to Root button in error state
+    if (btnRoot) {
+        btnRoot.addEventListener('click', function() {
+            loadDirectory('', true);
+        });
+    }
+
+    // Filter input
+    if (filterInput) {
+        filterInput.addEventListener('input', function() {
+            const val = filterInput.value.trim();
+            if (btnClearFilter) {
+                btnClearFilter.style.display = val ? 'block' : 'none';
+            }
+            renderTable(currentEntries, val);
+        });
+    }
+
+    if (btnClearFilter) {
+        btnClearFilter.addEventListener('click', function() {
+            if (filterInput) filterInput.value = '';
+            btnClearFilter.style.display = 'none';
+            renderTable(currentEntries, '');
+            if (filterInput) filterInput.focus();
+        });
+    }
+
+    // Browser history popstate (Back/Forward buttons)
+    window.addEventListener('popstate', function(e) {
+        const pathParam = (new URLSearchParams(window.location.search)).get('path');
+        loadDirectory(pathParam || '', false);
+    });
+}
+
+window.initFileBrowser = initFileBrowser;
 
 
 

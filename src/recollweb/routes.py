@@ -14,6 +14,7 @@ import bottle
 from recoll import rclextract
 
 from recollweb.archive import ArchiveManager, _run_archive_worker
+from recollweb.browser import BrowserManager
 from recollweb.config import ConfigManager, find_custom_logo
 from recollweb.constants import (
     DEFAULT_CONFIG,
@@ -627,6 +628,89 @@ def register_routes(app: bottle.Bottle):
             return json_response({'success': True, 'metadata': extracted})
         except Exception as exc:
             return json_error(str(exc), status=400)
+
+    # ------------------------------------------------------------------------
+    # Read-Only File & Folder Browser Endpoints
+    # ------------------------------------------------------------------------
+
+    @app.route('/browser')
+    @app.route('/browser/')
+    def browser_page():
+        path = bottle.request.params.get('path', '').strip()
+        try:
+            data = BrowserManager.list_directory(path if path else None)
+        except Exception as exc:
+            logger.warning("BROWSER_PAGE_FALLBACK: Failed to load '%s': %s", path, exc)
+            try:
+                data = BrowserManager.list_directory(None)
+                data['warning'] = f"Could not load requested path: {exc}"
+            except Exception as root_exc:
+                logger.error("BROWSER_PAGE_ROOT_ERROR: %s", root_exc)
+                data = {
+                    "success": False,
+                    "current_path": "/data",
+                    "breadcrumbs": [{"name": "data", "path": "/data"}],
+                    "entries": [],
+                    "total_entries": 0,
+                    "total_dirs": 0,
+                    "total_files": 0,
+                    "error": str(root_exc),
+                }
+
+        view_vars = dict(data)
+        view_vars['title'] = " / Browser"
+        view_vars['active_tab'] = "browser"
+        view_vars['initial_data_json'] = json.dumps(data)
+        return bottle.template('browser', **view_vars)
+
+    @app.route('/api/browser/list', method=['GET'])
+    def api_browser_list():
+        path = bottle.request.params.get('path', '').strip()
+        try:
+            res = BrowserManager.list_directory(path if path else None)
+            return json_response(res)
+        except PermissionError as perm_err:
+            return json_error(str(perm_err), status=403)
+        except FileNotFoundError as fnf_err:
+            return json_error(str(fnf_err), status=404)
+        except NotADirectoryError as nad_err:
+            return json_error(str(nad_err), status=400)
+        except Exception as exc:
+            logger.error("API_BROWSER_LIST_ERROR: %s", exc)
+            return json_error(str(exc), status=500)
+
+    @app.route('/api/browser/download', method=['GET'])
+    def api_browser_download():
+        path = bottle.request.params.get('path', '').strip()
+        is_json = 'application/json' in bottle.request.headers.get('Accept', '')
+
+        if not path:
+            if is_json:
+                return json_error("The 'path' parameter is required for file download.", status=400)
+            bottle.abort(400, "Missing path parameter")
+
+        allowed, real_path = BrowserManager.is_path_allowed(path)
+        if not allowed or not real_path:
+            if is_json:
+                return json_error("Access denied: Path is outside allowed directories.", status=403)
+            bottle.abort(403, "Access denied: Path is outside allowed directories.")
+
+        if not os.path.exists(real_path):
+            if is_json:
+                return json_error("The requested file does not exist.", status=404)
+            bottle.abort(404, "File not found.")
+
+        if not os.path.isfile(real_path):
+            if is_json:
+                return json_error("Directories cannot be downloaded directly.", status=400)
+            bottle.abort(400, "Cannot download a directory.")
+
+        filename = os.path.basename(real_path)
+        return bottle.static_file(
+            filename,
+            root=os.path.dirname(real_path),
+            download=filename,
+        )
 
     # ------------------------------------------------------------------------
     # Settings & OpenSearch Manifest

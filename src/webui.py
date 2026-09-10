@@ -48,6 +48,8 @@ from recollweb import (
     extract_document_file,
     # Archiving & ZIP Manager
     ArchiveManager,
+    # File & Folder Browser
+    BrowserManager,
     # Error Handlers & Utilities
     render_error_page,
     custom_error_handler,
@@ -70,6 +72,7 @@ __all__ = [
     'SearchQuery',
     'SnippetHighlighter',
     'ArchiveManager',
+    'BrowserManager',
     'DEFAULT_CONFIG',
     'SORT_OPTIONS',
     'DOCUMENT_FIELDS',
