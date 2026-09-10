@@ -629,6 +629,19 @@ def register_routes(app: bottle.Bottle):
         except Exception as exc:
             return json_error(str(exc), status=400)
 
+    @app.route('/api/metadata/fields', method=['GET'])
+    def api_get_metadata_fields():
+        """
+        Return list of unique field names extracted by current rules.
+        """
+        try:
+            config = ConfigManager.get_config()
+            fields = MetadataRulesManager.get_extracted_fields(config['confdir'])
+            return json_response({'success': True, 'fields': fields})
+        except Exception as exc:
+            logger.error("API_METADATA_FIELDS_ERROR: %s", exc)
+            return json_error(str(exc), status=500)
+
     # ------------------------------------------------------------------------
     # Read-Only File & Folder Browser Endpoints
     # ------------------------------------------------------------------------

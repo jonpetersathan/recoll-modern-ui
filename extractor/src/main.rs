@@ -125,16 +125,234 @@ pub fn matches_glob(pattern: &str, path_str: &str) -> bool {
     Regex::new(&regex_str).map(|re| re.is_match(path_str)).unwrap_or(false)
 }
 
-/// Sanitize field names to alphanumeric + underscores for Recoll compatibility
+/// Sanitize field names to alphanumeric + underscores for Recoll compatibility, preserving dmtime@ directives
 fn sanitize_field_name(name: &str) -> String {
-    name.chars()
+    let trimmed = name.trim();
+    let lower = trimmed.to_lowercase();
+    if lower.starts_with("dmtime@") {
+        let suffix: String = trimmed[7..]
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .collect();
+        return format!("dmtime@{}", suffix);
+    }
+    trimmed
+        .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
-        .collect()
+        .collect::<String>()
+        .to_lowercase()
 }
 
 /// Normalize value by stripping newlines/carriage returns
 fn sanitize_field_value(val: &str) -> String {
     val.replace('\n', " ").replace('\r', " ").trim().to_string()
+}
+
+fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = (y - era * 400) as u32;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe as i64 - 719468
+}
+
+fn date_to_utc_epoch(y: i64, m: u32, d: u32) -> Option<i64> {
+    if y <= 0 || m < 1 || m > 12 || d < 1 || d > 31 {
+        return None;
+    }
+    let days_in_month = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            let is_leap = (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0);
+            if is_leap { 29 } else { 28 }
+        }
+        _ => return None,
+    };
+    if d > days_in_month {
+        return None;
+    }
+    let days = days_from_civil(y, m, d);
+    Some(days * 86400)
+}
+
+fn parse_month_str(s: &str) -> Option<u32> {
+    let trimmed = s.trim();
+    if let Ok(m) = trimmed.parse::<u32>() {
+        if (1..=12).contains(&m) {
+            return Some(m);
+        }
+        return None;
+    }
+    match trimmed.to_lowercase().as_str() {
+        "jan" | "january" => Some(1),
+        "feb" | "february" => Some(2),
+        "mar" | "march" => Some(3),
+        "apr" | "april" => Some(4),
+        "may" => Some(5),
+        "jun" | "june" => Some(6),
+        "jul" | "july" => Some(7),
+        "aug" | "august" => Some(8),
+        "sep" | "sept" | "september" => Some(9),
+        "oct" | "october" => Some(10),
+        "nov" | "november" => Some(11),
+        "dec" | "december" => Some(12),
+        _ => None,
+    }
+}
+
+fn parse_day_str(s: &str) -> Option<u32> {
+    if let Ok(d) = s.trim().parse::<u32>() {
+        if (1..=31).contains(&d) {
+            return Some(d);
+        }
+    }
+    None
+}
+
+fn parse_year_str(s: &str) -> Option<i64> {
+    if let Ok(mut y) = s.trim().parse::<i64>() {
+        if y < 100 && y >= 0 {
+            y += if y < 70 { 2000 } else { 1900 };
+        }
+        if y > 0 {
+            return Some(y);
+        }
+    }
+    None
+}
+
+fn parse_formatted_date(val: &str, fmt: &str) -> Option<i64> {
+    let trimmed = val.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let parts: Vec<&str> = trimmed
+        .split(|c: char| c == '-' || c == '/' || c == '.' || c == '_' || c.is_whitespace())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if parts.len() == 3 {
+        match fmt {
+            "yyyymmdd" => {
+                let y = parse_year_str(parts[0])?;
+                let m = parse_month_str(parts[1])?;
+                let d = parse_day_str(parts[2])?;
+                return date_to_utc_epoch(y, m, d);
+            }
+            "ddmmyyyy" => {
+                let d = parse_day_str(parts[0])?;
+                let m = parse_month_str(parts[1])?;
+                let y = parse_year_str(parts[2])?;
+                return date_to_utc_epoch(y, m, d);
+            }
+            "mmddyyyy" => {
+                let m = parse_month_str(parts[0])?;
+                let d = parse_day_str(parts[1])?;
+                let y = parse_year_str(parts[2])?;
+                return date_to_utc_epoch(y, m, d);
+            }
+            _ => {}
+        }
+    }
+
+    let digits: String = trimmed.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() == 8 {
+        match fmt {
+            "yyyymmdd" => {
+                let y = digits[0..4].parse::<i64>().ok()?;
+                let m = digits[4..6].parse::<u32>().ok()?;
+                let d = digits[6..8].parse::<u32>().ok()?;
+                return date_to_utc_epoch(y, m, d);
+            }
+            "ddmmyyyy" => {
+                let d = digits[0..2].parse::<u32>().ok()?;
+                let m = digits[2..4].parse::<u32>().ok()?;
+                let y = digits[4..8].parse::<i64>().ok()?;
+                return date_to_utc_epoch(y, m, d);
+            }
+            "mmddyyyy" => {
+                let m = digits[0..2].parse::<u32>().ok()?;
+                let d = digits[2..4].parse::<u32>().ok()?;
+                let y = digits[4..8].parse::<i64>().ok()?;
+                return date_to_utc_epoch(y, m, d);
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+fn process_date_directives(results: &mut BTreeMap<String, String>) {
+    let mut keys_to_delete = Vec::new();
+    let mut extracted_timestamp: Option<i64> = None;
+
+    for (k, v) in results.iter() {
+        let lower = k.to_lowercase();
+        if lower == "dmtime@yyyymmdd" || lower == "dmtime_yyyymmdd" {
+            keys_to_delete.push(k.clone());
+            if let Some(ts) = parse_formatted_date(v, "yyyymmdd") {
+                extracted_timestamp = Some(ts);
+            }
+        } else if lower == "dmtime@ddmmyyyy" || lower == "dmtime_ddmmyyyy" {
+            keys_to_delete.push(k.clone());
+            if let Some(ts) = parse_formatted_date(v, "ddmmyyyy") {
+                extracted_timestamp = Some(ts);
+            }
+        } else if lower == "dmtime@mmddyyyy" || lower == "dmtime_mmddyyyy" {
+            keys_to_delete.push(k.clone());
+            if let Some(ts) = parse_formatted_date(v, "mmddyyyy") {
+                extracted_timestamp = Some(ts);
+            }
+        }
+    }
+
+    let mut year_val: Option<String> = None;
+    let mut month_val: Option<String> = None;
+    let mut day_val: Option<String> = None;
+
+    for (k, v) in results.iter() {
+        let lower = k.to_lowercase();
+        if lower == "dmtime@year" || lower == "dmtime_year" {
+            keys_to_delete.push(k.clone());
+            year_val = Some(v.clone());
+        } else if lower == "dmtime@month" || lower == "dmtime_month" {
+            keys_to_delete.push(k.clone());
+            month_val = Some(v.clone());
+        } else if lower == "dmtime@day" || lower == "dmtime_day" {
+            keys_to_delete.push(k.clone());
+            day_val = Some(v.clone());
+        }
+    }
+
+    if extracted_timestamp.is_none() {
+        if let Some(ref y_str) = year_val {
+            if let Some(y) = parse_year_str(y_str) {
+                let m = month_val.as_deref().and_then(parse_month_str).unwrap_or(1);
+                let d = day_val.as_deref().and_then(parse_day_str).unwrap_or(1);
+                if let Some(ts) = date_to_utc_epoch(y, m, d) {
+                    extracted_timestamp = Some(ts);
+                }
+            }
+        }
+    }
+
+    for k in results.keys() {
+        if k.to_lowercase().starts_with("dmtime@") {
+            keys_to_delete.push(k.clone());
+        }
+    }
+
+    for k in keys_to_delete {
+        results.remove(&k);
+    }
+
+    if let Some(ts) = extracted_timestamp {
+        results.insert("dmtime".to_string(), ts.to_string());
+    }
 }
 
 /// Evaluates all enabled rules against a given file path string.
@@ -237,6 +455,7 @@ pub fn evaluate_rules(config: &RulesConfig, file_path: &str) -> BTreeMap<String,
         }
     }
 
+    process_date_directives(&mut results);
     results
 }
 
@@ -433,4 +652,119 @@ mod tests {
         assert_eq!(res.get("client"), Some(&"AcmeCorp".to_string()));
         assert_eq!(res.get("title"), Some(&"Contract".to_string()));
     }
+
+    #[test]
+    fn test_date_directives_yyyymmdd() {
+        let config = RulesConfig {
+            rules: vec![MetadataRule {
+                id: "r_date".into(),
+                name: "Date YYYYMMDD".into(),
+                enabled: true,
+                path_filter: "".into(),
+                rule_type: RuleType::Delimiter {
+                    delimiter: "_".into(),
+                    target: "stem".into(),
+                    mappings: vec![
+                        DelimiterMapping { index: 0, field: "doctype".into() },
+                        DelimiterMapping { index: 1, field: "dmtime@YYYYMMDD".into() },
+                        DelimiterMapping { index: 2, field: "title".into() },
+                    ],
+                },
+            }],
+        };
+        let res = evaluate_rules(&config, "/data/invoices/INV_20230514_AnnualReport.pdf");
+        assert_eq!(res.get("doctype"), Some(&"INV".to_string()));
+        assert_eq!(res.get("title"), Some(&"AnnualReport".to_string()));
+        assert_eq!(res.get("dmtime"), Some(&"1684022400".to_string()));
+        assert!(!res.contains_key("dmtime@YYYYMMDD"));
+    }
+
+    #[test]
+    fn test_date_directives_ddmmyyyy_and_mmddyyyy() {
+        let config_dd = RulesConfig {
+            rules: vec![MetadataRule {
+                id: "r_dd".into(),
+                name: "Date DDMMYYYY".into(),
+                enabled: true,
+                path_filter: "".into(),
+                rule_type: RuleType::Delimiter {
+                    delimiter: "_".into(),
+                    target: "stem".into(),
+                    mappings: vec![DelimiterMapping { index: 0, field: "dmtime@DDMMYYYY".into() }],
+                },
+            }],
+        };
+        let res_dd = evaluate_rules(&config_dd, "/data/invoices/14052023_file.pdf");
+        assert_eq!(res_dd.get("dmtime"), Some(&"1684022400".to_string()));
+        assert!(!res_dd.contains_key("dmtime@DDMMYYYY"));
+
+        let config_mm = RulesConfig {
+            rules: vec![MetadataRule {
+                id: "r_mm".into(),
+                name: "Date MMDDYYYY".into(),
+                enabled: true,
+                path_filter: "".into(),
+                rule_type: RuleType::Delimiter {
+                    delimiter: "_".into(),
+                    target: "stem".into(),
+                    mappings: vec![DelimiterMapping { index: 0, field: "dmtime@MMDDYYYY".into() }],
+                },
+            }],
+        };
+        let res_mm = evaluate_rules(&config_mm, "/data/invoices/05142023_file.pdf");
+        assert_eq!(res_mm.get("dmtime"), Some(&"1684022400".to_string()));
+        assert!(!res_mm.contains_key("dmtime@MMDDYYYY"));
+    }
+
+    #[test]
+    fn test_date_directives_split_month() {
+        for m_str in ["2", "02", "Feb", "February", "february", "FEBRUARY"] {
+            let config = RulesConfig {
+                rules: vec![MetadataRule {
+                    id: "r_split".into(),
+                    name: "Split Date".into(),
+                    enabled: true,
+                    path_filter: "".into(),
+                    rule_type: RuleType::Delimiter {
+                        delimiter: "_".into(),
+                        target: "stem".into(),
+                        mappings: vec![
+                            DelimiterMapping { index: 0, field: "dmtime@year".into() },
+                            DelimiterMapping { index: 1, field: "dmtime@month".into() },
+                            DelimiterMapping { index: 2, field: "dmtime@day".into() },
+                        ],
+                    },
+                }],
+            };
+            let path = format!("/data/docs/2023_{}_14.pdf", m_str);
+            let res = evaluate_rules(&config, &path);
+            assert_eq!(res.get("dmtime"), Some(&"1676332800".to_string()), "Failed for {}", m_str);
+            assert!(!res.contains_key("dmtime@year"));
+            assert!(!res.contains_key("dmtime@month"));
+            assert!(!res.contains_key("dmtime@day"));
+        }
+    }
+
+    #[test]
+    fn test_date_directives_missing_day_defaults_to_one() {
+        let config = RulesConfig {
+            rules: vec![MetadataRule {
+                id: "r_no_day".into(),
+                name: "No Day".into(),
+                enabled: true,
+                path_filter: "".into(),
+                rule_type: RuleType::Delimiter {
+                    delimiter: "_".into(),
+                    target: "stem".into(),
+                    mappings: vec![
+                        DelimiterMapping { index: 0, field: "dmtime@year".into() },
+                        DelimiterMapping { index: 1, field: "dmtime@month".into() },
+                    ],
+                },
+            }],
+        };
+        let res = evaluate_rules(&config, "/data/docs/2023_02.pdf");
+        assert_eq!(res.get("dmtime"), Some(&"1675209600".to_string()));
+    }
 }
+

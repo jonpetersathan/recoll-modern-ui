@@ -956,6 +956,9 @@ function saveAllRules() {
             window.isRulesDirty = false;
             statusMsg.innerText = 'Rules persisted and Recoll configuration synced successfully!';
             statusMsg.className = 'status-msg status-msg-success';
+            if (typeof window.initMetadataFields === 'function') {
+                window.initMetadataFields();
+            }
             setTimeout(() => { statusMsg.innerText = ''; }, 4500);
         } else {
             statusMsg.innerText = 'Error saving rules: ' + (data.error || 'Unknown error');

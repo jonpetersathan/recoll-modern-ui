@@ -41,33 +41,37 @@ from recollweb.utils import (
     parse_json_request,
     sanitize_filename,
 )
-from recollweb.config import (
-    ConfigManager,
-    find_custom_logo,
-    get_config_dir,
-)
-from recollweb.forms import (
-    SearchFormsManager,
-)
-from recollweb.search import (
-    RecollSearchEngine,
-    SearchQuery,
-    SnippetHighlighter,
-    extract_document_file,
-)
-from recollweb.archive import (
-    ArchiveManager,
-    _run_archive_worker,
-)
-from recollweb.errors import (
-    custom_default_error_handler,
-    custom_error_handler,
-    register_error_handlers,
-    render_error_page,
-)
-from recollweb.indexer import IndexManager
+try:
+    from recollweb.config import (
+        ConfigManager,
+        find_custom_logo,
+        get_config_dir,
+    )
+    from recollweb.forms import (
+        SearchFormsManager,
+    )
+    from recollweb.search import (
+        RecollSearchEngine,
+        SearchQuery,
+        SnippetHighlighter,
+        extract_document_file,
+    )
+    from recollweb.archive import (
+        ArchiveManager,
+        _run_archive_worker,
+    )
+    from recollweb.errors import (
+        custom_default_error_handler,
+        custom_error_handler,
+        register_error_handlers,
+        render_error_page,
+    )
+    from recollweb.indexer import IndexManager
+    from recollweb.browser import BrowserManager
+except ImportError:
+    pass
+
 from recollweb.metadata import MetadataRulesManager
-from recollweb.browser import BrowserManager
 
 try:
     from recollweb.routes import (

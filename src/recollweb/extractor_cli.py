@@ -8,6 +8,14 @@ import json
 import os
 import sys
 
+# Ensure script dir is not shadowing standard library (e.g. logging)
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+while _script_dir in sys.path:
+    sys.path.remove(_script_dir)
+_parent_dir = os.path.abspath(os.path.join(_script_dir, ".."))
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
 from recollweb.metadata import (
     DEFAULT_EXTRACTOR_PATH,
     MetadataRulesManager,

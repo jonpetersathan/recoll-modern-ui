@@ -188,6 +188,7 @@ function initRecollApp() {
     initIndexConfig();
     initActiveNavTab();
     initFileBrowser();
+    initMetadataFields();
 }
 
 if (document.readyState === 'loading') {
@@ -1110,6 +1111,56 @@ const TEXT_SNIPPET_PATTERNS = [
     { prefix: '+{value}', placeholder: '', desc: 'Mandatory / inclusion operator with user input', insertPrefix: '+{value}' },
     { prefix: '+*{value}*', placeholder: '', desc: 'Wildcard mandatory operator with user input', insertPrefix: '+*{value}*' }
 ];
+
+function registerMetadataFields(fields) {
+    if (!Array.isArray(fields)) return;
+    fields.forEach(rawField => {
+        const f = String(rawField || '').trim().toLowerCase();
+        if (!f) return;
+        const kwPrefix = `${f}:`;
+        if (!TOP_LEVEL_KEYWORDS.some(k => k.prefix === kwPrefix)) {
+            TOP_LEVEL_KEYWORDS.push({
+                prefix: kwPrefix,
+                placeholder: 'value',
+                desc: `${f} metadata field search`,
+                insertPrefix: kwPrefix
+            });
+        }
+        const textPrefix1 = `${f}:{value}`;
+        if (!TEXT_SNIPPET_PATTERNS.some(k => k.prefix === textPrefix1)) {
+            TEXT_SNIPPET_PATTERNS.push({
+                prefix: textPrefix1,
+                placeholder: '',
+                desc: `${f} exact metadata search with user input`,
+                insertPrefix: textPrefix1
+            });
+        }
+        const textPrefix2 = `${f}:*{value}*`;
+        if (!TEXT_SNIPPET_PATTERNS.some(k => k.prefix === textPrefix2)) {
+            TEXT_SNIPPET_PATTERNS.push({
+                prefix: textPrefix2,
+                placeholder: '',
+                desc: `${f} wildcard / partial metadata search with user input`,
+                insertPrefix: textPrefix2
+            });
+        }
+    });
+}
+window.registerMetadataFields = registerMetadataFields;
+
+async function initMetadataFields() {
+    try {
+        const resp = await fetch('/api/metadata/fields');
+        if (resp.ok) {
+            const data = await resp.json();
+            const fieldsList = Array.isArray(data) ? data : (data.fields || []);
+            registerMetadataFields(fieldsList);
+        }
+    } catch (e) {
+        // Fallback silently if offline or endpoint unavailable
+    }
+}
+window.initMetadataFields = initMetadataFields;
 
 function highlightQuerySyntax(raw) {
     if (!raw) return '';
