@@ -222,7 +222,7 @@
 
             <!-- Path Input Row -->
             <div class="sandbox-input-row">
-                <input type="text" id="test-sample-path" class="form-control" placeholder="e.g. /data/projects/Apollo/2026/Contract_Agreement.pdf" value="/data/projects/Apollo/2026/Contract_Agreement.pdf" onkeydown="if(event.key==='Enter') runLiveTest()">
+                <input type="text" id="test-sample-path" class="form-control font-mono rule-mono-input" placeholder="e.g. /data/projects/Apollo/2026/Contract_Agreement.pdf" value="/data/projects/Apollo/2026/Contract_Agreement.pdf" onkeydown="if(event.key==='Enter') runLiveTest()">
                 <button type="button" class="btn btn-primary" onclick="runLiveTest()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -522,7 +522,7 @@
             <div class="settings-field" style="margin-bottom: 1rem;">
                 <label class="settings-label" for="modal-rule-glob">Path Filter (Glob Pattern)</label>
                 <span class="settings-helper">Optional fast-path filter (e.g. <code>*.pdf</code> or <code>/data/projects/**</code>).</span>
-                <input type="text" id="modal-rule-glob" class="form-control" placeholder="e.g. *.pdf, /data/projects/** (leave empty for all files)">
+                <input type="text" id="modal-rule-glob" class="form-control font-mono rule-mono-input" placeholder="e.g. *.pdf, /data/projects/** (leave empty for all files)">
             </div>
 
             <!-- Regex Configuration -->
@@ -530,7 +530,7 @@
                 <div class="settings-field">
                     <label class="settings-label" for="modal-rule-pattern">Regex Pattern with Named Capture Groups *</label>
                     <span class="settings-helper">Use <code>(?P&lt;fieldname&gt;pattern)</code> syntax. Each capture group automatically creates a stored Recoll field.</span>
-                    <input type="text" id="modal-rule-pattern" class="form-control" placeholder="e.g. .*/projects/(?P<project>[^/]+)/(?P<year>\d{4})/(?P<title>[^.]+)\.pdf">
+                    <input type="text" id="modal-rule-pattern" class="form-control font-mono rule-pattern-input" placeholder="e.g. .*/projects/(?P<project>[^/]+)/(?P<year>\d{4})/(?P<title>[^.]+)\.pdf">
                 </div>
             </div>
 
@@ -540,12 +540,12 @@
                     <div class="settings-field col-half">
                         <label class="settings-label" for="modal-rule-depth">Segment Depth *</label>
                         <span class="settings-helper">Index of path segment (e.g. <code>2</code> for /data/projects/Apollo). Use negative e.g. <code>-2</code> for parent folder.</span>
-                        <input type="number" id="modal-rule-depth" class="form-control" value="2">
+                        <input type="number" id="modal-rule-depth" class="form-control font-mono rule-mono-input" value="2">
                     </div>
                     <div class="settings-field col-half">
                         <label class="settings-label" for="modal-rule-depth-field">Target Field Name *</label>
                         <span class="settings-helper">Recoll field to store (e.g. <code>project</code> or <code>department</code>).</span>
-                        <input type="text" id="modal-rule-depth-field" class="form-control" placeholder="e.g. project">
+                        <input type="text" id="modal-rule-depth-field" class="form-control font-mono rule-mono-input" placeholder="e.g. project">
                     </div>
                 </div>
             </div>
@@ -556,12 +556,12 @@
                     <div class="settings-field col-half">
                         <label class="settings-label" for="modal-rule-delimiter">Separator Character *</label>
                         <span class="settings-helper">Character to split tokens by (e.g. <code>_</code> or <code>-</code>).</span>
-                        <input type="text" id="modal-rule-delimiter" class="form-control" value="_">
+                        <input type="text" id="modal-rule-delimiter" class="form-control font-mono rule-delim-input" value="_">
                     </div>
                     <div class="settings-field col-half">
                         <label class="settings-label" for="modal-rule-delim-target">Target Segment *</label>
                         <span class="settings-helper">Part of path to split.</span>
-                        <select id="modal-rule-delim-target" class="form-control">
+                        <select id="modal-rule-delim-target" class="form-control font-mono">
                             <option value="stem">Filename stem (without extension)</option>
                             <option value="filename">Full filename (with extension)</option>
                             <option value="path">Full absolute path</option>
@@ -571,7 +571,7 @@
                 <div class="settings-field" style="margin-top: 0.75rem;">
                     <label class="settings-label" for="modal-rule-delim-mappings">Token Mappings *</label>
                     <span class="settings-helper">Map 0-based token indices to field names: <code>0:doctype, 1:year, 2:invoice_id</code></span>
-                    <input type="text" id="modal-rule-delim-mappings" class="form-control" placeholder="e.g. 0:doctype, 1:year, 2:invoice_id">
+                    <input type="text" id="modal-rule-delim-mappings" class="form-control font-mono rule-mono-input" placeholder="e.g. 0:doctype, 1:year, 2:invoice_id">
                 </div>
             </div>
         </div>
@@ -591,6 +591,10 @@ let initialIndexConfig = {{!index_config_json}};
 if (initialIndexConfig) window.INITIAL_INDEX_CONFIG = initialIndexConfig;
 let editingRuleId = null;
 let statusPollInterval = null;
+window.isRulesDirty = false;
+function markRulesDirty() {
+    window.isRulesDirty = true;
+}
 
 function safeSessionGet(key) {
     try {
@@ -716,6 +720,7 @@ function toggleRuleEnabled(id, isEnabled) {
     const rule = currentRulesData.rules.find(r => r.id === id);
     if (rule) {
         rule.enabled = isEnabled;
+        markRulesDirty();
         renderRules();
         runLiveTest();
     }
@@ -730,6 +735,7 @@ async function deleteRule(id) {
     });
     if (confirmed) {
         currentRulesData.rules = currentRulesData.rules.filter(r => r.id !== id);
+        markRulesDirty();
         renderRules();
         runLiveTest();
     }
@@ -861,6 +867,7 @@ function saveModalRule() {
     } else {
         currentRulesData.rules.push(ruleObj);
     }
+    markRulesDirty();
 
     closeRuleModal();
     renderRules();
@@ -946,6 +953,7 @@ function saveAllRules() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            window.isRulesDirty = false;
             statusMsg.innerText = 'Rules persisted and Recoll configuration synced successfully!';
             statusMsg.className = 'status-msg status-msg-success';
             setTimeout(() => { statusMsg.innerText = ''; }, 4500);

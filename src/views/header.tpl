@@ -16,7 +16,23 @@
 </head>
 <body>
     <div class="ambient-glow"></div>
-    <div id="fade"></div>
+    <div id="fade" class="search-loading-overlay">
+        <div class="search-loader-container">
+            <div class="search-gyro-spinner">
+                <div class="gyro-ring gyro-ring-outer"></div>
+                <div class="gyro-ring gyro-ring-middle"></div>
+                <div class="gyro-ring gyro-ring-inner"></div>
+                <div class="gyro-core-pulse"></div>
+            </div>
+            <div class="search-loading-status">
+                <span class="search-loading-text">Searching Index</span>
+                <span class="search-loading-dots">
+                    <span>.</span><span>.</span><span>.</span>
+                </span>
+            </div>
+            <div class="search-loading-subtext">Executing Query on Recoll Engine</div>
+        </div>
+    </div>
     <div class="container">
         <header class="app-header">
             <div class="header-brand">

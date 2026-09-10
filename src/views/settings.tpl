@@ -14,7 +14,8 @@
         </div>
     </div>
 
-    <form action="set" method="get">
+    <form action="set" method="post" id="settings-form">
+        <input type="hidden" name="forms_json" id="settings-forms-json" value="">
         <!-- Search & Query Behavior -->
         <div class="settings-section">
             <div class="settings-section-title">

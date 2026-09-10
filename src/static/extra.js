@@ -3,11 +3,101 @@
  * Vanilla JavaScript (Zero External Dependencies)
  */
 
-function initRecollApp() {
-    // Form submission loading fade
-    const searchForms = document.querySelectorAll('form');
-    const fadeOverlay = document.getElementById('fade');
+// ============================================================================
+// Dirty State & Unsaved Changes Guard
+// ============================================================================
+window.isConfigDirty = false;
+window.isRulesDirty = false;
+window.isSettingsDirty = false;
+window.isFormsDirty = false;
+window._isNavigating = false;
 
+window.isPageDirty = function() {
+    const path = window.location.pathname;
+    if (path.includes('index-manager')) {
+        return !!(window.isConfigDirty || window.isRulesDirty);
+    }
+    if (path.includes('settings')) {
+        return !!(window.isSettingsDirty || window.isFormsDirty);
+    }
+    return false;
+};
+
+window.clearAllDirtyState = function() {
+    window.isConfigDirty = false;
+    window.isRulesDirty = false;
+    window.isSettingsDirty = false;
+    window.isFormsDirty = false;
+};
+
+function initUnsavedChangesGuard() {
+    document.addEventListener('click', async function(e) {
+        if (window._isNavigating) return;
+
+        const link = e.target.closest('a');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('javascript:') || link.target === '_blank') {
+            return;
+        }
+
+        if (typeof window.isPageDirty === 'function' && window.isPageDirty()) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const confirmed = await window.showConfirmModal({
+                title: 'Unsaved Changes',
+                message: 'You have unsaved changes that will be lost if you leave this page. Are you sure you want to discard your changes?',
+                confirmText: 'Discard & Leave',
+                cancelText: 'Stay on Page',
+                isDanger: true
+            });
+
+            if (confirmed) {
+                window._isNavigating = true;
+                if (typeof window.clearAllDirtyState === 'function') {
+                    window.clearAllDirtyState();
+                }
+                window.location.href = link.href;
+            }
+        }
+    }, true);
+
+    window.addEventListener('beforeunload', function(e) {
+        if (!window._isNavigating && typeof window.isPageDirty === 'function' && window.isPageDirty()) {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes that will be lost if you leave this page.';
+            return e.returnValue;
+        }
+    });
+}
+
+// ============================================================================
+// Search Loading Animation & Overlay
+// ============================================================================
+function initSearchLoading() {
+    const fadeOverlay = document.getElementById('fade');
+    if (!fadeOverlay) return;
+
+    window.showSearchLoading = function() {
+        fadeOverlay.style.display = 'flex';
+        void fadeOverlay.offsetWidth;
+        fadeOverlay.style.opacity = '1';
+        fadeOverlay.classList.add('is-active');
+    };
+
+    window.hideSearchLoading = function() {
+        fadeOverlay.style.opacity = '0';
+        fadeOverlay.classList.remove('is-active');
+        setTimeout(() => {
+            if (!fadeOverlay.classList.contains('is-active')) {
+                fadeOverlay.style.display = 'none';
+            }
+        }, 250);
+    };
+
+    const searchForms = document.querySelectorAll('#search-form, form[action*="results"], form[action="./"]');
     searchForms.forEach(form => {
         form.addEventListener('submit', () => {
             if (typeof window.closeAllQueryDropdowns === 'function') {
@@ -15,12 +105,25 @@ function initRecollApp() {
             }
             const inputs = form.querySelectorAll('input');
             inputs.forEach(input => input.blur());
-            if (fadeOverlay) {
-                fadeOverlay.style.display = 'block';
-                fadeOverlay.style.opacity = '1';
-            }
+            window.showSearchLoading();
         });
     });
+
+    document.addEventListener('click', (e) => {
+        const pagLink = e.target.closest('.pagination-wrapper a, .tab-navigation a');
+        if (pagLink && pagLink.href) {
+            window.showSearchLoading();
+        }
+    });
+
+    window.addEventListener('pageshow', () => {
+        window.hideSearchLoading();
+    });
+}
+
+function initRecollApp() {
+    initSearchLoading();
+    initUnsavedChangesGuard();
 
     // Keyboard navigation shortcuts
     document.addEventListener('keydown', (e) => {
@@ -1628,6 +1731,18 @@ function initSettingsFormManager() {
     const builderFieldsContainer = document.getElementById('builder-fields-container');
     const modalTitle = document.getElementById('modal-title');
 
+    function syncFormsData() {
+        const dataTag = document.getElementById('recoll-search-forms-data');
+        if (dataTag) dataTag.textContent = JSON.stringify(forms);
+        const hiddenFormsInput = document.getElementById('settings-forms-json');
+        if (hiddenFormsInput) hiddenFormsInput.value = JSON.stringify(forms);
+    }
+
+    function markFormsDirty() {
+        window.isFormsDirty = true;
+        syncFormsData();
+    }
+
     function renderCards() {
         listContainer.innerHTML = '';
         forms.forEach(form => {
@@ -1702,9 +1817,10 @@ function initSettingsFormManager() {
             listContainer.appendChild(card);
         });
 
-        // Toggle handlers for full forms
+        // Toggle handlers for full forms (staged in memory until bottom Save Preferences button)
+        // Direct REST endpoint available: /api/forms/toggle
         listContainer.querySelectorAll('.form-enabled-toggle').forEach(toggle => {
-            toggle.addEventListener('change', async () => {
+            toggle.addEventListener('change', () => {
                 const formId = toggle.dataset.formId;
                 const isEnabled = toggle.checked;
                 const card = document.getElementById(`form-card-${formId}`);
@@ -1715,33 +1831,7 @@ function initSettingsFormManager() {
                 if (targetForm) {
                     targetForm.enabled = isEnabled;
                 }
-                try {
-                    const resp = await fetch('/api/forms/toggle', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: formId, enabled: isEnabled })
-                    });
-                    const res = await resp.json();
-                    if (!resp.ok || !res.success) {
-                        throw new Error(res.error || 'Failed to toggle form state');
-                    }
-                    const dataTag = document.getElementById('recoll-search-forms-data');
-                    if (dataTag) dataTag.textContent = JSON.stringify(forms);
-                } catch (err) {
-                    console.error('Error toggling form state:', err);
-                    window.showAlertModal({
-                        title: 'Form Toggle Failed',
-                        message: `Failed to toggle form: ${err.message}`,
-                        type: 'danger'
-                    });
-                    toggle.checked = !isEnabled;
-                    if (card) {
-                        card.classList.toggle('is-disabled', isEnabled);
-                    }
-                    if (targetForm) {
-                        targetForm.enabled = !isEnabled;
-                    }
-                }
+                markFormsDirty();
             });
         });
 
@@ -2119,49 +2209,32 @@ function initSettingsFormManager() {
                 fields.push(fieldObj);
             }
 
-            const payload = {
-                id: builderFormId.value.trim() || undefined,
-                name: name,
-                description: builderFormDesc.value.trim(),
-                fields: fields
-            };
-
-            btnSaveForm.disabled = true;
-            btnSaveForm.textContent = 'Saving...';
-
-            try {
-                const response = await fetch('/api/forms', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || 'Failed to save form');
+            const existingId = builderFormId.value.trim();
+            if (existingId) {
+                const idx = forms.findIndex(f => f.id === existingId);
+                if (idx !== -1) {
+                    forms[idx] = {
+                        ...forms[idx],
+                        name: name,
+                        description: builderFormDesc.value.trim(),
+                        fields: fields
+                    };
                 }
-
-                // Refresh forms list
-                const getResp = await fetch('/api/forms');
-                const getData = await getResp.json();
-                forms = getData.forms || [];
-
-                // Update embedded JSON
-                const dataTag = document.getElementById('recoll-search-forms-data');
-                if (dataTag) dataTag.textContent = JSON.stringify(forms);
-
-                builderOverlay.style.display = 'none';
-                renderCards();
-            } catch (err) {
-                window.showAlertModal({
-                    title: 'Error Saving Form',
-                    message: `Failed to save form: ${err.message}`,
-                    type: 'danger'
+            } else {
+                const newId = 'custom_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+                forms.push({
+                    id: newId,
+                    name: name,
+                    description: builderFormDesc.value.trim(),
+                    fields: fields,
+                    enabled: true,
+                    readonly: false
                 });
-            } finally {
-                btnSaveForm.disabled = false;
-                btnSaveForm.textContent = 'Save Search Form';
             }
+
+            builderOverlay.style.display = 'none';
+            markFormsDirty();
+            renderCards();
         });
     }
 
@@ -2176,35 +2249,40 @@ function initSettingsFormManager() {
             return;
         }
 
-        try {
-            const resp = await fetch('/api/forms/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: form.id })
-            });
-            const result = await resp.json();
-            if (!resp.ok || !result.success) {
-                throw new Error(result.error || 'Failed to delete form');
-            }
-
-            // Refresh forms list
-            const getResp = await fetch('/api/forms');
-            const getData = await getResp.json();
-            forms = getData.forms || [];
-
-            const dataTag = document.getElementById('recoll-search-forms-data');
-            if (dataTag) dataTag.textContent = JSON.stringify(forms);
-
-            renderCards();
-        } catch (err) {
-            window.showAlertModal({
-                title: 'Error Deleting Form',
-                message: `Failed to delete form: ${err.message}`,
-                type: 'danger'
-            });
-        }
+        forms = forms.filter(f => f.id !== form.id);
+        markFormsDirty();
+        renderCards();
     }
 
+    // Settings form input dirty tracking and bottom Save button enforcement
+    const settingsForm = document.getElementById('settings-form');
+    if (settingsForm) {
+        settingsForm.addEventListener('input', () => {
+            window.isSettingsDirty = true;
+        });
+        settingsForm.addEventListener('change', () => {
+            window.isSettingsDirty = true;
+        });
+
+        settingsForm.addEventListener('submit', async (e) => {
+            syncFormsData();
+            window._isNavigating = true;
+            window.clearAllDirtyState();
+            if (window.isFormsDirty) {
+                try {
+                    await fetch('/api/forms', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ forms: forms })
+                    });
+                } catch (err) {
+                    console.warn('Batch forms save fallback:', err);
+                }
+            }
+        });
+    }
+
+    syncFormsData();
     renderCards();
 }
 
@@ -3748,6 +3826,7 @@ async function loadIndexConfig(isReset = false) {
             };
             originalConfigData = JSON.parse(JSON.stringify(currentConfigData));
             isConfigDirty = false;
+            window.isConfigDirty = false;
             updateConfigBadge();
 
             renderConfigFields();
@@ -4003,6 +4082,7 @@ function clearPatternFeedback() {
 
 function markConfigDirty() {
     isConfigDirty = true;
+    window.isConfigDirty = true;
     updateConfigBadge();
 }
 
@@ -4107,6 +4187,7 @@ async function saveIndexConfig() {
             };
             originalConfigData = JSON.parse(JSON.stringify(currentConfigData));
             isConfigDirty = false;
+            window.isConfigDirty = false;
             updateConfigBadge();
 
             if (statusEl) {

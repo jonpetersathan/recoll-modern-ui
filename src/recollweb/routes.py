@@ -481,6 +481,9 @@ def register_routes(app: bottle.Bottle):
         config = ConfigManager.get_config()
         try:
             data = parse_json_request()
+            if 'forms' in data and isinstance(data['forms'], list):
+                SearchFormsManager.save_forms(config['confdir'], data['forms'])
+                return json_response({'success': True, 'forms': SearchFormsManager.get_forms(config['confdir'])})
             saved_form = SearchFormsManager.save_custom_form(config['confdir'], data)
             return json_response({'success': True, 'form': saved_form})
         except ValueError as val_err:
@@ -639,18 +642,26 @@ def register_routes(app: bottle.Bottle):
         settings_vars['forms_json'] = json.dumps(forms)
         return bottle.template('settings', **settings_vars)
 
-    @app.route('/set')
+    @app.route('/set', method=['GET', 'POST'])
     def save_settings():
         config = ConfigManager.get_config()
+        forms_param = bottle.request.params.get('forms_json')
+        if forms_param:
+            try:
+                parsed_forms = json.loads(forms_param)
+                if isinstance(parsed_forms, list):
+                    SearchFormsManager.save_forms(config['confdir'], parsed_forms)
+            except Exception as exc:
+                logger.error("Error saving staged forms in /set: %s", exc)
         for key in DEFAULT_CONFIG.keys():
-            val = bottle.request.query.get(key)
+            val = bottle.request.params.get(key)
             if val is not None:
                 bottle.response.set_cookie(key, str(val), max_age=315360000, expires=315360000)
         for d in config['dirs']:
             if d.rstrip('/') == '/data':
                 continue
             cookie_name = f"mount_{urlquote(d, '')}"
-            mount_val = bottle.request.query.get(cookie_name)
+            mount_val = bottle.request.params.get(cookie_name)
             if mount_val is not None:
                 bottle.response.set_cookie(cookie_name, str(mount_val), max_age=315360000, expires=315360000)
         bottle.redirect('./')
