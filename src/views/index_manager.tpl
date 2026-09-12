@@ -241,37 +241,10 @@
                 <pre id="sandbox-raw-view" class="terminal-body" style="display: none; background: rgba(0,0,0,0.5); border: 1px solid var(--card-border); border-radius: 6px; padding: 10px;"></pre>
             </div>
         </div>
-
-        <!-- Index Configuration (recoll.conf) merged directly under Sandbox Rule Evaluation -->
-        <div id="index-config-section" class="settings-section" style="margin-top: 2rem; border-top: 1px solid var(--card-border); padding-top: 1.5rem;">
-            <div class="settings-header" style="justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; padding-bottom: 0; border-bottom: none;">
-                <div style="display: flex; gap: 1rem; align-items: center;">
-                    <div class="brand-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="4" y1="21" x2="4" y2="14"></line>
-                            <line x1="4" y1="10" x2="4" y2="3"></line>
-                            <line x1="12" y1="21" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12" y2="3"></line>
-                            <line x1="20" y1="21" x2="20" y2="16"></line>
-                            <line x1="20" y1="12" x2="20" y2="3"></line>
-                            <line x1="1" y1="14" x2="7" y2="14"></line>
-                            <line x1="9" y1="8" x2="15" y2="8"></line>
-                            <line x1="17" y1="16" x2="23" y2="16"></line>
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="settings-title">Index Configuration (<code class="recoll-conf-code">recoll.conf</code>)</h2>
-                        <p class="settings-helper">Customize file exclusion rules, crawler thread allocation, OCR triggers, and Xapian database cache sizes</p>
-                    </div>
-                </div>
-                <div class="config-status-badge" id="config-status-badge">
-                    <span class="status-dot-pulse"></span>
-                    <span id="config-status-text">Active Configuration</span>
-                </div>
-            </div>
-        </div>
+    </div>
 
     <!-- Parameter 1: skippedNames (Interactive Chip / Tag List) -->
+    % skipped_names_list = index_config.get('skippedNames', []) if (defined('index_config') and isinstance(index_config, dict)) else []
     <div class="settings-section">
         <div class="settings-section-title">
             <div style="display: inline-flex; align-items: center; gap: 8px;">
@@ -282,7 +255,7 @@
                 <span>Excluded Filename Patterns (<code class="field-code">skippedNames</code>)</span>
             </div>
             <div class="section-title-actions" style="margin-left: auto;">
-                <span class="chip-count-badge" id="skipped-names-count">0 patterns</span>
+                <span class="chip-count-badge" id="skipped-names-count">{{len(skipped_names_list)}} pattern{{'' if len(skipped_names_list) == 1 else 's'}}</span>
             </div>
         </div>
         <p class="settings-helper" style="margin-bottom: 0.75rem;">
@@ -291,7 +264,18 @@
 
         <!-- Interactive Chips List -->
         <div class="chip-tag-container" id="skipped-names-chip-list">
-            <!-- Dynamically populated chips -->
+            % if not skipped_names_list:
+            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 6px 0;">
+                No skipped patterns configured. All supported files will be indexed.
+            </div>
+            % else:
+            % for s_idx, s_pat in enumerate(skipped_names_list):
+            <div class="config-chip" data-index="{{s_idx}}" data-pattern="{{s_pat}}">
+                <span class="chip-text" title="Click to edit pattern">{{s_pat}}</span>
+                <button type="button" class="chip-remove-btn" title="Remove &quot;{{s_pat}}&quot;" onclick="removeSkippedName({{s_idx}})">×</button>
+            </div>
+            % end
+            % end
         </div>
 
         <!-- Add Pattern Toolbar -->
@@ -327,6 +311,10 @@
     </div>
 
     <!-- Parameters 2, 3, 4, 5: Indexing Directives & PDF OCR -->
+    % conf_idxall = index_config.get('indexallfilenames', True) if (defined('index_config') and isinstance(index_config, dict)) else True
+    % conf_noaspell = index_config.get('noaspell', False) if (defined('index_config') and isinstance(index_config, dict)) else False
+    % conf_stempos = index_config.get('indexstemmingpositions', True) if (defined('index_config') and isinstance(index_config, dict)) else True
+    % conf_pdfocr = index_config.get('pdfocrmode', 'off') if (defined('index_config') and isinstance(index_config, dict)) else 'off'
     <div class="settings-section">
         <div class="settings-section-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -343,7 +331,7 @@
                     <span class="settings-helper"><code>indexallfilenames</code>: Index file names even for unextractable or unsupported file types</span>
                 </div>
                 <label class="toggle-switch-wrapper">
-                    <input type="checkbox" id="conf-indexallfilenames" name="indexallfilenames" class="toggle-switch-input" onchange="markConfigDirty()">
+                    <input type="checkbox" id="conf-indexallfilenames" name="indexallfilenames" class="toggle-switch-input" onchange="markConfigDirty()" {{'checked' if conf_idxall else ''}}>
                     <span class="toggle-switch-slider"></span>
                 </label>
             </div>
@@ -355,7 +343,7 @@
                     <span class="settings-helper"><code>noaspell</code>: Skip aspell dictionary generation to reduce indexing time and memory</span>
                 </div>
                 <label class="toggle-switch-wrapper">
-                    <input type="checkbox" id="conf-noaspell" name="noaspell" class="toggle-switch-input" onchange="markConfigDirty()">
+                    <input type="checkbox" id="conf-noaspell" name="noaspell" class="toggle-switch-input" onchange="markConfigDirty()" {{'checked' if conf_noaspell else ''}}>
                     <span class="toggle-switch-slider"></span>
                 </label>
             </div>
@@ -367,7 +355,7 @@
                     <span class="settings-helper"><code>indexstemmingpositions</code>: Store word positions for stemmed forms to accelerate phrase searches</span>
                 </div>
                 <label class="toggle-switch-wrapper">
-                    <input type="checkbox" id="conf-indexstemmingpositions" name="indexstemmingpositions" class="toggle-switch-input" onchange="markConfigDirty()">
+                    <input type="checkbox" id="conf-indexstemmingpositions" name="indexstemmingpositions" class="toggle-switch-input" onchange="markConfigDirty()" {{'checked' if conf_stempos else ''}}>
                     <span class="toggle-switch-slider"></span>
                 </label>
             </div>
@@ -379,15 +367,19 @@
                 <label class="settings-label" for="conf-pdfocrmode">PDF OCR Mode (<code>pdfocrmode</code>)</label>
                 <span class="settings-helper">Select Optical Character Recognition execution policy for PDF documents</span>
                 <select id="conf-pdfocrmode" name="pdfocrmode" class="form-control" onchange="markConfigDirty()">
-                    <option value="off">off &mdash; Never run OCR on PDFs</option>
-                    <option value="auto">auto &mdash; Run OCR only when PDF has no selectable text</option>
-                    <option value="always">always &mdash; Force OCR on all PDF pages</option>
+                    <option value="off" {{'selected' if conf_pdfocr == 'off' else ''}}>off &mdash; Never run OCR on PDFs</option>
+                    <option value="auto" {{'selected' if conf_pdfocr == 'auto' else ''}}>auto &mdash; Run OCR only when PDF has no selectable text</option>
+                    <option value="always" {{'selected' if conf_pdfocr == 'always' else ''}}>always &mdash; Force OCR on all PDF pages</option>
                 </select>
             </div>
         </div>
     </div>
 
     <!-- Parameters 6, 7, 8, 9: Threads & Performance Tuning -->
+    % conf_threads = index_config.get('idxthreads', 2) if (defined('index_config') and isinstance(index_config, dict)) else 2
+    % conf_slices = index_config.get('thrQSlices', '1') if (defined('index_config') and isinstance(index_config, dict)) else '1'
+    % conf_flush = index_config.get('idxflushmb', 50) if (defined('index_config') and isinstance(index_config, dict)) else 50
+    % conf_absml = index_config.get('idxabsml', 250) if (defined('index_config') and isinstance(index_config, dict)) else 250
     <div class="settings-section">
         <div class="settings-section-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -404,14 +396,14 @@
             <div class="settings-field">
                 <label class="settings-label" for="conf-idxthreads">Indexer Threads (<code>idxthreads</code>)</label>
                 <span class="settings-helper">Worker thread count for document reading and processing (0 or 1 for single-threaded)</span>
-                <input type="number" id="conf-idxthreads" name="idxthreads" class="form-control" min="0" max="64" step="1" placeholder="e.g. 2" oninput="markConfigDirty()">
+                <input type="number" id="conf-idxthreads" name="idxthreads" class="form-control" min="0" max="64" step="1" value="{{conf_threads}}" placeholder="e.g. 2" oninput="markConfigDirty()">
             </div>
 
             <!-- Numeric 2: thrQSlices -->
             <div class="settings-field">
                 <label class="settings-label" for="conf-thrQSlices">Thread Queue Slices (<code>thrQSlices</code>)</label>
                 <span class="settings-helper">Queue depth multiplier for multithreaded indexing pipelines</span>
-                <input type="number" id="conf-thrQSlices" name="thrQSlices" class="form-control" min="1" max="10" step="1" placeholder="e.g. 1" oninput="markConfigDirty()">
+                <input type="number" id="conf-thrQSlices" name="thrQSlices" class="form-control" min="1" max="10" step="1" value="{{conf_slices}}" placeholder="e.g. 1" oninput="markConfigDirty()">
             </div>
 
             <!-- Numeric 3: idxflushmb -->
@@ -419,7 +411,7 @@
                 <label class="settings-label" for="conf-idxflushmb">Index Flush Threshold (<code>idxflushmb</code>)</label>
                 <span class="settings-helper">Megabytes of memory before flushing document updates to Xapian disk storage</span>
                 <div class="input-unit-wrap">
-                    <input type="number" id="conf-idxflushmb" name="idxflushmb" class="form-control" min="10" max="4096" step="10" placeholder="e.g. 50" oninput="markConfigDirty()">
+                    <input type="number" id="conf-idxflushmb" name="idxflushmb" class="form-control" min="10" max="4096" step="10" value="{{conf_flush}}" placeholder="e.g. 50" oninput="markConfigDirty()">
                     <span class="input-unit-label">MB</span>
                 </div>
             </div>
@@ -429,7 +421,7 @@
                 <label class="settings-label" for="conf-idxabsml">Max Abstract Length (<code>idxabsml</code>)</label>
                 <span class="settings-helper">Maximum character length for synthetic abstract excerpt generation</span>
                 <div class="input-unit-wrap">
-                    <input type="number" id="conf-idxabsml" name="idxabsml" class="form-control" min="50" max="10000" step="25" placeholder="e.g. 250" oninput="markConfigDirty()">
+                    <input type="number" id="conf-idxabsml" name="idxabsml" class="form-control" min="50" max="10000" step="25" value="{{conf_absml}}" placeholder="e.g. 250" oninput="markConfigDirty()">
                     <span class="input-unit-label">chars</span>
                 </div>
             </div>

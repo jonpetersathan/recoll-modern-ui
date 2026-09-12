@@ -4154,8 +4154,8 @@ window.isIndexConfigDirty = function() {
 };
 
 function initIndexConfig() {
-    const card = document.getElementById('index-config-card');
-    if (!card) return;
+    const hasConfig = document.getElementById('skipped-names-chip-list') || document.getElementById('conf-indexallfilenames');
+    if (!hasConfig) return;
 
     if (!currentConfigData) {
         currentConfigData = {
@@ -4173,7 +4173,8 @@ function initIndexConfig() {
 
     // Enter key handler for adding new pattern
     const patternInput = document.getElementById('input-new-pattern');
-    if (patternInput) {
+    if (patternInput && !patternInput.dataset.bound) {
+        patternInput.dataset.bound = 'true';
         patternInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -4275,6 +4276,14 @@ function renderConfigFields() {
             const label = wrapper.querySelector('.custom-select-label');
             const selectedOption = elPdfOcr.options[elPdfOcr.selectedIndex];
             if (label && selectedOption) label.textContent = selectedOption.textContent;
+            wrapper.querySelectorAll('.custom-select-option').forEach(optEl => {
+                const optIdx = parseInt(optEl.dataset.index, 10);
+                if (optIdx === elPdfOcr.selectedIndex) {
+                    optEl.classList.add('is-selected');
+                } else {
+                    optEl.classList.remove('is-selected');
+                }
+            });
         }
     }
 

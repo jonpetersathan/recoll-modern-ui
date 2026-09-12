@@ -203,6 +203,48 @@ class TestIndexManager(unittest.TestCase):
         self.assertTrue(res["success"])
         self.assertFalse(os.path.isdir(xapian_dir))
 
+    def test_get_and_update_index_config(self):
+        recoll_conf = os.path.join(self.temp_dir, "recoll.conf")
+        with open(recoll_conf, "w", encoding="utf-8") as f:
+            f.write(
+                "topdirs = /data\n"
+                "skippedNames = *.bak *.log\n"
+                "idxthreads = 3\n"
+                "pdfocrmode = auto\n"
+                "idxflushmb = 80\n"
+            )
+
+        conf = IndexManager.get_index_config(self.temp_dir)
+        self.assertEqual(conf["skippedNames"], ["*.bak", "*.log"])
+        self.assertEqual(conf["idxthreads"], 3)
+        self.assertEqual(conf["pdfocrmode"], "auto")
+        self.assertEqual(conf["idxflushmb"], 80)
+        self.assertTrue(conf["indexallfilenames"])
+
+        # Update config
+        updates = {
+            "skippedNames": ["*.bak", "*.iso", "*.tmp"],
+            "idxthreads": 6,
+            "pdfocrmode": "always",
+            "noaspell": True,
+            "thrQSlices": "3",
+            "idxabsml": 400
+        }
+        updated = IndexManager.update_index_config(self.temp_dir, updates)
+        self.assertEqual(updated["skippedNames"], ["*.bak", "*.iso", "*.tmp"])
+        self.assertEqual(updated["idxthreads"], 6)
+        self.assertEqual(updated["pdfocrmode"], "always")
+        self.assertTrue(updated["noaspell"])
+        self.assertEqual(updated["thrQSlices"], "3")
+        self.assertEqual(updated["idxabsml"], 400)
+
+        # Re-read to confirm persistence
+        persisted = IndexManager.get_index_config(self.temp_dir)
+        self.assertEqual(persisted["skippedNames"], ["*.bak", "*.iso", "*.tmp"])
+        self.assertEqual(persisted["idxthreads"], 6)
+        self.assertEqual(persisted["pdfocrmode"], "always")
+        self.assertTrue(persisted["noaspell"])
+
 
 class TestExtractorCLI(unittest.TestCase):
     def setUp(self):
