@@ -2750,32 +2750,84 @@ function initSearchSelection() {
 // ============================================================================
 function initViewModeToggle() {
     const resultsContainer = document.getElementById('results');
+    const toggleInput = document.getElementById('toggle-show-details');
     const toggleBtn = document.getElementById('btn-view-toggle');
-    const toggleText = document.getElementById('view-toggle-text');
-    if (!resultsContainer || !toggleBtn) return;
+    if (!resultsContainer && !toggleInput && !toggleBtn) return;
 
-    const savedMode = localStorage.getItem('recoll_search_view_mode') || 'detail';
-
-    function setViewMode(mode) {
-        if (mode === 'simple') {
-            resultsContainer.classList.add('view-simple');
-            toggleBtn.dataset.view = 'simple';
-            if (toggleText) toggleText.textContent = 'Simple';
-        } else {
-            resultsContainer.classList.remove('view-simple');
-            toggleBtn.dataset.view = 'detail';
-            if (toggleText) toggleText.textContent = 'Detailed';
+    function getSavedMode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlView = urlParams.get('view');
+        if (urlView === 'simple' || urlView === 'detail') {
+            safeStorageSet('localStorage', 'recoll_search_view_mode', urlView);
+            document.cookie = 'recoll_search_view_mode=' + urlView + '; path=/; max-age=31536000; SameSite=Lax';
+            return urlView;
         }
-        localStorage.setItem('recoll_search_view_mode', mode);
+        try {
+            const ls = safeStorageGet('localStorage', 'recoll_search_view_mode');
+            if (ls === 'simple' || ls === 'detail') return ls;
+        } catch (e) {}
+        const cookieMatch = document.cookie.match(/(?:^|;\s*)recoll_search_view_mode=([^;]+)/);
+        if (cookieMatch && (cookieMatch[1] === 'simple' || cookieMatch[1] === 'detail')) {
+            return cookieMatch[1];
+        }
+        if (resultsContainer && resultsContainer.classList.contains('view-simple')) {
+            return 'simple';
+        }
+        return 'detail'; // Turned on by default
     }
 
-    setViewMode(savedMode);
+    function updatePaginationLinks(mode) {
+        const pageLinks = document.querySelectorAll('.pagination-wrapper a.tab-btn');
+        pageLinks.forEach(link => {
+            try {
+                const url = new URL(link.href, window.location.origin);
+                if (mode === 'simple') {
+                    url.searchParams.set('view', 'simple');
+                } else {
+                    url.searchParams.delete('view');
+                }
+                link.href = url.pathname + url.search;
+            } catch (e) {}
+        });
+    }
 
-    toggleBtn.addEventListener('click', () => {
-        const currentMode = toggleBtn.dataset.view || 'detail';
-        const newMode = currentMode === 'detail' ? 'simple' : 'detail';
-        setViewMode(newMode);
-    });
+    function setViewMode(mode, syncStorage = true) {
+        const isSimple = (mode === 'simple');
+        if (resultsContainer) {
+            resultsContainer.classList.toggle('view-simple', isSimple);
+        }
+        if (toggleInput) {
+            toggleInput.checked = !isSimple;
+        }
+        if (toggleBtn) {
+            toggleBtn.dataset.view = isSimple ? 'simple' : 'detail';
+            const toggleText = document.getElementById('view-toggle-text');
+            if (toggleText) toggleText.textContent = isSimple ? 'Simple' : 'Detailed';
+        }
+        updatePaginationLinks(mode);
+        if (syncStorage) {
+            safeStorageSet('localStorage', 'recoll_search_view_mode', mode);
+            document.cookie = 'recoll_search_view_mode=' + mode + '; path=/; max-age=31536000; SameSite=Lax';
+        }
+    }
+
+    const currentMode = getSavedMode();
+    setViewMode(currentMode, false);
+
+    if (toggleInput) {
+        toggleInput.addEventListener('change', () => {
+            const newMode = toggleInput.checked ? 'detail' : 'simple';
+            setViewMode(newMode, true);
+        });
+    }
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            const currentMode = toggleBtn.dataset.view || 'detail';
+            const newMode = currentMode === 'detail' ? 'simple' : 'detail';
+            setViewMode(newMode, true);
+        });
+    }
 }
 
 /**

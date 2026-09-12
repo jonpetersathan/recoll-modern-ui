@@ -171,6 +171,10 @@ def register_routes(app: bottle.Bottle):
         bottle.response.headers['Vary'] = 'Cookie'
         bottle.response.headers['No-Vary-Search'] = 'key-order'
 
+        view_mode = bottle.request.query.get('view') or bottle.request.get_cookie('recoll_search_view_mode', default='detail')
+        if view_mode not in ('simple', 'detail'):
+            view_mode = 'detail'
+
         return bottle.template(
             'results',
             res=res,
@@ -184,6 +188,7 @@ def register_routes(app: bottle.Bottle):
             nres=total_count,
             forms=forms,
             forms_json=json.dumps(forms),
+            view_mode=view_mode,
         )
 
     # ------------------------------------------------------------------------

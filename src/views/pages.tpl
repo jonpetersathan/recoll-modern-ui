@@ -3,6 +3,12 @@
 %import math
 
 %q = dict(query)
+%view_mode = get('view_mode', None)
+%if view_mode == 'simple':
+	%q['view'] = 'simple'
+%else:
+	%q.pop('view', None)
+%end
 %def page_href(page):
 	%q['page'] = page
 	%return './results?%s' % urlencode(q)

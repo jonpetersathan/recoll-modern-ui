@@ -1,3 +1,4 @@
+%view_mode = get('view_mode', 'detail')
 %include('header', title=": " + query['query'] + " (" + str(nres) + ")")
 %include('search', query=query, dirs=dirs, sorts=sorts, config=config, forms=forms, forms_json=forms_json)
 <div id="status" class="status-bar">
@@ -17,20 +18,6 @@
                 <span id="selected-count">0</span> selected
                 <button type="button" id="btn-clear-selection" class="btn-clear-sel" title="Clear all selections">&times;</button>
             </span>
-        </div>
-
-        <div class="view-controls">
-            <button type="button" id="btn-view-toggle" class="chip-btn view-toggle-btn" title="Toggle Detail / Simple View" data-view="detail">
-                <svg class="icon-view-detail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
-                <span id="view-toggle-text">Detailed</span>
-            </button>
         </div>
 
         %if not config.get('rclc_nojsoncsv', False):
@@ -65,9 +52,50 @@
     %end
 </div>
 
-%include('pages', query=query, config=config, nres=nres)
+<div class="results-nav-bar">
+    <div class="nav-bar-left"></div>
+    <div class="nav-bar-center">
+        %include('pages', query=query, config=config, nres=nres, view_mode=view_mode)
+    </div>
+    <div class="nav-bar-right">
+        %if len(res) > 0:
+        <label class="details-toggle-label" for="toggle-show-details" title="Toggle Detailed / Simple Search Results View">
+            <span class="details-toggle-text">Show Details</span>
+            <span class="glass-switch">
+                <input type="checkbox" id="toggle-show-details" class="toggle-switch-input" {{ 'checked' if view_mode != 'simple' else '' }}>
+                <span class="glass-slider"></span>
+            </span>
+        </label>
+        %end
+    </div>
+</div>
 
-<div id="results" class="results-container">
+<script>
+(function() {
+    try {
+        var params = new URLSearchParams(window.location.search);
+        var urlView = params.get('view');
+        var m = urlView || localStorage.getItem('recoll_search_view_mode');
+        if (!m && document.cookie) {
+            var match = document.cookie.match(/(?:^|;\s*)recoll_search_view_mode=([^;]+)/);
+            if (match) m = match[1];
+        }
+        if (m === 'simple') {
+            var r = document.getElementById('results');
+            if (r) r.classList.add('view-simple');
+            var t = document.getElementById('toggle-show-details');
+            if (t) t.checked = false;
+        } else if (m === 'detail') {
+            var r = document.getElementById('results');
+            if (r) r.classList.remove('view-simple');
+            var t = document.getElementById('toggle-show-details');
+            if (t) t.checked = true;
+        }
+    } catch(e) {}
+})();
+</script>
+
+<div id="results" class="results-container {{ 'view-simple' if view_mode == 'simple' else '' }}">
 %for i in range(0, len(res)):
     %include('result', d=res[i], i=i, query=query, config=config, query_string=query_string)
 %end
@@ -103,5 +131,5 @@
     </div>
 </div>
 
-%include('pages', query=query, config=config, nres=nres)
+%include('pages', query=query, config=config, nres=nres, view_mode=view_mode)
 %include('footer')
