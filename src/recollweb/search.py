@@ -6,10 +6,6 @@ import datetime
 import hashlib
 import json
 import os
-import re
-import urllib.parse
-import urllib.request
-from datetime import timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote as urlquote
 import bottle
@@ -19,49 +15,6 @@ from recollweb.config import ConfigManager
 from recollweb.constants import DOCUMENT_FIELDS, SORT_OPTIONS
 from recollweb.metadata import MetadataRulesManager
 from recollweb.utils import format_mimetype_label, format_timestamp
-
-
-def rewrite_dmtime_query(query_str: str) -> str:
-    """
-    Rewrite dmtime:<value> terms to Recoll's native date:<value> syntax.
-    Handles YYYYMMDD, YYYY-MM-DD, YYYY, Unix epoch timestamps, and date ranges.
-    """
-    if not query_str or 'dmtime:' not in query_str:
-        return query_str
-
-    def _convert_date_token(tok: str) -> str:
-        tok = tok.strip()
-        if not tok:
-            return ""
-        # 10-digit Unix timestamp
-        if re.fullmatch(r'\d{10}', tok):
-            try:
-                dt = datetime.datetime.fromtimestamp(int(tok), tz=timezone.utc)
-                return dt.strftime('%Y-%m-%d')
-            except (ValueError, OSError):
-                return tok
-        # 8-digit YYYYMMDD
-        if re.fullmatch(r'\d{8}', tok):
-            return f"{tok[0:4]}-{tok[4:6]}-{tok[6:8]}"
-        return tok
-
-    def _replace_dmtime(match: re.Match) -> str:
-        val = (match.group(1) or match.group(2) or "").strip()
-        if '/' in val:
-            parts = val.split('/', 1)
-            p1 = _convert_date_token(parts[0])
-            p2 = _convert_date_token(parts[1])
-            return f"date:{p1}/{p2}"
-        elif '-' in val and not re.fullmatch(r'\d{4}-\d{2}-\d{2}', val):
-            parts = val.split('-', 1)
-            p1 = _convert_date_token(parts[0])
-            p2 = _convert_date_token(parts[1])
-            return f"date:{p1}/{p2}"
-        else:
-            return f"date:{_convert_date_token(val)}"
-
-    pattern = r'\bdmtime:(?:"([^"]+)"|([^\s\(\)]+))'
-    return re.sub(pattern, _replace_dmtime, query_str)
 
 
 class SearchQuery:
@@ -146,7 +99,7 @@ class SearchQuery:
         Build Recoll query string from search query dictionary.
         Combines multiple directory scopes with OR logic: (dir:"..." OR dir:"...").
         """
-        qs = rewrite_dmtime_query(query_data.get('query', ''))
+        qs = query_data.get('query', '')
         after = query_data.get('after', '')
         before = query_data.get('before', '')
         if after or before:

@@ -769,9 +769,14 @@ def register_routes(app: bottle.Bottle):
                     "error": str(root_exc),
                 }
 
+        config = ConfigManager.get_config()
         view_vars = dict(data)
         view_vars['title'] = " / Browser"
         view_vars['active_tab'] = "browser"
+        view_vars['config'] = config
+        view_vars['current_user'] = config.get('current_user', 'default')
+        view_vars['is_admin'] = config.get('is_admin', False)
+        view_vars['user_role'] = config.get('user_role', 'user')
         view_vars['initial_data_json'] = json.dumps(data)
         return bottle.template('browser', **view_vars)
 

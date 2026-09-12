@@ -60,7 +60,19 @@
                     </svg>
                     <span>Browser</span>
                 </a>
-                % is_admin_val = get('is_admin', False) if defined('is_admin') else (config.get('is_admin', False) if defined('config') else False)
+                % is_admin_val = get('is_admin', None)
+                % if is_admin_val is None:
+                %     is_admin_val = config.get('is_admin', None) if (defined('config') and config) else None
+                % end
+                % if is_admin_val is None:
+                %     try:
+                %         from recollweb.auth import get_current_user, is_admin_user
+                %         _u = get('current_user', None) or (config.get('current_user', None) if (defined('config') and config) else None) or get_current_user()
+                %         is_admin_val = is_admin_user(_u)
+                %     except Exception:
+                %         is_admin_val = True
+                %     end
+                % end
                 % if is_admin_val:
                 <a href="index-manager" class="btn btn-secondary nav-action-btn{{ ' active' if active_tab == 'index' or 'Index' in page_title else '' }}" title="Index &amp; Metadata Rules">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -78,8 +90,19 @@
                     </svg>
                     <span>Settings</span>
                 </a>
-                % cur_user = get('current_user', '') if defined('current_user') else (config.get('current_user', 'default') if defined('config') else 'default')
-                % cur_role = get('user_role', '') if defined('user_role') else ('admin' if is_admin_val else 'user')
+                % cur_user = get('current_user', None)
+                % if cur_user is None:
+                %     cur_user = config.get('current_user', None) if (defined('config') and config) else None
+                % end
+                % if cur_user is None:
+                %     try:
+                %         from recollweb.auth import get_current_user
+                %         cur_user = get_current_user() or 'default'
+                %     except Exception:
+                %         cur_user = 'default'
+                %     end
+                % end
+                % cur_role = get('user_role', '') if (defined('user_role') and user_role) else ('admin' if is_admin_val else 'user')
                 <div class="user-profile-badge" title="User: {{cur_user}} ({{cur_role.capitalize()}})">
                     <span class="user-avatar-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

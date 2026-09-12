@@ -352,7 +352,6 @@ fn process_date_directives(results: &mut BTreeMap<String, String>) {
 
     if let Some(ts) = extracted_timestamp {
         results.insert("dmtime".to_string(), ts.to_string());
-        results.insert("modificationdate".to_string(), ts.to_string());
     }
 }
 

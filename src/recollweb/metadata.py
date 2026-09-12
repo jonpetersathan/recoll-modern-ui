@@ -23,7 +23,6 @@ STANDARD_DOCUMENT_FIELDS: Set[str] = {
     "title",
     "dmtime",
     "mtime",
-    "modificationdate",
 }
 
 MONTH_NAMES: Dict[str, int] = {
@@ -201,7 +200,6 @@ def process_date_directives(results: Dict[str, str]) -> Dict[str, str]:
 
     if extracted_timestamp is not None:
         results['dmtime'] = str(extracted_timestamp)
-        results['modificationdate'] = str(extracted_timestamp)
 
     return results
 

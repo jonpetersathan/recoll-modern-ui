@@ -1,4 +1,4 @@
-%include("header", title=" / Browser", active_tab="browser")
+%include("header", title=" / Browser", active_tab="browser", config=get('config', None), is_admin=get('is_admin', None), current_user=get('current_user', None), user_role=get('user_role', None))
 <div id="browser-box" class="settings-card browser-card" onmousemove="updateGlow(event, this)">
     <div class="card-glow"></div>
 
