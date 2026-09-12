@@ -10,10 +10,6 @@
     %if len(res) > 0:
     <div class="results-actions-bar">
         <div class="selection-controls">
-            <label class="select-all-label" title="Select / deselect all results on this page">
-                <input type="checkbox" id="select-all-page" class="select-all-checkbox">
-                <span>Select Page</span>
-            </label>
             <span id="selected-counter" class="selected-counter-badge" style="display: none;">
                 <span id="selected-count">0</span> selected
                 <button type="button" id="btn-clear-selection" class="btn-clear-sel" title="Clear all selections">&times;</button>
