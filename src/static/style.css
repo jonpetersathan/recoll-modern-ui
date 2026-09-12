@@ -5449,7 +5449,7 @@ input.form-control-query:active {
 }
 
 .browser-table th {
-    padding: 10px 14px;
+    padding: 11px 14px;
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -5472,7 +5472,7 @@ input.form-control-query:active {
     padding: 7px 14px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
-    height: 38px !important;
+    height: 44px !important;
 }
 
 .browser-row {
@@ -5489,7 +5489,7 @@ input.form-control-query:active {
 
 /* Columns */
 .col-icon {
-    width: 34px !important;
+    width: 36px !important;
     padding-right: 0 !important;
     text-align: center;
 }
@@ -5517,7 +5517,7 @@ input.form-control-query:active {
 }
 
 .col-action {
-    width: 105px !important;
+    width: 115px !important;
     text-align: right;
     padding-right: 14px !important;
 }
@@ -5527,15 +5527,15 @@ input.form-control-query:active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px !important;
-    height: 24px !important;
-    border-radius: 5px;
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 6px;
     transition: transform 0.2s ease;
 }
 
 .browser-item-icon svg {
-    width: 13px !important;
-    height: 13px !important;
+    width: 14px !important;
+    height: 14px !important;
 }
 
 .folder-icon {
@@ -5656,23 +5656,23 @@ input.form-control-query:active {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 5px !important;
-    min-height: 0 !important;
-    height: 25px !important;
-    max-height: 25px !important;
-    padding: 2px 9px !important;
-    font-size: 0.75rem !important;
+    gap: 6px !important;
+    min-height: 30px !important;
+    height: 30px !important;
+    max-height: 30px !important;
+    padding: 3px 12px !important;
+    font-size: 0.78rem !important;
     font-weight: 600 !important;
     line-height: 1 !important;
-    border-radius: 6px !important;
+    border-radius: 7px !important;
     text-decoration: none !important;
     transition: all 0.15s ease !important;
     box-sizing: border-box !important;
 }
 
 .btn-xs svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 13px !important;
+    height: 13px !important;
 }
 
 /* Remove number input spinner buttons under Performance & Memory Allocation */
