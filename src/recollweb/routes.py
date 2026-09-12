@@ -23,6 +23,13 @@ from recollweb.constants import (
     STATIC_DIR,
     TEMP_DIR,
 )
+from recollweb.db import (
+    delete_user_setting,
+    get_all_settings_bundle,
+    get_global_setting,
+    set_global_setting,
+    set_user_setting,
+)
 from recollweb.errors import render_error_page
 from recollweb.forms import SearchFormsManager
 from recollweb.indexer import IndexManager
@@ -108,7 +115,7 @@ def register_routes(app: bottle.Bottle):
         config = ConfigManager.get_config()
         dirs = ConfigManager.get_directory_tree(list(config['dirs'].keys()), config['dirdepth'])
         query_data = SearchQuery.parse(config)
-        forms = SearchFormsManager.get_forms(config['confdir'])
+        forms = SearchFormsManager.get_forms(config['confdir'], username=config.get('current_user', 'default'))
         bottle.response.headers['Vary'] = 'Cookie'
         return bottle.template(
             'main',
@@ -160,7 +167,7 @@ def register_routes(app: bottle.Bottle):
             )
 
         dirs = ConfigManager.get_directory_tree(list(config['dirs'].keys()), config['dirdepth'])
-        forms = SearchFormsManager.get_forms(config['confdir'])
+        forms = SearchFormsManager.get_forms(config['confdir'], username=config.get('current_user', 'default'))
         bottle.response.headers['Vary'] = 'Cookie'
         bottle.response.headers['No-Vary-Search'] = 'key-order'
 
@@ -474,18 +481,19 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/forms', method=['GET'])
     def api_get_forms():
         config = ConfigManager.get_config()
-        forms = SearchFormsManager.get_forms(config['confdir'])
+        forms = SearchFormsManager.get_forms(config['confdir'], username=config.get('current_user', 'default'))
         return json_response({'forms': forms})
 
     @app.route('/api/forms', method=['POST'])
     def api_save_form():
         config = ConfigManager.get_config()
+        current_user = config.get('current_user', 'default')
         try:
             data = parse_json_request()
             if 'forms' in data and isinstance(data['forms'], list):
-                SearchFormsManager.save_forms(config['confdir'], data['forms'])
-                return json_response({'success': True, 'forms': SearchFormsManager.get_forms(config['confdir'])})
-            saved_form = SearchFormsManager.save_custom_form(config['confdir'], data)
+                SearchFormsManager.save_forms(config['confdir'], data['forms'], username=current_user)
+                return json_response({'success': True, 'forms': SearchFormsManager.get_forms(config['confdir'], username=current_user)})
+            saved_form = SearchFormsManager.save_custom_form(config['confdir'], data, username=current_user)
             return json_response({'success': True, 'form': saved_form})
         except ValueError as val_err:
             return json_error(str(val_err), status=400)
@@ -495,12 +503,14 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/forms/delete', method=['POST'])
     def api_delete_form():
         config = ConfigManager.get_config()
+        current_user = config.get('current_user', 'default')
+        is_admin = config.get('is_admin', False)
         try:
             data = parse_json_request()
             form_id = data.get('id')
             if not form_id:
                 return json_error("Missing form ID", status=400)
-            SearchFormsManager.delete_custom_form(config['confdir'], form_id)
+            SearchFormsManager.delete_custom_form(config['confdir'], form_id, username=current_user, is_admin=is_admin)
             return json_response({'success': True})
         except ValueError as val_err:
             return json_error(str(val_err), status=400)
@@ -510,13 +520,14 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/forms/toggle', method=['POST'])
     def api_toggle_form():
         config = ConfigManager.get_config()
+        current_user = config.get('current_user', 'default')
         try:
             data = parse_json_request()
             form_id = data.get('id')
             enabled = bool(data.get('enabled', True))
             if not form_id:
                 return json_error("Missing form ID", status=400)
-            updated_form = SearchFormsManager.toggle_form(config['confdir'], form_id, enabled)
+            updated_form = SearchFormsManager.toggle_form(config['confdir'], form_id, enabled, username=current_user)
             return json_response({'success': True, 'form': updated_form})
         except ValueError as val_err:
             return json_error(str(val_err), status=400)
@@ -530,6 +541,9 @@ def register_routes(app: bottle.Bottle):
     @app.route('/index-manager')
     def index_manager_page():
         config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return render_error_page(code=403, title="Access Forbidden", desc="Administrator privileges are required to access the Index Management interface.")
+
         conf_dir = config['confdir']
         status_info = IndexManager.get_status(conf_dir)
         rules_data = MetadataRulesManager.get_rules(conf_dir)
@@ -548,8 +562,10 @@ def register_routes(app: bottle.Bottle):
         """
         Return the 9 managed index configuration parameters as JSON.
         """
+        config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         try:
-            config = ConfigManager.get_config()
             conf_data = IndexManager.get_index_config(config['confdir'])
             return json_response({'success': True, 'config': conf_data})
         except Exception as exc:
@@ -561,8 +577,10 @@ def register_routes(app: bottle.Bottle):
         """
         Validate, deduplicate, and update index configuration parameters in recoll.conf.
         """
+        config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         try:
-            config = ConfigManager.get_config()
             data = parse_json_request()
             if not data or not isinstance(data, dict):
                 return json_error("Empty or invalid JSON payload.", status=400)
@@ -578,12 +596,16 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/index/status', method=['GET'])
     def api_index_status():
         config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         status_info = IndexManager.get_status(config['confdir'])
         return json_response(status_info)
 
     @app.route('/api/index/reindex', method=['POST'])
     def api_index_reindex():
         config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         data = parse_json_request()
         full = bool(data.get('full', False))
         res = IndexManager.start_indexing(config['confdir'], full=full)
@@ -594,6 +616,8 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/index/purge', method=['POST'])
     def api_index_purge():
         config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         res = IndexManager.purge_index(config['confdir'])
         if not res.get('success'):
             return json_error(res.get('error', 'Failed to purge index'), status=500)
@@ -602,12 +626,16 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/metadata/rules', method=['GET'])
     def api_get_metadata_rules():
         config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         rules_data = MetadataRulesManager.get_rules(config['confdir'])
         return json_response(rules_data)
 
     @app.route('/api/metadata/rules', method=['POST'])
     def api_save_metadata_rules():
         config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         try:
             data = parse_json_request()
             saved = MetadataRulesManager.save_rules(config['confdir'], data)
@@ -620,6 +648,9 @@ def register_routes(app: bottle.Bottle):
 
     @app.route('/api/metadata/test', method=['POST'])
     def api_test_metadata_rules():
+        config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
         try:
             data = parse_json_request()
             sample_path = data.get('sample_path', '')
@@ -732,36 +763,93 @@ def register_routes(app: bottle.Bottle):
     @app.route('/settings')
     def settings_page():
         config = ConfigManager.get_config()
-        forms = SearchFormsManager.get_forms(config['confdir'])
+        conf_dir = config['confdir']
+        current_user = config.get('current_user', 'default')
+        is_admin = config.get('is_admin', False)
+
+        forms = SearchFormsManager.get_forms(conf_dir, username=current_user)
+        bundle = get_all_settings_bundle(conf_dir, current_user, DEFAULT_CONFIG)
+
         settings_vars = dict(config)
         settings_vars['dirs'] = [d for d in config['dirs'] if d.rstrip('/') != '/data']
         settings_vars['forms'] = forms
         settings_vars['forms_json'] = json.dumps(forms)
+        settings_vars['settings_bundle'] = bundle
+        settings_vars['settings_bundle_json'] = json.dumps(bundle)
+        settings_vars['field_status'] = bundle.get('status', {})
+        settings_vars['active_tab'] = 'settings'
         return bottle.template('settings', **settings_vars)
+
+    @app.route('/api/settings/restore', method=['POST'])
+    def api_restore_setting():
+        config = ConfigManager.get_config()
+        conf_dir = config['confdir']
+        current_user = config.get('current_user', 'default')
+        data = parse_json_request()
+        key = data.get('key')
+        if not key:
+            return json_error("Missing setting key", status=400)
+        delete_user_setting(conf_dir, current_user, key)
+        glob_val = get_global_setting(conf_dir, key, DEFAULT_CONFIG.get(key))
+        return json_response({'success': True, 'key': key, 'global_value': glob_val})
 
     @app.route('/set', method=['GET', 'POST'])
     def save_settings():
         config = ConfigManager.get_config()
+        conf_dir = config['confdir']
+        current_user = config.get('current_user', 'default')
+        is_admin = config.get('is_admin', False)
+
         forms_param = bottle.request.params.get('forms_json')
         if forms_param:
             try:
                 parsed_forms = json.loads(forms_param)
                 if isinstance(parsed_forms, list):
-                    SearchFormsManager.save_forms(config['confdir'], parsed_forms)
+                    SearchFormsManager.save_forms(conf_dir, parsed_forms, username=current_user)
             except Exception as exc:
                 logger.error("Error saving staged forms in /set: %s", exc)
+
         for key in DEFAULT_CONFIG.keys():
             val = bottle.request.params.get(key)
+            scope = bottle.request.params.get(f'scope_{key}', 'user')
+            restore = bottle.request.params.get(f'restore_{key}')
+
+            if restore == '1':
+                delete_user_setting(conf_dir, current_user, key)
+                continue
+
             if val is not None:
-                bottle.response.set_cookie(key, str(val), max_age=315360000, expires=315360000)
+                if key == 'csvfields':
+                    from recollweb.metadata import MetadataRulesManager
+                    available_keywords = set(MetadataRulesManager.get_all_known_fields(conf_dir))
+                    filtered_csv = [f for f in str(val).split() if f in available_keywords]
+                    val = " ".join(filtered_csv) if filtered_csv else " ".join([f for f in DEFAULT_CONFIG['csvfields'].split() if f in available_keywords])
+
+                if is_admin and scope == 'global':
+                    set_global_setting(conf_dir, key, val)
+                else:
+                    set_user_setting(conf_dir, current_user, key, val)
+
         for d in config['dirs']:
             if d.rstrip('/') == '/data':
                 continue
-            cookie_name = f"mount_{urlquote(d, '')}"
-            mount_val = bottle.request.params.get(cookie_name)
+            mount_key = f"mount_{urlquote(d, '')}"
+            mount_val = bottle.request.params.get(mount_key)
+            mount_scope = bottle.request.params.get(f'scope_{mount_key}', 'user')
+            mount_restore = bottle.request.params.get(f'restore_{mount_key}')
+
+            if mount_restore == '1':
+                delete_user_setting(conf_dir, current_user, mount_key)
+                continue
+
             if mount_val is not None:
-                bottle.response.set_cookie(cookie_name, str(mount_val), max_age=315360000, expires=315360000)
-        bottle.redirect('./')
+                if is_admin and mount_scope == 'global':
+                    set_global_setting(conf_dir, mount_key, mount_val)
+                else:
+                    set_user_setting(conf_dir, current_user, mount_key, mount_val)
+
+        redirect_target = bottle.request.params.get('redirect', './settings')
+        bottle.redirect(redirect_target)
 
     @app.route('/osd.xml')
     def opensearch_manifest():

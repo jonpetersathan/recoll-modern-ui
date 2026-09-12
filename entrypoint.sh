@@ -18,6 +18,13 @@ if [ ! -f "$CONFDIR/recoll.conf" ]; then
     fi
 fi
 
+# If permissions.conf does not exist in config directory, copy default template
+if [ ! -f "$CONFDIR/permissions.conf" ]; then
+    if [ -f /app/permissions.conf ]; then
+        cp /app/permissions.conf "$CONFDIR/permissions.conf"
+    fi
+fi
+
 # Ensure topdirs is set to /data if missing
 if [ -f "$CONFDIR/recoll.conf" ] && [ -w "$CONFDIR/recoll.conf" ]; then
     if ! grep -q "^[[:space:]]*topdirs" "$CONFDIR/recoll.conf"; then

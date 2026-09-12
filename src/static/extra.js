@@ -1807,7 +1807,9 @@ function initSettingsFormManager() {
             const isReadOnly = !!form.readonly;
             const badgeHtml = isReadOnly
                 ? '<span class="badge-pill badge-readonly">Default / Read-Only</span>'
-                : '<span class="badge-pill badge-custom">Custom</span>';
+                : (form.is_global
+                    ? '<span class="badge-pill badge-global">Global</span>'
+                    : '<span class="badge-pill badge-user">User</span>');
 
             let fieldChips = '';
             (form.fields || []).slice(0, 5).forEach(f => {
@@ -1957,10 +1959,14 @@ function initSettingsFormManager() {
             (formToEdit.fields || []).forEach(f => {
                 addFieldCard(f);
             });
+            const builderFormScope = document.getElementById('builder-form-scope');
+            if (builderFormScope) builderFormScope.value = formToEdit.is_global ? 'global' : 'user';
         } else {
             builderFormId.value = '';
             builderFormName.value = '';
             builderFormDesc.value = '';
+            const builderFormScope = document.getElementById('builder-form-scope');
+            if (builderFormScope) builderFormScope.value = 'user';
             modalTitle.textContent = 'Create Custom Search Form';
         }
 
@@ -2262,6 +2268,9 @@ function initSettingsFormManager() {
                 fields.push(fieldObj);
             }
 
+            const builderFormScope = document.getElementById('builder-form-scope');
+            const isGlobal = builderFormScope ? (builderFormScope.value === 'global') : false;
+
             const existingId = builderFormId.value.trim();
             if (existingId) {
                 const idx = forms.findIndex(f => f.id === existingId);
@@ -2270,7 +2279,9 @@ function initSettingsFormManager() {
                         ...forms[idx],
                         name: name,
                         description: builderFormDesc.value.trim(),
-                        fields: fields
+                        fields: fields,
+                        is_global: isGlobal,
+                        scope: isGlobal ? 'global' : 'user'
                     };
                 }
             } else {
@@ -2281,7 +2292,9 @@ function initSettingsFormManager() {
                     description: builderFormDesc.value.trim(),
                     fields: fields,
                     enabled: true,
-                    readonly: false
+                    readonly: false,
+                    is_global: isGlobal,
+                    scope: isGlobal ? 'global' : 'user'
                 });
             }
 
@@ -2307,9 +2320,81 @@ function initSettingsFormManager() {
         renderCards();
     }
 
+    window.toggleAdminScope = function(key) {
+        const btn = document.getElementById(`btn-scope-${key}`);
+        const scopeInput = document.getElementById(`scope-${key}`);
+        const input = document.getElementById(`setting-${key}`);
+        if (!btn || !scopeInput || !input) return;
+
+        const currentScope = scopeInput.value;
+        const scopeText = btn.querySelector('.scope-text');
+
+        if (currentScope === 'user') {
+            input.dataset.userValue = input.value;
+            scopeInput.value = 'global';
+            btn.classList.remove('scope-user');
+            btn.classList.add('scope-global');
+            if (scopeText) scopeText.textContent = 'Global';
+            btn.title = 'Configuring Global Default setting. Click to switch to User-Specific setting.';
+            if (input.dataset.globalValue !== undefined) {
+                input.value = input.dataset.globalValue;
+            }
+        } else {
+            input.dataset.globalValue = input.value;
+            scopeInput.value = 'user';
+            btn.classList.remove('scope-global');
+            btn.classList.add('scope-user');
+            if (scopeText) scopeText.textContent = 'User';
+            btn.title = 'Configuring User-Specific setting. Click to switch to Global Default setting.';
+            if (input.dataset.userValue !== undefined) {
+                input.value = input.dataset.userValue;
+            }
+        }
+        window.isSettingsDirty = true;
+    };
+
+    window.restoreDefaultSetting = async function(key) {
+        const input = document.getElementById(`setting-${key}`);
+        const btn = document.getElementById(`btn-restore-${key}`);
+        if (!input) return;
+
+        const globalVal = input.dataset.globalValue;
+        if (globalVal !== undefined) {
+            input.value = globalVal;
+        }
+        if (btn) {
+            btn.disabled = true;
+        }
+        try {
+            await fetch('/api/settings/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: key })
+            });
+        } catch (e) {
+            console.warn('API restore setting error:', e);
+        }
+        window.isSettingsDirty = true;
+    };
+
     // Settings form input dirty tracking and bottom Save button enforcement
     const settingsForm = document.getElementById('settings-form');
     if (settingsForm) {
+        settingsForm.querySelectorAll('.setting-input-group').forEach(group => {
+            const input = group.querySelector('.form-control');
+            const restoreBtn = group.querySelector('.btn-restore-default');
+            if (!input || !restoreBtn) return;
+
+            const updateRestoreBtn = () => {
+                const glob = (input.dataset.globalValue || '').trim();
+                const cur = (input.value || '').trim();
+                restoreBtn.disabled = (cur === glob);
+            };
+
+            input.addEventListener('input', updateRestoreBtn);
+            input.addEventListener('change', updateRestoreBtn);
+        });
+
         settingsForm.addEventListener('input', () => {
             window.isSettingsDirty = true;
         });

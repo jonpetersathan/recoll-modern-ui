@@ -1,4 +1,8 @@
 %include("header", title=" / Settings")
+% is_admin_val = get('is_admin', False) if defined('is_admin') else (config.get('is_admin', False) if defined('config') else False)
+% st_map = field_status if defined('field_status') else {}
+% from recollweb.constants import DEFAULT_CONFIG
+
 <div id="settings-box" class="settings-card" onmousemove="updateGlow(event, this)">
     <div class="card-glow"></div>
     <div class="settings-header">
@@ -23,25 +27,104 @@
                 <span>Search &amp; Query Behavior</span>
             </div>
             <div class="settings-grid">
-                <div class="settings-field">
+                <!-- stem -->
+                % st = st_map.get('stem', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 1)
+                % cur_val = get('stem', glob_val)
+                <div class="settings-field" data-setting-key="stem">
                     <label class="settings-label">Find Similar (Stemming)</label>
                     <span class="settings-helper">1 (enabled) or 0 (disabled), expands words e.g. "run" to "running"</span>
-                    <input name="stem" class="form-control" value="{{stem}}">
+                    <div class="setting-input-group">
+                        <input name="stem" id="setting-stem" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_stem" id="scope-stem" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-stem" data-key="stem" onclick="window.toggleAdminScope('stem')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-stem" data-key="stem" onclick="window.restoreDefaultSetting('stem')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- collapsedups -->
+                % st = st_map.get('collapsedups', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 0)
+                % cur_val = get('collapsedups', glob_val)
+                <div class="settings-field" data-setting-key="collapsedups">
                     <label class="settings-label">Collapse Duplicate Results</label>
                     <span class="settings-helper">1 or 0, only show one result for identical content</span>
-                    <input name="collapsedups" class="form-control" value="{{collapsedups}}">
+                    <div class="setting-input-group">
+                        <input name="collapsedups" id="setting-collapsedups" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_collapsedups" id="scope-collapsedups" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-collapsedups" data-key="collapsedups" onclick="window.toggleAdminScope('collapsedups')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-collapsedups" data-key="collapsedups" onclick="window.restoreDefaultSetting('collapsedups')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- maxresults -->
+                % st = st_map.get('maxresults', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 0)
+                % cur_val = get('maxresults', glob_val)
+                <div class="settings-field" data-setting-key="maxresults">
                     <label class="settings-label">Maximum Total Results</label>
                     <span class="settings-helper">0 for unlimited, or specify hard cap</span>
-                    <input name="maxresults" class="form-control" value="{{maxresults}}">
+                    <div class="setting-input-group">
+                        <input name="maxresults" id="setting-maxresults" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_maxresults" id="scope-maxresults" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-maxresults" data-key="maxresults" onclick="window.toggleAdminScope('maxresults')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-maxresults" data-key="maxresults" onclick="window.restoreDefaultSetting('maxresults')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- perpage -->
+                % st = st_map.get('perpage', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 25)
+                % cur_val = get('perpage', glob_val)
+                <div class="settings-field" data-setting-key="perpage">
                     <label class="settings-label">Results Per Page</label>
                     <span class="settings-helper">Number of results per page (0 for single page)</span>
-                    <input name="perpage" class="form-control" value="{{perpage}}">
+                    <div class="setting-input-group">
+                        <input name="perpage" id="setting-perpage" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_perpage" id="scope-perpage" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-perpage" data-key="perpage" onclick="window.toggleAdminScope('perpage')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-perpage" data-key="perpage" onclick="window.restoreDefaultSetting('perpage')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
             </div>
         </div>
@@ -53,34 +136,133 @@
                 <span>Snippets &amp; Display</span>
             </div>
             <div class="settings-grid">
-                <div class="settings-field">
+                <!-- context -->
+                % st = st_map.get('context', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 30)
+                % cur_val = get('context', glob_val)
+                <div class="settings-field" data-setting-key="context">
                     <label class="settings-label">Context Words</label>
                     <span class="settings-helper">Number of surrounding words in snippet</span>
-                    <input name="context" class="form-control" value="{{context}}">
+                    <div class="setting-input-group">
+                        <input name="context" id="setting-context" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_context" id="scope-context" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-context" data-key="context" onclick="window.toggleAdminScope('context')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-context" data-key="context" onclick="window.restoreDefaultSetting('context')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- maxchars -->
+                % st = st_map.get('maxchars', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 500)
+                % cur_val = get('maxchars', glob_val)
+                <div class="settings-field" data-setting-key="maxchars">
                     <label class="settings-label">Context Characters</label>
                     <span class="settings-helper">Maximum characters displayed in snippet</span>
-                    <input name="maxchars" class="form-control" value="{{maxchars}}">
+                    <div class="setting-input-group">
+                        <input name="maxchars" id="setting-maxchars" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_maxchars" id="scope-maxchars" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-maxchars" data-key="maxchars" onclick="window.toggleAdminScope('maxchars')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-maxchars" data-key="maxchars" onclick="window.restoreDefaultSetting('maxchars')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- timefmt -->
+                % st = st_map.get('timefmt', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', '%c')
+                % cur_val = get('timefmt', glob_val)
+                <div class="settings-field" data-setting-key="timefmt">
                     <label class="settings-label">Date Format String</label>
                     <span class="settings-helper">Standard strftime format (e.g. %c or %Y-%m-%d %H:%M)</span>
-                    <input name="timefmt" class="form-control" value="{{timefmt}}">
+                    <div class="setting-input-group">
+                        <input name="timefmt" id="setting-timefmt" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_timefmt" id="scope-timefmt" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-timefmt" data-key="timefmt" onclick="window.toggleAdminScope('timefmt')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-timefmt" data-key="timefmt" onclick="window.restoreDefaultSetting('timefmt')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- dirdepth -->
+                % st = st_map.get('dirdepth', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 2)
+                % cur_val = get('dirdepth', glob_val)
+                <div class="settings-field" data-setting-key="dirdepth">
                     <label class="settings-label">Folder Dropdown Depth</label>
                     <span class="settings-helper">Hierarchy levels shown in folder selector</span>
-                    <input name="dirdepth" class="form-control" value="{{dirdepth}}">
+                    <div class="setting-input-group">
+                        <input name="dirdepth" id="setting-dirdepth" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_dirdepth" id="scope-dirdepth" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-dirdepth" data-key="dirdepth" onclick="window.toggleAdminScope('dirdepth')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-dirdepth" data-key="dirdepth" onclick="window.restoreDefaultSetting('dirdepth')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
-                <div class="settings-field">
+
+                <!-- title_link -->
+                % st = st_map.get('title_link', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', 'download')
+                % cur_val = get('title_link', glob_val)
+                <div class="settings-field" data-setting-key="title_link">
                     <label class="settings-label">Default Title Click Action</label>
                     <span class="settings-helper">Action triggered when clicking document title</span>
-                    <select name="title_link" class="form-control">
-                        <option value="download" {{'selected' if title_link == 'download' else ''}}>Download</option>
-                        <option value="preview" {{'selected' if title_link == 'preview' else ''}}>Preview</option>
-                        <option value="open" {{'selected' if title_link == 'open' else ''}}>Open</option>
-                    </select>
+                    <div class="setting-input-group">
+                        <select name="title_link" id="setting-title_link" class="form-control" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                            <option value="download" {{'selected' if cur_val == 'download' else ''}}>Download</option>
+                            <option value="preview" {{'selected' if cur_val == 'preview' else ''}}>Preview</option>
+                            <option value="open" {{'selected' if cur_val == 'open' else ''}}>Open</option>
+                        </select>
+                        <input type="hidden" name="scope_title_link" id="scope-title_link" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-title_link" data-key="title_link" onclick="window.toggleAdminScope('title_link')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-title_link" data-key="title_link" onclick="window.restoreDefaultSetting('title_link')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
             </div>
         </div>
@@ -94,10 +276,29 @@
             </div>
             <div class="settings-grid">
                 %for d in dirs:
-                <div class="settings-field">
+                % mk = f"mount_{d}"
+                % st = st_map.get(mk, {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', '')
+                % cur_val = mounts.get(d, glob_val)
+                <div class="settings-field" data-setting-key="{{mk}}">
                     <label class="settings-label">{{d}}</label>
                     <span class="settings-helper">Remote URL or mount rewrite</span>
-                    <input name="mount_{{d}}" class="form-control" value="{{mounts.get(d, '')}}">
+                    <div class="setting-input-group">
+                        <input name="{{mk}}" id="setting-{{mk}}" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_{{mk}}" id="scope-{{mk}}" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-{{mk}}" data-key="{{mk}}" onclick="window.toggleAdminScope('{{mk}}')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-{{mk}}" data-key="{{mk}}" onclick="window.restoreDefaultSetting('{{mk}}')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
                 %end
             </div>
@@ -111,11 +312,31 @@
                 <span>Export &amp; Browser Integration</span>
             </div>
             <div class="settings-grid">
-                <div class="settings-field">
-                    <label class="settings-label">CSV Fields</label>
-                    <span class="settings-helper">Available fields: {{fields}}</span>
-                    <input name="csvfields" class="form-control" value="{{csvfields}}">
+                <!-- csvfields (renamed to JSON/CSV Fields) -->
+                % st = st_map.get('csvfields', {})
+                % is_cust = st.get('is_custom', False)
+                % glob_val = st.get('global_value', DEFAULT_CONFIG.get('csvfields', ''))
+                % cur_val = get('csvfields', glob_val)
+                <div class="settings-field" data-setting-key="csvfields">
+                    <label class="settings-label">JSON/CSV Fields</label>
+                    <span class="settings-helper">Available keywords: {{fields}}</span>
+                    <div class="setting-input-group">
+                        <input name="csvfields" id="setting-csvfields" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                        <input type="hidden" name="scope_csvfields" id="scope-csvfields" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-csvfields" data-key="csvfields" onclick="window.toggleAdminScope('csvfields')" title="Switch between user specific and global default setting">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="scope-text">User</span>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-csvfields" data-key="csvfields" onclick="window.restoreDefaultSetting('csvfields')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            <span>Restore</span>
+                        </button>
+                        % end
+                    </div>
                 </div>
+
                 <div class="settings-field">
                     <label class="settings-label">Browser Search Plugin</label>
                     <span class="settings-helper">Register Recoll into browser search bar</span>
@@ -143,7 +364,7 @@
                 </button>
             </div>
             <p class="settings-helper" style="margin-bottom: 1.25rem;">
-                Design specialized search forms with custom dropdowns (e.g. "Document Type" mapping to filenames or MIME types) and fields. Configurations are persisted to <code>forms.json</code> across application restarts.
+                Design specialized search forms with custom dropdowns (e.g. "Document Type" mapping to filenames or MIME types) and fields. Configurations are persisted in SQLite across application restarts.
             </p>
 
             <div id="forms-cards-list" class="forms-management-grid">
@@ -189,10 +410,19 @@
                 <input id="builder-form-name" class="form-control" placeholder="e.g. Document Type Classifier" required>
             </div>
 
-            <div class="settings-field" style="margin-bottom: 1.5rem;">
+            <div class="settings-field" style="margin-bottom: 1rem;">
                 <label class="settings-label" for="builder-form-desc">Form Description</label>
                 <span class="settings-helper">Brief explanation of what this search form is optimized for</span>
                 <input id="builder-form-desc" class="form-control" placeholder="e.g. Search files by pre-defined document categories and keywords">
+            </div>
+
+            <div class="settings-field" style="margin-bottom: 1.5rem;">
+                <label class="settings-label" for="builder-form-scope">Form Scope / Visibility</label>
+                <span class="settings-helper">User-specific forms are only visible to you; Global forms are available to all users</span>
+                <select id="builder-form-scope" class="form-control">
+                    <option value="user" selected>User-Specific (Only visible to me)</option>
+                    <option value="global">Global (System-wide default for all users)</option>
+                </select>
             </div>
 
             <div class="modal-section-title">
@@ -251,4 +481,7 @@
 </div>
 
 <script id="recoll-search-forms-data" type="application/json">{{!forms_json}}</script>
+% if defined('settings_bundle_json'):
+<script id="recoll-settings-bundle-data" type="application/json">{{!settings_bundle_json}}</script>
+% end
 %include("footer")

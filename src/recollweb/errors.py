@@ -24,6 +24,10 @@ def render_error_page(code: Any = 500, title: Optional[str] = None, desc: Option
     }
     numeric_code = int(code) if str(code).isdigit() else 500
     def_title, def_desc, def_warn = error_defaults.get(numeric_code, ('Unexpected Error', 'An unexpected error occurred.', False))
+    try:
+        bottle.response.status = numeric_code
+    except Exception:
+        pass
 
     return bottle.template(
         'error',

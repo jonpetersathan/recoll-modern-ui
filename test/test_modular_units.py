@@ -45,9 +45,6 @@ class TestConstants(unittest.TestCase):
         self.assertTrue(constants.DEFAULT_SEARCH_FORM['readonly'])
         self.assertGreater(len(constants.DEFAULT_SEARCH_FORM['fields']), 5)
 
-        self.assertEqual(constants.SAMPLE_CUSTOM_FORM['id'], 'document_types')
-        self.assertFalse(constants.SAMPLE_CUSTOM_FORM['readonly'])
-
 
 class TestUtils(unittest.TestCase):
     """Test helper functions in utils module."""
@@ -156,7 +153,7 @@ class TestWebuiFacade(unittest.TestCase):
             'ConfigManager', 'SearchFormsManager', 'RecollSearchEngine',
             'SearchQuery', 'SnippetHighlighter', 'ArchiveManager',
             'DEFAULT_CONFIG', 'SORT_OPTIONS', 'DOCUMENT_FIELDS',
-            'DEFAULT_SEARCH_FORM', 'SAMPLE_CUSTOM_FORM',
+            'DEFAULT_SEARCH_FORM',
             'render_error_page', 'format_mimetype_label',
             'sanitize_filename', 'format_timestamp',
             'get_config_dir', 'find_custom_logo', '__version__'

@@ -6,13 +6,19 @@ import json
 import os
 import uuid
 from typing import Any, Dict, List, Optional
-from recollweb.constants import DEFAULT_SEARCH_FORM, SAMPLE_CUSTOM_FORM, TEMP_DIR
+from recollweb.constants import DEFAULT_SEARCH_FORM, TEMP_DIR
 from recollweb.logging import logger
+from recollweb.db import (
+    get_forms_for_user,
+    save_form as db_save_form,
+    delete_form as db_delete_form,
+    set_form_enabled_state as db_set_form_enabled_state,
+)
 
 
 class SearchFormsManager:
     """
-    Manages search form presets, persistence in forms.json, and schema validation.
+    Manages search form presets, persistence in recoll-web.db SQLite database, and schema validation.
     """
 
     FORMS_FILENAME = "forms.json"
@@ -32,58 +38,36 @@ class SearchFormsManager:
             return os.path.join(TEMP_DIR, cls.FORMS_FILENAME)
 
     @classmethod
-    def get_forms(cls, conf_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_forms(cls, conf_dir: Optional[str] = None, username: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Load all search forms from forms.json.
-        Migrates legacy custom_search_forms.json if forms.json does not exist.
+        Load all search forms visible to the user from SQLite (or fallback to forms.json).
         Ensures the default advanced search form is present with readonly=True.
-        Initializes the sample custom form if only the default form exists.
         """
-        path = cls.get_forms_path(conf_dir)
-        forms: List[Dict[str, Any]] = []
+        from recollweb.config import get_config_dir
+        base_dir = conf_dir or get_config_dir()
+        user = username or "default"
 
-        if not os.path.isfile(path):
-            legacy_path = os.path.join(os.path.dirname(path), cls.LEGACY_FORMS_FILENAME)
-            if os.path.isfile(legacy_path):
-                try:
-                    with open(legacy_path, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                    with open(path, 'w', encoding='utf-8') as f:
-                        json.dump(data, f, indent=2)
-                except Exception as exc:
-                    logger.warning("Could not migrate legacy forms file %s: %s", legacy_path, exc)
-
-        if os.path.isfile(path):
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if isinstance(data, dict) and 'forms' in data:
-                        forms = data['forms']
-                    elif isinstance(data, list):
-                        forms = data
-            except Exception as exc:
-                logger.error("Failed to load forms from %s: %s", path, exc)
+        try:
+            db_forms = get_forms_for_user(base_dir, user)
+        except Exception as exc:
+            logger.error("Failed to load forms from SQLite: %s", exc)
+            db_forms = []
 
         has_default = False
         sanitized_forms: List[Dict[str, Any]] = []
 
-        for form in forms:
+        for form in db_forms:
             if not isinstance(form, dict):
                 continue
-            if form.get('id') == 'default':
+            f_id = form.get('id')
+            if f_id == 'default':
                 form_copy = dict(DEFAULT_SEARCH_FORM)
-                if 'enabled' in form:
-                    form_copy['enabled'] = bool(form['enabled'])
-                else:
-                    form_copy['enabled'] = True
+                form_copy['enabled'] = bool(form.get('enabled', True))
                 sanitized_forms.insert(0, form_copy)
                 has_default = True
             else:
                 form['readonly'] = False
-                if 'enabled' in form:
-                    form['enabled'] = bool(form['enabled'])
-                else:
-                    form['enabled'] = True
+                form['enabled'] = bool(form.get('enabled', True))
                 sanitized_forms.append(form)
 
         if not has_default:
@@ -91,19 +75,18 @@ class SearchFormsManager:
             default_copy['enabled'] = True
             sanitized_forms.insert(0, default_copy)
 
-        # Provide sample classification form out-of-the-box if no custom forms exist
-        if len(sanitized_forms) == 1:
-            sanitized_forms.append(dict(SAMPLE_CUSTOM_FORM))
-            cls.save_forms(conf_dir, sanitized_forms)
-
         return sanitized_forms
 
     @classmethod
-    def save_forms(cls, conf_dir: Optional[str], forms: List[Dict[str, Any]]) -> bool:
+    def save_forms(cls, conf_dir: Optional[str], forms: List[Dict[str, Any]], username: Optional[str] = None) -> bool:
         """
-        Persist list of forms atomically into forms.json.
+        Persist list of forms into SQLite database and sync forms.json.
         """
+        from recollweb.config import get_config_dir
+        base_dir = conf_dir or get_config_dir()
+        user = username or "default"
         path = cls.get_forms_path(conf_dir)
+
         try:
             clean_forms: List[Dict[str, Any]] = []
             default_form = dict(DEFAULT_SEARCH_FORM)
@@ -113,14 +96,26 @@ class SearchFormsManager:
                         default_form['enabled'] = bool(f['enabled'])
                     break
             clean_forms.append(default_form)
+
             for form in forms:
-                if not isinstance(form, dict) or form.get('id') == 'default':
+                if not isinstance(form, dict):
+                    continue
+                f_id = form.get('id')
+                if not f_id or f_id == 'default':
                     continue
                 form_copy = dict(form)
                 form_copy['readonly'] = False
-                if 'enabled' in form:
-                    form_copy['enabled'] = bool(form['enabled'])
+                form_copy['enabled'] = bool(form.get('enabled', True))
+                is_global = bool(form.get('is_global', False))
+                owner = form.get('owner_user') or user
+                form_copy['owner_user'] = owner
+                form_copy['is_global'] = is_global
                 clean_forms.append(form_copy)
+
+                db_save_form(base_dir, form_copy, owner, is_global=is_global)
+
+            # Sync default form state
+            db_set_form_enabled_state(base_dir, user, 'default', default_form['enabled'])
 
             temp_path = f"{path}.tmp.{uuid.uuid4().hex}"
             with open(temp_path, 'w', encoding='utf-8') as f:
@@ -128,29 +123,28 @@ class SearchFormsManager:
             os.replace(temp_path, path)
             return True
         except Exception as exc:
-            logger.error("Failed to save forms to %s: %s", path, exc)
+            logger.error("Failed to save forms: %s", exc)
             return False
 
     @classmethod
-    def toggle_form(cls, conf_dir: Optional[str], form_id: str, enabled: bool) -> Dict[str, Any]:
+    def toggle_form(cls, conf_dir: Optional[str], form_id: str, enabled: bool, username: Optional[str] = None) -> Dict[str, Any]:
         """
-        Toggle active state of a search form (default or custom) and persist to forms.json.
+        Toggle active state of a search form for the specific user in SQLite and persist to forms.json.
         """
-        forms = cls.get_forms(conf_dir)
-        target = None
-        for f in forms:
-            if f.get('id') == form_id:
-                f['enabled'] = enabled
-                target = f
-                break
+        from recollweb.config import get_config_dir
+        base_dir = conf_dir or get_config_dir()
+        user = username or "default"
+
+        db_set_form_enabled_state(base_dir, user, form_id, enabled)
+        forms = cls.get_forms(conf_dir, username=user)
+        target = next((f for f in forms if f.get('id') == form_id), None)
         if not target:
             raise ValueError(f"Form with ID '{form_id}' not found.")
-        if not cls.save_forms(conf_dir, forms):
-            raise IOError("Failed to persist forms to disk.")
+        target['enabled'] = enabled
         return target
 
     @classmethod
-    def save_custom_form(cls, conf_dir: Optional[str], form_data: Dict[str, Any]) -> Dict[str, Any]:
+    def save_custom_form(cls, conf_dir: Optional[str], form_data: Dict[str, Any], username: Optional[str] = None) -> Dict[str, Any]:
         """
         Validate, create or update a custom search form, persisting changes to disk.
         Raises ValueError on invalid form payloads or attempting to edit default form.
@@ -218,6 +212,10 @@ class SearchFormsManager:
         if not form_id:
             form_id = f"custom_{uuid.uuid4().hex[:8]}"
 
+        user = username or "default"
+        is_global = bool(form_data.get('is_global', False) or form_data.get('scope') == 'global')
+        owner = str(form_data.get('owner_user') or user)
+
         new_form: Dict[str, Any] = {
             'id': form_id,
             'name': form_name,
@@ -225,9 +223,15 @@ class SearchFormsManager:
             'readonly': False,
             'fields': clean_fields,
             'enabled': bool(form_data.get('enabled', True)) if 'enabled' in form_data else True,
+            'is_global': is_global,
+            'owner_user': owner,
         }
 
-        existing_forms = cls.get_forms(conf_dir)
+        from recollweb.config import get_config_dir
+        base_dir = conf_dir or get_config_dir()
+        db_save_form(base_dir, new_form, owner, is_global=is_global)
+
+        existing_forms = cls.get_forms(conf_dir, username=user)
         updated = False
         for idx, f in enumerate(existing_forms):
             if f.get('id') == form_id:
@@ -238,13 +242,11 @@ class SearchFormsManager:
         if not updated:
             existing_forms.append(new_form)
 
-        if not cls.save_forms(conf_dir, existing_forms):
-            raise IOError("Failed to persist custom search forms to disk.")
-
+        cls.save_forms(conf_dir, existing_forms, username=user)
         return new_form
 
     @classmethod
-    def delete_custom_form(cls, conf_dir: Optional[str], form_id: str) -> bool:
+    def delete_custom_form(cls, conf_dir: Optional[str], form_id: str, username: Optional[str] = None, is_admin: bool = False) -> bool:
         """
         Delete custom search form by ID.
         Raises ValueError if attempting to delete default form or non-existent form.
@@ -252,12 +254,14 @@ class SearchFormsManager:
         if form_id == 'default':
             raise ValueError("The default search form is read-only and cannot be deleted.")
 
-        existing_forms = cls.get_forms(conf_dir)
+        from recollweb.config import get_config_dir
+        base_dir = conf_dir or get_config_dir()
+        user = username or "default"
+
+        deleted = db_delete_form(base_dir, form_id, user, is_admin=is_admin)
+
+        existing_forms = cls.get_forms(conf_dir, username=user)
         filtered = [f for f in existing_forms if f.get('id') != form_id]
 
-        if len(filtered) == len(existing_forms):
-            raise ValueError(f"Form '{form_id}' not found.")
-
-        if not cls.save_forms(conf_dir, filtered):
-            raise IOError("Failed to update custom search forms on disk.")
+        cls.save_forms(conf_dir, filtered, username=user)
         return True

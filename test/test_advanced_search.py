@@ -42,7 +42,7 @@ class TestSearchFormsManager(unittest.TestCase):
             self.skipTest("webui cannot be imported in host python (missing C recoll bindings)")
 
         forms = SearchFormsManager.get_forms(self.test_dir)
-        self.assertGreaterEqual(len(forms), 2)
+        self.assertGreaterEqual(len(forms), 1)
         default_form = forms[0]
         self.assertEqual(default_form["id"], "default")
         self.assertTrue(default_form["readonly"])

@@ -40,7 +40,6 @@ from recollweb import (
     # Forms & Schemas
     SearchFormsManager,
     DEFAULT_SEARCH_FORM,
-    SAMPLE_CUSTOM_FORM,
     # Search Engine & Queries
     RecollSearchEngine,
     SearchQuery,
@@ -77,7 +76,6 @@ __all__ = [
     'SORT_OPTIONS',
     'DOCUMENT_FIELDS',
     'DEFAULT_SEARCH_FORM',
-    'SAMPLE_CUSTOM_FORM',
     'render_error_page',
     'format_mimetype_label',
     'sanitize_filename',

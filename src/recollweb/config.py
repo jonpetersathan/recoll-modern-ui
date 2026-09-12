@@ -11,12 +11,14 @@ from urllib.parse import quote as urlquote
 import bottle
 from recoll import rclconfig
 
+from recollweb.auth import get_current_username, is_admin_user, get_user_role
 from recollweb.constants import (
     CUSTOM_LOGO_FILENAMES,
     DEFAULT_CONFIG,
     DOCUMENT_FIELDS,
     SORT_OPTIONS,
 )
+from recollweb.db import get_setting, init_db
 from recollweb.logging import logger
 from recollweb.utils import extract_common_prefix
 
@@ -125,28 +127,51 @@ class ConfigManager:
             if val is not None:
                 defaults[key] = int(val) if is_int else val
 
-        # Load user cookies with fallback to defaults
+        current_user = get_current_username()
+        config['current_user'] = current_user
+        config['is_admin'] = is_admin_user(current_user, config['confdir'])
+        config['user_role'] = get_user_role(current_user, config['confdir'])
+
+        # Initialize SQLite database if needed
+        init_db(config['confdir'])
+
+        # Load user settings from SQLite database (recoll-web.db) with fallback to global settings, cookies, and defaults
         for key, default_val in defaults.items():
-            cookie_val = bottle.request.get_cookie(key)
-            if cookie_val is not None and cookie_val not in ("None", ""):
+            db_val = get_setting(config['confdir'], current_user, key)
+            if db_val is not None and db_val != "":
                 try:
-                    config[key] = type(default_val)(cookie_val)
+                    config[key] = type(default_val)(db_val)
                 except (ValueError, TypeError):
                     config[key] = default_val
             else:
-                config[key] = default_val
+                cookie_val = bottle.request.get_cookie(key) if hasattr(bottle, 'request') else None
+                if cookie_val is not None and cookie_val not in ("None", ""):
+                    try:
+                        config[key] = type(default_val)(cookie_val)
+                    except (ValueError, TypeError):
+                        config[key] = default_val
+                else:
+                    config[key] = default_val
 
-        # Filter valid CSV fields
-        valid_csv = [f for f in config['csvfields'].split() if f in DOCUMENT_FIELDS]
-        config['csvfields'] = " ".join(valid_csv)
-        config['fields'] = " ".join(DOCUMENT_FIELDS)
+        # Filter valid JSON/CSV fields: only support available keywords (including metadata extraction rule tags)
+        try:
+            from recollweb.metadata import MetadataRulesManager
+            available_keywords = set(MetadataRulesManager.get_all_known_fields(config['confdir']))
+        except Exception:
+            available_keywords = set(DOCUMENT_FIELDS)
+
+        valid_csv = [f for f in str(config['csvfields']).split() if f in available_keywords]
+        config['csvfields'] = " ".join(valid_csv) if valid_csv else " ".join([f for f in DEFAULT_CONFIG['csvfields'].split() if f in available_keywords])
+        config['fields'] = " ".join(sorted(available_keywords))
 
         # Mountpoints for file links
         config['mounts'] = {}
         for d in config['dirs']:
-            cookie_mount = bottle.request.get_cookie(f"mount_{urlquote(d, '')}")
+            mount_key = f"mount_{urlquote(d, '')}"
+            db_mount = get_setting(config['confdir'], current_user, mount_key)
+            cookie_mount = bottle.request.get_cookie(mount_key) if hasattr(bottle, 'request') else None
             conf_mount = rcl_conf.getConfParam(f"webui_mount_{d}")
-            config['mounts'][d] = cookie_mount or conf_mount or f"file://{d}"
+            config['mounts'][d] = db_mount or cookie_mount or conf_mount or f"file://{d}"
 
         # Server-enforced settings
         no_json_csv = rcl_conf.getConfParam('webui_nojsoncsv')

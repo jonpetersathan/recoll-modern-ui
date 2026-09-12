@@ -18,7 +18,6 @@ from recollweb.constants import (
     DOCUMENT_FIELDS,
     EXPORT_DIR,
     MIME_LABELS,
-    SAMPLE_CUSTOM_FORM,
     SORT_OPTIONS,
     STATIC_DIR,
     TEMP_DIR,

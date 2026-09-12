@@ -499,6 +499,15 @@ class MetadataRulesManager:
         return sorted(fields)
 
     @classmethod
+    def get_all_known_fields(cls, conf_dir: str) -> List[str]:
+        """Return all standard document fields plus custom fields from metadata rules."""
+        from recollweb.constants import DOCUMENT_FIELDS
+        fields = set(DOCUMENT_FIELDS)
+        fields.update(cls.get_extracted_fields(conf_dir))
+        return sorted(fields)
+
+
+    @classmethod
     def sync_recoll_config(cls, conf_dir: str, payload: Dict[str, Any]):
         """
         Synchronize recoll.conf and fields configuration:

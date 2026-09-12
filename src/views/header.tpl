@@ -60,6 +60,8 @@
                     </svg>
                     <span>Browser</span>
                 </a>
+                % is_admin_val = get('is_admin', False) if defined('is_admin') else (config.get('is_admin', False) if defined('config') else False)
+                % if is_admin_val:
                 <a href="index-manager" class="btn btn-secondary nav-action-btn{{ ' active' if active_tab == 'index' or 'Index' in page_title else '' }}" title="Index &amp; Metadata Rules">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
@@ -68,6 +70,7 @@
                     </svg>
                     <span>Index</span>
                 </a>
+                % end
                 <a href="settings" class="btn btn-secondary nav-action-btn{{ ' active' if active_tab == 'settings' or 'Settings' in page_title else '' }}" title="Preferences">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -75,6 +78,18 @@
                     </svg>
                     <span>Settings</span>
                 </a>
+                % cur_user = get('current_user', '') if defined('current_user') else (config.get('current_user', 'default') if defined('config') else 'default')
+                % cur_role = get('user_role', '') if defined('user_role') else ('admin' if is_admin_val else 'user')
+                <div class="user-profile-badge" title="User: {{cur_user}} ({{cur_role.capitalize()}})">
+                    <span class="user-avatar-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </span>
+                    <span class="user-name">{{cur_user}}</span>
+                    <span class="badge-pill user-role-pill {{ 'badge-admin' if cur_role == 'admin' else 'badge-user' }}">{{cur_role}}</span>
+                </div>
             </div>
 
         </header>

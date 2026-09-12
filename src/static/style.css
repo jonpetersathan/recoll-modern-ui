@@ -2653,6 +2653,131 @@ select.form-preset-select:focus {
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+.badge-admin {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.badge-user {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-global {
+    background: rgba(234, 179, 8, 0.15);
+    color: #fde047;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.user-profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: 0.35rem 0.75rem;
+    font-size: 0.82rem;
+    margin-left: 0.5rem;
+    user-select: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.user-avatar-icon svg {
+    width: 15px;
+    height: 15px;
+    color: var(--text-secondary);
+    vertical-align: -2px;
+}
+
+.user-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.user-role-pill {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.45rem;
+}
+
+.setting-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.setting-input-group .form-control {
+    flex: 1;
+}
+
+.setting-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.setting-action-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.setting-action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: transparent;
+}
+
+.setting-action-btn.scope-global {
+    background: rgba(234, 179, 8, 0.12);
+    color: #fde047;
+    border-color: rgba(234, 179, 8, 0.3);
+}
+
+.setting-action-btn.scope-global:hover:not(:disabled) {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+.setting-action-btn.scope-user {
+    background: rgba(59, 130, 246, 0.12);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.setting-action-btn.scope-user:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.setting-action-btn.btn-restore-default {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+}
+
+.setting-action-btn.btn-restore-default:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+
 .form-card-desc {
     font-size: 0.84rem;
     color: var(--text-secondary);
