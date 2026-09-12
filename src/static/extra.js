@@ -1811,7 +1811,7 @@ function initSettingsFormManager() {
                 ? '<span class="badge-pill badge-readonly">Default / Read-Only</span>'
                 : (form.is_global
                     ? '<span class="badge-pill badge-global">Global</span>'
-                    : '<span class="badge-pill badge-user">User</span>');
+                    : '<span class="badge-pill badge-user">User-Specific</span>');
 
             let fieldChips = '';
             (form.fields || []).slice(0, 5).forEach(f => {

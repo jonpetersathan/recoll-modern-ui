@@ -2840,10 +2840,11 @@ select.form-preset-select:focus {
     border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
-.badge-user {
-    background: rgba(59, 130, 246, 0.15);
-    color: #93c5fd;
-    border: 1px solid rgba(59, 130, 246, 0.3);
+.badge-user,
+.badge-user-specific {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .badge-global {
@@ -5448,7 +5449,7 @@ input.form-control-query:active {
 }
 
 .browser-table th {
-    padding: 12px 16px;
+    padding: 10px 14px;
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -5468,10 +5469,10 @@ input.form-control-query:active {
 }
 
 .browser-table td {
-    padding: 3px 14px !important;
+    padding: 7px 14px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
-    height: 28px !important;
+    height: 38px !important;
 }
 
 .browser-row {
@@ -5488,7 +5489,7 @@ input.form-control-query:active {
 
 /* Columns */
 .col-icon {
-    width: 32px !important;
+    width: 34px !important;
     padding-right: 0 !important;
     text-align: center;
 }
@@ -5516,7 +5517,7 @@ input.form-control-query:active {
 }
 
 .col-action {
-    width: 95px !important;
+    width: 105px !important;
     text-align: right;
     padding-right: 14px !important;
 }
@@ -5526,15 +5527,15 @@ input.form-control-query:active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px !important;
-    height: 20px !important;
-    border-radius: 4px;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 5px;
     transition: transform 0.2s ease;
 }
 
 .browser-item-icon svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 13px !important;
+    height: 13px !important;
 }
 
 .folder-icon {
@@ -5655,23 +5656,23 @@ input.form-control-query:active {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
+    gap: 5px !important;
     min-height: 0 !important;
-    height: 22px !important;
-    max-height: 22px !important;
-    padding: 1px 8px !important;
-    font-size: 0.72rem !important;
+    height: 25px !important;
+    max-height: 25px !important;
+    padding: 2px 9px !important;
+    font-size: 0.75rem !important;
     font-weight: 600 !important;
     line-height: 1 !important;
-    border-radius: 5px !important;
+    border-radius: 6px !important;
     text-decoration: none !important;
     transition: all 0.15s ease !important;
     box-sizing: border-box !important;
 }
 
 .btn-xs svg {
-    width: 11px !important;
-    height: 11px !important;
+    width: 12px !important;
+    height: 12px !important;
 }
 
 /* Remove number input spinner buttons under Performance & Memory Allocation */
