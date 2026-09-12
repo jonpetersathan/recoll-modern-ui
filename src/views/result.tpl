@@ -98,33 +98,6 @@
                         <span class="result-label-text">{{res_mtype}}</span>
                     </span>
                     %end
-                    %if not config.get("noresultlinks", False):
-                    <div class="simple-actions-inline">
-                        <a href="open/{{number-1}}?{{query_string}}" target="_blank" class="simple-action-btn" title="Open file inline in browser">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
-                            </svg>
-                            <span>Open</span>
-                        </a>
-                        <a href="download/{{number-1}}?{{query_string}}" class="simple-action-btn" title="Download copy">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            <span>Download</span>
-                        </a>
-                        <a href="preview/{{number-1}}?{{query_string}}" target="_blank" class="simple-action-btn" title="Preview document text">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                            <span>Preview</span>
-                        </a>
-                    </div>
-                    %end
                 </div>
             </div>
         </div>
@@ -140,10 +113,37 @@
                 <span>{{d['time']}}</span>
             </div>
             %if d.get('author') and len(d['author']) > 0:
-                <div class="tag" title="Author">
+                <div class="tag tag-author" title="Author">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     <span>{{d['author']}}</span>
                 </div>
+            %end
+            %if not config.get("noresultlinks", False):
+            <div class="simple-actions-inline">
+                <a href="open/{{number-1}}?{{query_string}}" target="_blank" class="action-btn" title="Open file inline in browser">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    <span>Open</span>
+                </a>
+                <a href="download/{{number-1}}?{{query_string}}" class="action-btn" title="Download copy">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Download</span>
+                </a>
+                <a href="preview/{{number-1}}?{{query_string}}" target="_blank" class="action-btn" title="Preview document text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span>Preview</span>
+                </a>
+            </div>
             %end
         </div>
     </div>
