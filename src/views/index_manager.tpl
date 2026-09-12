@@ -1122,7 +1122,6 @@ function fetchIndexStatus() {
         if (data.logs && data.logs.length > 0) {
             const consoleOut = document.getElementById('console-output');
             consoleOut.innerText = data.logs.join('\n');
-            consoleOut.scrollTop = consoleOut.scrollHeight;
         }
 
         if (typeof window.updateFooterIndexBadge === 'function') {

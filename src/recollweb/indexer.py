@@ -27,7 +27,7 @@ class IndexManager:
         with cls._lock:
             ts = datetime.datetime.now().strftime("%H:%M:%S")
             cls._recent_logs.append(f"[{ts}] {line.rstrip()}")
-            if len(cls._recent_logs) > 200:
+            if len(cls._recent_logs) > 2000:
                 cls._recent_logs.pop(0)
 
     @classmethod
@@ -175,7 +175,7 @@ class IndexManager:
             "last_indexed": datetime.datetime.fromtimestamp(db_mtime).strftime("%Y-%m-%d %H:%M") if db_mtime else "Never",
             "topdirs": topdirs,
             "conf_dir": conf_dir,
-            "logs": cls.get_logs()[-30:],
+            "logs": cls.get_logs()[-500:],
         }
 
     @staticmethod
