@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 from typing import Any, Dict, List, Optional, Tuple
+import urllib.parse
+import urllib.request
 from urllib.parse import quote as urlquote
 import bottle
 from recoll import recoll, rclextract

@@ -16,6 +16,7 @@ LABEL org.opencontainers.image.title: "Recoll Modern UI" \
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/src \
     HOME=/tmp \
     RECOLL_CONFDIR=/root/.recoll
 

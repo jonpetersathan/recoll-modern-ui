@@ -4,7 +4,6 @@ Standalone Server Runner for Recoll Modern UI
 """
 
 import argparse
-import logging
 import os
 import signal
 import sys

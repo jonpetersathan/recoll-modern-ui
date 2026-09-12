@@ -258,7 +258,7 @@ class SearchFormsManager:
         base_dir = conf_dir or get_config_dir()
         user = username or "default"
 
-        deleted = db_delete_form(base_dir, form_id, user, is_admin=is_admin)
+        db_delete_form(base_dir, form_id, user, is_admin=is_admin)
 
         existing_forms = cls.get_forms(conf_dir, username=user)
         filtered = [f for f in existing_forms if f.get('id') != form_id]

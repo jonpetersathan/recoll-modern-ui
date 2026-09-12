@@ -8,7 +8,7 @@ import json
 import os
 import sqlite3
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 _db_locks: Dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()

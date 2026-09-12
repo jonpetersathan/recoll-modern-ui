@@ -16,11 +16,7 @@ _parent_dir = os.path.abspath(os.path.join(_script_dir, ".."))
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
-from recollweb.metadata import (
-    DEFAULT_EXTRACTOR_PATH,
-    MetadataRulesManager,
-    evaluate_rules_in_memory,
-)
+from recollweb.metadata import evaluate_rules_in_memory
 
 
 def resolve_config_path(override_path: str = None) -> str:
@@ -62,7 +58,7 @@ def main():
         elif arg in ("--test", "-t"):
             test_mode = True
         elif arg in ("--version", "-v"):
-            print("recoll-metadata-extractor v0.1.0")
+            print("recoll-metadata-extractor v0.9.5")
             sys.exit(0)
         elif arg in ("--help", "-h"):
             print("Usage: recoll-metadata-extractor [OPTIONS] <FILE_PATH>")

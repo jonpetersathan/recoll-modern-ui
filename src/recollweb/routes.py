@@ -8,7 +8,7 @@ import json
 import os
 import threading
 import uuid
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set
 from urllib.parse import quote as urlquote
 import bottle
 from recoll import rclextract
@@ -877,7 +877,6 @@ def register_routes(app: bottle.Bottle):
         config = ConfigManager.get_config()
         conf_dir = config['confdir']
         current_user = config.get('current_user', 'default')
-        is_admin = config.get('is_admin', False)
 
         forms = SearchFormsManager.get_forms(conf_dir, username=current_user)
         bundle = get_all_settings_bundle(conf_dir, current_user, DEFAULT_CONFIG)

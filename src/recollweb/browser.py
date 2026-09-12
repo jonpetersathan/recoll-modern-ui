@@ -9,7 +9,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from recollweb.config import ConfigManager
-from recollweb.constants import BASE_DIR, MIME_LABELS
+from recollweb.constants import BASE_DIR
 from recollweb.logging import logger
 from recollweb.utils import format_mimetype_label, format_size_human, format_timestamp
 

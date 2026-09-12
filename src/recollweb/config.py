@@ -366,6 +366,9 @@ class RecollConfManager:
 
     @classmethod
     def get_config_path(cls, conf_dir: Optional[str] = None) -> str:
+        """
+        Resolve absolute path to recoll.conf inside the specified or default configuration directory.
+        """
         target_dir = conf_dir or get_config_dir()
         return os.path.join(target_dir, "recoll.conf")
 

@@ -5,9 +5,8 @@ Metadata rules management, live pattern testing, and Recoll configuration synchr
 import json
 import os
 import re
-import shutil
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from recollweb.constants import METADATA_RULES_FILENAME
 from recollweb.logging import logger

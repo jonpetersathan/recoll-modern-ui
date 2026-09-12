@@ -16,7 +16,6 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
 import bottle
-import recollweb
 from recollweb import (
     # Application & Logging
     app,
@@ -66,24 +65,36 @@ __all__ = [
     'application',
     'bottle',
     'logger',
+    'setup_logging',
+    'get_client_ip',
+    'get_configured_log_level',
     'ConfigManager',
-    'SearchFormsManager',
-    'RecollSearchEngine',
-    'SearchQuery',
-    'SnippetHighlighter',
-    'ArchiveManager',
-    'BrowserManager',
+    'get_config_dir',
+    'find_custom_logo',
     'DEFAULT_CONFIG',
     'SORT_OPTIONS',
     'DOCUMENT_FIELDS',
+    'BASE_DIR',
+    'STATIC_DIR',
+    'VIEWS_DIR',
+    'TEMP_DIR',
+    'EXPORT_DIR',
+    'SearchFormsManager',
     'DEFAULT_SEARCH_FORM',
+    'RecollSearchEngine',
+    'SearchQuery',
+    'SnippetHighlighter',
+    'extract_document_file',
+    'ArchiveManager',
+    'BrowserManager',
     'render_error_page',
+    'custom_error_handler',
+    'custom_default_error_handler',
     'format_mimetype_label',
     'format_size_human',
     'sanitize_filename',
     'format_timestamp',
-    'get_config_dir',
-    'find_custom_logo',
+    'extract_common_prefix',
     '__version__',
 ]
 

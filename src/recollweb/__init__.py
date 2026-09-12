@@ -94,7 +94,79 @@ except ImportError:
     register_routes = None
     serve_logo_file = None
 
-__version__ = "0.9.0"
+__version__ = "0.9.5"
+
+__all__ = [
+    # Application factory & instances
+    "create_app",
+    "app",
+    "application",
+    "__version__",
+    # Constants & directories
+    "BASE_DIR",
+    "STATIC_DIR",
+    "VIEWS_DIR",
+    "TEMP_DIR",
+    "EXPORT_DIR",
+    "DEFAULT_CONFIG",
+    "DEFAULT_SEARCH_FORM",
+    "DOCUMENT_FIELDS",
+    "MIME_LABELS",
+    "SORT_OPTIONS",
+    "VALID_FILENAME_CHARS",
+    # Logging & request context
+    "LOG_LEVEL_MAP",
+    "logger",
+    "setup_logging",
+    "get_client_ip",
+    "get_configured_log_level",
+    # Utilities
+    "extract_common_prefix",
+    "format_mimetype_label",
+    "format_size_human",
+    "format_timestamp",
+    "json_error",
+    "json_response",
+    "parse_json_request",
+    "sanitize_filename",
+    # Configuration
+    "ConfigManager",
+    "find_custom_logo",
+    "get_config_dir",
+    # Forms
+    "SearchFormsManager",
+    # Search engine
+    "RecollSearchEngine",
+    "SearchQuery",
+    "SnippetHighlighter",
+    "extract_document_file",
+    # Archiving & ZIP
+    "ArchiveManager",
+    "_run_archive_worker",
+    # Error pages & handlers
+    "render_error_page",
+    "custom_error_handler",
+    "custom_default_error_handler",
+    "register_error_handlers",
+    # Subsystems
+    "IndexManager",
+    "BrowserManager",
+    "MetadataRulesManager",
+    # Authentication & Proxy
+    "get_current_username",
+    "get_current_user",
+    "is_admin_user",
+    "get_user_role",
+    "is_auth_proxy_enabled",
+    "get_auth_proxy_header_name",
+    "get_auth_proxy_header_property",
+    "get_auth_proxy_whitelist",
+    "is_ip_whitelisted",
+    "extract_user_from_header_value",
+    # Routes
+    "register_routes",
+    "serve_logo_file",
+]
 
 # Suppress ResourceWarning noise from Waitress/asyncore socket and file wrappers
 warnings.filterwarnings("ignore", category=ResourceWarning)
