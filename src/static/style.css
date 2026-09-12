@@ -5397,7 +5397,7 @@ input.form-control-query:active {
 }
 
 .browser-table td {
-    padding: 11px 16px;
+    padding: 4px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
 }
@@ -5416,7 +5416,7 @@ input.form-control-query:active {
 
 /* Columns */
 .col-icon {
-    width: 44px;
+    width: 40px;
     padding-right: 0 !important;
     text-align: center;
 }
@@ -5424,6 +5424,7 @@ input.form-control-query:active {
 .col-name {
     min-width: 240px;
     font-weight: 500;
+    line-height: 1.35;
 }
 
 .col-mimetype {
@@ -5453,15 +5454,15 @@ input.form-control-query:active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
     transition: transform 0.2s ease;
 }
 
 .browser-item-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
 }
 
 .folder-icon {
@@ -5511,6 +5512,7 @@ input.form-control-query:active {
     color: var(--text-primary);
     text-decoration: none;
     font-weight: 500;
+    line-height: 1.35;
     transition: color 0.15s ease;
     word-break: break-word;
 }
@@ -5528,10 +5530,36 @@ input.form-control-query:active {
     text-decoration: underline;
 }
 
+.browser-entry-link.file-copy-path {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.35;
+    word-break: break-word;
+    transition: color 0.15s ease;
+}
+
+.browser-entry-link.file-copy-path:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.entry-name-text {
+    line-height: 1.35;
+    word-break: break-word;
+}
+
 /* MIME Tags */
 .mimetype-tag {
     display: inline-block;
-    padding: 3px 8px;
+    padding: 2px 7px;
     border-radius: 6px;
     font-size: 0.74rem;
     font-weight: 500;
@@ -5554,13 +5582,38 @@ input.form-control-query:active {
 .btn-xs {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    font-size: 0.76rem;
+    gap: 4px;
+    padding: 2px 7px;
+    font-size: 0.74rem;
     font-weight: 500;
-    border-radius: 6px;
+    line-height: 1.2;
+    border-radius: 5px;
     text-decoration: none;
     transition: all 0.2s ease;
+}
+
+/* Remove number input spinner buttons under Performance & Memory Allocation */
+#conf-idxthreads::-webkit-inner-spin-button,
+#conf-idxthreads::-webkit-outer-spin-button,
+#conf-thrQSlices::-webkit-inner-spin-button,
+#conf-thrQSlices::-webkit-outer-spin-button,
+#conf-idxflushmb::-webkit-inner-spin-button,
+#conf-idxflushmb::-webkit-outer-spin-button,
+#conf-idxabsml::-webkit-inner-spin-button,
+#conf-idxabsml::-webkit-outer-spin-button,
+.settings-section input[type=number]::-webkit-inner-spin-button,
+.settings-section input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#conf-idxthreads,
+#conf-thrQSlices,
+#conf-idxflushmb,
+#conf-idxabsml,
+.settings-section input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .btn-open-folder {

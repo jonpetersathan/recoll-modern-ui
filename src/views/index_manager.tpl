@@ -242,53 +242,34 @@
             </div>
         </div>
 
-        <!-- Save Actions Bar -->
-        <div class="settings-actions" style="margin-top: 1.75rem;">
-            <button type="button" class="btn btn-primary" onclick="saveAllRules()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                    <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                <span>Save Config</span>
-            </button>
-            <span id="save-status-msg" class="status-msg"></span>
-        </div>
-    </div>
-</div>
-
-<!-- ==========================================================================
-     Section: Dedicated Index Configuration (recoll.conf) Card
-     ========================================================================== -->
-<div id="index-config-card" class="settings-card" onmousemove="updateGlow(event, this)" style="margin-top: 2rem;">
-    <div class="card-glow"></div>
-
-    <!-- Header Section with Live Status Badge -->
-    <div class="settings-header" style="justify-content: space-between; align-items: flex-start;">
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <div class="brand-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="4" y1="21" x2="4" y2="14"></line>
-                    <line x1="4" y1="10" x2="4" y2="3"></line>
-                    <line x1="12" y1="21" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12" y2="3"></line>
-                    <line x1="20" y1="21" x2="20" y2="16"></line>
-                    <line x1="20" y1="12" x2="20" y2="3"></line>
-                    <line x1="1" y1="14" x2="7" y2="14"></line>
-                    <line x1="9" y1="8" x2="15" y2="8"></line>
-                    <line x1="17" y1="16" x2="23" y2="16"></line>
-                </svg>
-            </div>
-            <div>
-                <h2 class="settings-title">Index Configuration (<code class="recoll-conf-code">recoll.conf</code>)</h2>
-                <p class="settings-helper">Customize file exclusion rules, crawler thread allocation, OCR triggers, and Xapian database cache sizes</p>
+        <!-- Index Configuration (recoll.conf) merged directly under Sandbox Rule Evaluation -->
+        <div id="index-config-section" class="settings-section" style="margin-top: 2rem; border-top: 1px solid var(--card-border); padding-top: 1.5rem;">
+            <div class="settings-header" style="justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; padding-bottom: 0; border-bottom: none;">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div class="brand-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" y1="21" x2="4" y2="14"></line>
+                            <line x1="4" y1="10" x2="4" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12" y2="3"></line>
+                            <line x1="20" y1="21" x2="20" y2="16"></line>
+                            <line x1="20" y1="12" x2="20" y2="3"></line>
+                            <line x1="1" y1="14" x2="7" y2="14"></line>
+                            <line x1="9" y1="8" x2="15" y2="8"></line>
+                            <line x1="17" y1="16" x2="23" y2="16"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="settings-title">Index Configuration (<code class="recoll-conf-code">recoll.conf</code>)</h2>
+                        <p class="settings-helper">Customize file exclusion rules, crawler thread allocation, OCR triggers, and Xapian database cache sizes</p>
+                    </div>
+                </div>
+                <div class="config-status-badge" id="config-status-badge">
+                    <span class="status-dot-pulse"></span>
+                    <span id="config-status-text">Active Configuration</span>
+                </div>
             </div>
         </div>
-        <div class="config-status-badge" id="config-status-badge">
-            <span class="status-dot-pulse"></span>
-            <span id="config-status-text">Active Configuration</span>
-        </div>
-    </div>
 
     <!-- Parameter 1: skippedNames (Interactive Chip / Tag List) -->
     <div class="settings-section">
@@ -455,9 +436,9 @@
         </div>
     </div>
 
-    <!-- Save Actions Bar with Loading & Feedback -->
+    <!-- Save Actions Bar with Single "Save Config" Button -->
     <div class="settings-actions" style="margin-top: 1.75rem;">
-        <button type="button" class="btn btn-primary" id="btn-save-index-config" onclick="saveIndexConfig()">
+        <button type="button" class="btn btn-primary" id="btn-save-index-config" onclick="saveUnifiedConfig()">
             <span id="btn-save-config-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -465,18 +446,11 @@
                     <polyline points="7 3 7 8 15 8"></polyline>
                 </svg>
             </span>
-            <span id="btn-save-config-text">Save Index Configuration</span>
-        </button>
-
-        <button type="button" class="btn btn-secondary" id="btn-reset-index-config" onclick="loadIndexConfig(true)" title="Discard uncommitted edits and reload from disk">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="1 4 1 10 7 10"></polyline>
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-            </svg>
-            <span>Reload Config</span>
+            <span id="btn-save-config-text">Save Config</span>
         </button>
 
         <span id="config-save-status" class="status-msg"></span>
+        <span id="save-status-msg" class="status-msg"></span>
     </div>
 </div>
 
@@ -762,7 +736,7 @@ function openAddRuleModal() {
     document.getElementById('modal-rule-depth-field').value = '';
     document.getElementById('modal-rule-delimiter').value = '_';
     document.getElementById('modal-rule-delim-target').value = 'stem';
-    document.getElementById('modal-rule-delim-mappings').value = '0:doctype, 1:year, 2:doc_id';
+    document.getElementById('modal-rule-delim-mappings').value = '';
     selectRuleType('regex');
     document.getElementById('rule-modal').style.display = 'flex';
 }
@@ -940,35 +914,58 @@ function toggleRawView() {
     rawView.style.display = rawView.style.display === 'none' ? 'block' : 'none';
 }
 
-function saveAllRules() {
-    const statusMsg = document.getElementById('save-status-msg');
-    statusMsg.innerText = 'Synchronizing Recoll fields and saving rules...';
-    statusMsg.className = 'status-msg';
+async function saveUnifiedConfig() {
+    const btnSave = document.getElementById('btn-save-index-config');
+    const statusMsg = document.getElementById('save-status-msg') || document.getElementById('config-save-status');
 
-    fetch('/api/metadata/rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentRulesData)
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            window.isRulesDirty = false;
-            statusMsg.innerText = 'Rules persisted and Recoll configuration synced successfully!';
+    if (btnSave) btnSave.disabled = true;
+    if (statusMsg) {
+        statusMsg.innerText = 'Saving configuration and rules...';
+        statusMsg.className = 'status-msg';
+    }
+
+    try {
+        // 1. Save metadata rules
+        const rulesRes = await fetch('/api/metadata/rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentRulesData)
+        });
+        const rulesData = await rulesRes.json();
+        if (!rulesData.success) {
+            throw new Error(rulesData.error || 'Failed to save rules');
+        }
+        window.isRulesDirty = false;
+        if (typeof window.initMetadataFields === 'function') {
+            window.initMetadataFields();
+        }
+
+        // 2. Save index configuration
+        if (typeof window.saveIndexConfig === 'function') {
+            await window.saveIndexConfig();
+        }
+
+        if (statusMsg) {
+            statusMsg.innerText = 'Configuration and rules saved successfully!';
             statusMsg.className = 'status-msg status-msg-success';
-            if (typeof window.initMetadataFields === 'function') {
-                window.initMetadataFields();
-            }
             setTimeout(() => { statusMsg.innerText = ''; }, 4500);
-        } else {
-            statusMsg.innerText = 'Error saving rules: ' + (data.error || 'Unknown error');
+        }
+    } catch (err) {
+        if (statusMsg) {
+            statusMsg.innerText = 'Error saving: ' + err.message;
             statusMsg.className = 'status-msg status-msg-error';
         }
-    })
-    .catch(err => {
-        statusMsg.innerText = 'Network error: ' + err;
-        statusMsg.className = 'status-msg status-msg-error';
-    });
+        if (typeof window.showToast === 'function') {
+            window.showToast('Error saving: ' + err.message, 'error');
+        }
+    } finally {
+        if (btnSave) btnSave.disabled = false;
+    }
+}
+window.saveUnifiedConfig = saveUnifiedConfig;
+
+function saveAllRules() {
+    return saveUnifiedConfig();
 }
 
 function triggerIndexAction() {

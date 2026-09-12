@@ -4564,7 +4564,7 @@ async function saveIndexConfig() {
         if (btnIcon) {
             btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`;
         }
-        if (btnText) btnText.textContent = 'Save Index Configuration';
+        if (btnText) btnText.textContent = 'Save Config';
     }
 }
 
@@ -4875,7 +4875,7 @@ function initFileBrowser() {
                 const iconCls = getFileIconClass(entry.mimetype);
                 const iconSvg = getFileIconSvg(entry.mimetype);
                 iconHtml = `<div class="browser-item-icon file-icon ${iconCls}">${iconSvg}</div>`;
-                nameLinkHtml = `<a href="/api/browser/download?path=${encodeURIComponent(entry.path)}" class="browser-entry-link file-link" data-path="${pathEsc}" title="Download ${nameEsc}"><span class="entry-name-text">${nameEsc}</span></a>`;
+                nameLinkHtml = `<button type="button" class="browser-entry-link file-link file-copy-path" data-path="${pathEsc}" title="Click to copy full path to clipboard"><span class="entry-name-text">${nameEsc}</span></button>`;
                 actionBtnHtml = `<a href="/api/browser/download?path=${encodeURIComponent(entry.path)}" class="btn btn-secondary btn-xs btn-download-file" title="Download File"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download</span></a>`;
             }
 
@@ -4980,8 +4980,37 @@ function initFileBrowser() {
         }
     }
 
-    // Global click delegation for folder navigation
-    browserBox.addEventListener('click', function(e) {
+    // Global click delegation for folder navigation and file path copying
+    browserBox.addEventListener('click', async function(e) {
+        const copyBtn = e.target.closest('.file-copy-path');
+        if (copyBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const path = copyBtn.getAttribute('data-path');
+            if (path) {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(path);
+                    } else {
+                        const temp = document.createElement('textarea');
+                        temp.value = path;
+                        document.body.appendChild(temp);
+                        temp.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(temp);
+                    }
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(`Path copied to clipboard: ${path}`, 'success', 2500);
+                    }
+                } catch (err) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Failed to copy path: ' + err.message, 'error', 3000);
+                    }
+                }
+            }
+            return;
+        }
+
         const link = e.target.closest('.dir-link, .btn-open-folder, .browser-crumb:not(.current)');
         if (!link) return;
 

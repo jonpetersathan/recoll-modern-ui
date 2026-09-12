@@ -165,9 +165,9 @@
                                 <span class="entry-name-text">{{entry['name']}}</span>
                             </a>
                         % else:
-                            <a href="/api/browser/download?path={{entry['path']}}" class="browser-entry-link file-link" data-path="{{entry['path']}}" title="Download {{entry['name']}}">
+                            <button type="button" class="browser-entry-link file-link file-copy-path" data-path="{{entry['path']}}" title="Click to copy full path to clipboard">
                                 <span class="entry-name-text">{{entry['name']}}</span>
-                            </a>
+                            </button>
                         % end
                     </td>
                     <td class="col-mimetype">
