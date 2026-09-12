@@ -52,6 +52,29 @@ def format_mimetype_label(mtype: str, filename: str = '') -> str:
     return clean.title() if clean else "Unknown File"
 
 
+def format_size_human(size: Any) -> str:
+    """
+    Format byte count into human-readable representation (e.g. 500 B, 12.5 KB, 1.2 MB).
+    Accepts int, float, or numeric string. Returns empty string if invalid or None.
+    """
+    if size is None or size == '':
+        return ''
+    try:
+        size_bytes = float(size)
+    except (ValueError, TypeError):
+        return ''
+    if size_bytes < 0:
+        return ''
+    if size_bytes < 1024:
+        return f"{int(size_bytes)} B"
+    num = size_bytes
+    for unit in ['KB', 'MB', 'GB', 'TB']:
+        num /= 1024.0
+        if num < 1024.0 or unit == 'TB':
+            return f"{num:.1f} {unit}"
+    return f"{num:.1f} PB"
+
+
 def sanitize_filename(filename: str) -> str:
     """
     Sanitize filename for safe HTTP attachment headers, stripping invalid characters.

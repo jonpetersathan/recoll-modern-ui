@@ -90,6 +90,10 @@ make clean
 | `RECOLL_TMPDIR` | `/tmp` | Directory for temporary extracted files and preview caches. |
 | `RECOLL_EXPORT_DIR` | `/export` | Target directory for generated ZIP archive exports. |
 | `RECOLL_EXTRACONFDIRS` | *None* | Space-separated list of extra configuration directories for external index databases. |
+| `RECOLL_AUTH_PROXY_ENABLED` | `false` | Enable reverse auth proxy user extraction (`true`/`false`). |
+| `RECOLL_AUTH_PROXY_HEADER_NAME` | `X-WEBAUTH-USER` | HTTP header name containing authenticated user identity. |
+| `RECOLL_AUTH_PROXY_HEADER_PROPERTY` | `username` | Property to extract from header value (e.g. `username`, `email`, or JSON key). |
+| `RECOLL_AUTH_PROXY_WHITELIST` | *None* | Comma-separated list of allowed proxy IP addresses or CIDRs (e.g. `127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16`). |
 
 ---
 

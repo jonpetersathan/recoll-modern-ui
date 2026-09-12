@@ -61,8 +61,8 @@ SORT_OPTIONS: List[Tuple[str, str]] = [
 DOCUMENT_FIELDS: List[str] = [
     'abstract', 'author', 'collapsecount', 'dbytes', 'dmtime',
     'fbytes', 'filename', 'fmtime', 'ipath', 'keywords',
-    'mtime', 'mtype', 'mtype_label', 'origcharset', 'rcludi', 'relevancyrating', 'sig',
-    'size', 'title', 'url', 'label', 'snippet', 'time',
+    'mtime', 'mtype', 'mtype_label', 'origcharset', 'pcbytes', 'rcludi', 'relevancyrating', 'sig',
+    'size', 'size_human', 'title', 'url', 'label', 'snippet', 'time',
 ]
 
 VALID_FILENAME_CHARS = f"_-{string.ascii_letters}{string.digits}"

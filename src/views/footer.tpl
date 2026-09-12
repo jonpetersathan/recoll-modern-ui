@@ -23,7 +23,8 @@
             </div>
             <div class="modal-footer" id="app-dialog-footer">
                 <button type="button" class="btn btn-secondary" id="btn-cancel-app-dialog">Cancel</button>
-                <button type="button" class="btn btn-primary" id="btn-confirm-app-dialog">Confirm</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-app-dialog">Confirm</button>
+                <button type="button" class="btn btn-primary" id="btn-save-app-dialog" style="display: none;">Save &amp; Leave</button>
             </div>
         </div>
     </div>

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from recollweb.config import ConfigManager
 from recollweb.constants import BASE_DIR, MIME_LABELS
 from recollweb.logging import logger
-from recollweb.utils import format_mimetype_label, format_timestamp
+from recollweb.utils import format_mimetype_label, format_size_human, format_timestamp
 
 # Additional MIME type overrides for extensions common in Recoll repositories
 EXTRA_EXTENSIONS: Dict[str, str] = {
@@ -129,14 +129,7 @@ class BrowserManager:
         """
         Format byte count into human-readable representation (e.g. 12.5 KB, 1.2 MB).
         """
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        num = float(size_bytes)
-        for unit in ['KB', 'MB', 'GB', 'TB']:
-            num /= 1024.0
-            if num < 1024.0:
-                return f"{num:.1f} {unit}"
-        return f"{num:.1f} PB"
+        return format_size_human(size_bytes)
 
     @classmethod
     def build_breadcrumbs(cls, current_path: str, allowed_roots: List[str]) -> List[Dict[str, str]]:

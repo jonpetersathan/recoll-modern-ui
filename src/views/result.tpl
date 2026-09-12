@@ -28,17 +28,9 @@
             </div>
             <div class="card-meta-main">
                 <div class="title-line">
-                    <span class="result-index">#{{number}}</span>
                     <h2 class="app-title" id="r{{d['sha']}}" title="{{d.get('abstract', '')}}">
-                    %if 'title_link' in config and config['title_link'] != 'download':
-                        %if config['title_link'] == 'open':
-                            <a href="{{url}}">{{d['label']}}</a>
-                        %elif config['title_link'] == 'preview':
-                            <a href="preview/{{number-1}}?{{query_string}}">{{d['label']}}</a>
-                        %end
-                    %else:
-                        <a href="download/{{number-1}}?{{query_string}}">{{d['label']}}</a>
-                    %end
+                        <span class="result-index">#{{number}}</span>
+                        <span class="app-title-text">{{d['label']}}</span>
                     </h2>
                     %if len(d.get('ipath', '')) > 0:
                         <span class="tag tag-ipath" title="Internal Document Path">
@@ -98,6 +90,21 @@
                         <span class="result-label-text">{{res_mtype}}</span>
                     </span>
                     %end
+                    %res_size = d.get('size_human') or ''
+                    %if not res_size:
+                        %from recollweb.utils import format_size_human
+                        %res_size = format_size_human(d.get('pcbytes') or d.get('fbytes') or d.get('size') or d.get('dbytes'))
+                    %end
+                    %if res_size:
+                    <span class="result-label result-label-size" title="Size: {{res_size}}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                        </svg>
+                        <span class="result-label-text">{{res_size}}</span>
+                    </span>
+                    %end
                 </div>
             </div>
         </div>
@@ -152,7 +159,7 @@
         {{!d['snippet']}}
     </div>
 
-    %custom_meta = d.get('custom_metadata', {})
+    %custom_meta = {k: v for k, v in d.get('custom_metadata', {}).items() if k.lower() not in ('pcbytes', 'fbytes', 'dbytes', 'size', 'bytes')}
     %if custom_meta:
     <div class="result-custom-meta">
         %for meta_k, meta_v in sorted(custom_meta.items()):

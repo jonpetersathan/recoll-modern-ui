@@ -14,7 +14,7 @@ from recoll import recoll, rclextract
 from recollweb.config import ConfigManager
 from recollweb.constants import DOCUMENT_FIELDS, SORT_OPTIONS
 from recollweb.metadata import MetadataRulesManager
-from recollweb.utils import format_mimetype_label, format_timestamp
+from recollweb.utils import format_mimetype_label, format_size_human, format_timestamp
 
 
 class SearchQuery:
@@ -254,7 +254,9 @@ class RecollSearchEngine:
 
             if hasattr(doc, 'keys'):
                 for k in doc.keys():
-                    if k not in item and k not in ('abstract', 'text'):
+                    if k.lower() in ('abstract', 'text', 'pcbytes', 'fbytes', 'dbytes', 'size', 'bytes'):
+                        continue
+                    if k not in item:
                         val = getattr(doc, k, None)
                         if val:
                             val_str = str(val).strip()
@@ -284,6 +286,8 @@ class RecollSearchEngine:
             if not item.get('filename') and item.get('url'):
                 item['filename'] = os.path.basename(item['url'].split('#')[0])
             item['mtype_label'] = format_mimetype_label(item.get('mtype', ''), item.get('filename', ''))
+            raw_size = item.get('pcbytes') or item.get('fbytes') or item.get('size') or item.get('dbytes')
+            item['size_human'] = format_size_human(raw_size) if raw_size else ''
 
             # Snippet abstract generation
             if query_data.get('snippets', 1):

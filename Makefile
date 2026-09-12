@@ -1,9 +1,9 @@
 NAME := recoll-modern-ui
 IMAGE := tenasi/$(NAME)
-VERSION := 0.9.0
+VERSION := 0.9.5
 BUILD_PATH := ./build
 CONTAINER_NAME := recoll
-PORT := 8080
+PORT := 8180
 DOCKER ?= podman
 
 .PHONY: build run test stop release clean
@@ -28,6 +28,10 @@ run:
 		-v "$(CURDIR)/test/config:/root/.recoll" \
 		-e RECOLL_CONFDIR=/root/.recoll \
 		-e RECOLL_LOGLEVEL=INFO \
+		-e RECOLL_AUTH_PROXY_ENABLED=true \
+		-e RECOLL_AUTH_PROXY_HEADER_NAME=X-WEBAUTH-USER \
+		-e RECOLL_AUTH_PROXY_HEADER_PROPERTY=username \
+		-e RECOLL_AUTH_PROXY_WHITELIST="127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16" \
 		$(IMAGE):$(VERSION)
 	@echo "Container $(CONTAINER_NAME) started on http://localhost:$(PORT)"
 
@@ -61,7 +65,7 @@ test:
 	@echo "[5/7] Testing Modular Architecture & Subsystems Unit Tests..."
 	@$(DOCKER) exec -i $(CONTAINER_NAME) python3 - < test/test_modular_units.py
 	@echo "[6/7] Testing Advanced Search, Form Builder, and Endpoints Integration..."
-	@$(DOCKER) exec -i -e RECOLL_TEST_URL=http://127.0.0.1:$(PORT) $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
+	@$(DOCKER) exec -i -e RECOLL_TEST_URL=http://127.0.0.1:8080 $(CONTAINER_NAME) python3 - < test/test_advanced_search.py
 	@echo "[7/7] Testing Metadata Rules Engine, Index Manager, and Rust Extractor CLI..."
 	@$(DOCKER) exec -i $(CONTAINER_NAME) python3 - < test/test_metadata_and_index.py
 	@echo "All tests passed successfully!"

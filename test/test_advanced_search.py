@@ -752,6 +752,38 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertEqual(len(res_json["results"]), 1)
         self.assertEqual(res_json["results"][0]["filename"], "000979.doc")
         self.assertEqual(res_json["results"][0]["mtype_label"], "Word Document")
+        self.assertIn("size_human", res_json["results"][0])
+
+    def test_size_label_rendered_after_filetype_and_no_pcbytes_tag(self):
+        """Verify human-readable size is shown as a label after filetype and pcbytes is not shown as a tag."""
+        status_html, html = self._http_request("/results?query=" + urllib.parse.quote("000"))
+        self.assertEqual(status_html, 200)
+        # Verify size label is rendered
+        self.assertIn('class="result-label result-label-size"', html)
+        # Verify order: result-label-mtype comes before result-label-size
+        idx_mtype = html.find('class="result-label result-label-mtype"')
+        idx_size = html.find('class="result-label result-label-size"')
+        self.assertNotEqual(idx_mtype, -1)
+        self.assertNotEqual(idx_size, -1)
+        self.assertLess(idx_mtype, idx_size)
+        # Verify pcbytes is not shown as a badge/tag under file preview
+        self.assertNotIn('>pcbytes<', html)
+        self.assertNotIn('Field: pcbytes', html)
+
+        # Verify JSON search endpoint exposes size_human and excludes pcbytes from custom_metadata
+        status_json, content_json = self._http_request("/json?query=" + urllib.parse.quote("000"))
+        self.assertEqual(status_json, 200)
+        res_json = json.loads(content_json)
+        self.assertGreater(len(res_json["results"]), 0)
+        first_res = res_json["results"][0]
+        self.assertIn("size_human", first_res)
+        self.assertTrue(len(first_res["size_human"]) > 0)
+        self.assertNotIn("pcbytes", first_res.get("custom_metadata", {}))
+
+        # Verify CSS contains .result-label-size rules
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".result-label-size", content_css)
 
     def test_query_fields_preserve_blue_color_on_focus(self):
         """Verify CSS preserves blue text color (#38bdf8) when editing query fields in form."""
@@ -1037,10 +1069,12 @@ class TestContainerEndpoints(unittest.TestCase):
         # 2. Syntax highlighting separates {value} from wildcards
         self.assertIn("(\\{value\\})", content_js)
 
-        # 3. Proximity search is pN with N colored as placeholder
+        # 3. Proximity search is pN and oN with N colored as placeholder
         self.assertIn("prefix: 'pN'", content_js)
         self.assertIn("placeholder: 'N'", content_js)
         self.assertIn("prefix: '\"{value}\"pN'", content_js)
+        self.assertIn("prefix: 'oN'", content_js)
+        self.assertIn("prefix: '\"{value}\"oN'", content_js)
         self.assertIn('<span class="param-placeholder">N</span>', content_js)
 
         # 4. Sandbox session persistence in index-manager
@@ -1147,6 +1181,45 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertEqual(status_im, 200)
         self.assertIn("Index Management", html_im)
 
+    def test_uniform_save_and_leave_guard(self):
+        """Verify uniform save behavior, no inline green messages, bottom-right toast, and leave guard save button."""
+        # 1. Verify Save & Leave button in app dialog footer across pages
+        for path in ["/", "/index-manager", "/settings"]:
+            status, html = self._http_request(path)
+            self.assertEqual(status, 200)
+            self.assertIn('id="btn-save-app-dialog"', html)
+
+        # 2. Verify /set endpoint supports AJAX JSON response
+        post_data = urllib.parse.urlencode({"stem": "1", "perpage": "25", "ajax": "1"}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{BASE_URL}/set",
+            data=post_data,
+            headers={"Accept": "application/json"}
+        )
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            body = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(body.get("success"))
+
+        # 3. Verify static/extra.js contains dirty checking and save preferences functions
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        self.assertIn("window.saveSettingsPreferences", content_js)
+        self.assertIn("window.checkSettingsDirty", content_js)
+        self.assertIn("window.checkIndexConfigDirty", content_js)
+        self.assertIn("btn-save-app-dialog", content_js)
+        self.assertIn("saveText || 'Save & Leave'", content_js)
+        self.assertIn("showSaveButton", content_js)
+        self.assertIn("showToast('Preferences saved successfully!'", content_js)
+
+        # 4. Verify index_manager.tpl removes inline green success messages and shows toast
+        status_im, html_im = self._http_request("/index-manager")
+        self.assertEqual(status_im, 200)
+        self.assertNotIn("statusMsg.innerText = 'Configuration and rules saved successfully!'", html_im)
+        self.assertIn("showToast('Configuration and rules saved successfully!'", html_im)
+        self.assertIn("window.updateRulesDirtyState", html_im)
+
 
 if __name__ == "__main__":
     unittest.main()
+

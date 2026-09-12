@@ -359,9 +359,6 @@
                 </svg>
                 <span>Save Preferences</span>
             </button>
-            <a href="./" class="btn btn-secondary">
-                <span>Cancel</span>
-            </a>
         </div>
     </form>
 </div>

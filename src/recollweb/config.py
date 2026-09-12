@@ -11,7 +11,7 @@ from urllib.parse import quote as urlquote
 import bottle
 from recoll import rclconfig
 
-from recollweb.auth import get_current_username, is_admin_user, get_user_role
+from recollweb.auth import get_current_username, is_admin_user, get_user_role, is_auth_proxy_enabled
 from recollweb.constants import (
     CUSTOM_LOGO_FILENAMES,
     DEFAULT_CONFIG,
@@ -131,6 +131,7 @@ class ConfigManager:
         config['current_user'] = current_user
         config['is_admin'] = is_admin_user(current_user, config['confdir'])
         config['user_role'] = get_user_role(current_user, config['confdir'])
+        config['auth_proxy_enabled'] = is_auth_proxy_enabled()
 
         # Initialize SQLite database if needed
         init_db(config['confdir'])
@@ -245,6 +246,11 @@ MANAGED_INDEX_PARAMS: Dict[str, Dict[str, Any]] = {
         "default": [],
         "description": "List of wildcard patterns for skipped files/directories",
     },
+    "excludedmimetypes": {
+        "type": list,
+        "default": [],
+        "description": "List of MIME types or wildcard patterns to exclude from indexing",
+    },
     "indexallfilenames": {
         "type": bool,
         "default": True,
@@ -290,6 +296,7 @@ MANAGED_INDEX_PARAMS: Dict[str, Dict[str, Any]] = {
 
 CANONICAL_PARAM_MAP: Dict[str, str] = {
     "skippednames": "skippedNames",
+    "excludedmimetypes": "excludedmimetypes",
     "indexallfilenames": "indexallfilenames",
     "thrqslices": "thrQSlices",
     "idxthreads": "idxthreads",
@@ -327,6 +334,31 @@ def deduplicate_patterns(patterns: Any) -> List[str]:
     return unique
 
 
+def deduplicate_mimetypes(mimetypes: Any) -> List[str]:
+    """
+    Deduplicate list of MIME types while strictly preserving insertion order.
+    Whitespace is stripped, empty strings are dropped. Slashes are permitted.
+    """
+    if isinstance(mimetypes, str):
+        try:
+            raw_items = shlex.split(mimetypes)
+        except Exception:
+            raw_items = mimetypes.split()
+    elif isinstance(mimetypes, (list, tuple)):
+        raw_items = mimetypes
+    else:
+        return []
+
+    seen = set()
+    unique: List[str] = []
+    for item in raw_items:
+        clean = str(item).strip()
+        if clean and clean not in seen:
+            seen.add(clean)
+            unique.append(clean)
+    return unique
+
+
 class RecollConfManager:
     """
     Parser, validator, and atomic serializer for recoll.conf configuration parameters.
@@ -340,7 +372,7 @@ class RecollConfManager:
     @classmethod
     def get_index_config(cls, conf_dir: Optional[str] = None) -> Dict[str, Any]:
         """
-        Parse and return the 9 managed index configuration parameters from recoll.conf.
+        Parse and return the 10 managed index configuration parameters from recoll.conf.
         Missing parameters fall back to their system defaults.
         """
         config_path = cls.get_config_path(conf_dir)
@@ -394,6 +426,8 @@ class RecollConfManager:
 
                     if canonical_key == "skippedNames":
                         config[canonical_key] = deduplicate_patterns(full_val)
+                    elif canonical_key == "excludedmimetypes":
+                        config[canonical_key] = deduplicate_mimetypes(full_val)
                     elif spec["type"] is bool:
                         clean_val = full_val.split("#", 1)[0].strip().lower()
                         config[canonical_key] = clean_val in ("1", "true", "yes", "on")
@@ -419,14 +453,14 @@ class RecollConfManager:
     def _serialize_param(cls, key: str, value: Any) -> List[str]:
         """
         Format a configuration parameter into line(s) for recoll.conf.
-        skippedNames is wrapped across lines using trailing backslashes.
+        skippedNames and excludedmimetypes are wrapped across lines using trailing backslashes.
         """
-        if key == "skippedNames":
-            unique = deduplicate_patterns(value)
+        if key in ("skippedNames", "excludedmimetypes"):
+            unique = deduplicate_mimetypes(value) if key == "excludedmimetypes" else deduplicate_patterns(value)
             if not unique:
-                return ["skippedNames =\n"]
+                return [f"{key} =\n"]
             lines = []
-            prefix = "skippedNames = "
+            prefix = f"{key} = "
             current_line = prefix
             for item in unique:
                 pat_str = f'"{item}"' if (" " in item and not (item.startswith('"') and item.endswith('"'))) else item
@@ -482,6 +516,24 @@ class RecollConfManager:
                         raise ValueError(f"Pattern '{clean}' contains invalid path separator '/'. Patterns must be filenames or simple wildcards.")
 
                 validated_updates[canonical_k] = deduplicate_patterns(raw_items)
+
+            elif canonical_k == "excludedmimetypes":
+                if not isinstance(raw_v, (list, tuple, str)):
+                    raise ValueError("excludedmimetypes must be a list of MIME type strings.")
+                if isinstance(raw_v, str):
+                    try:
+                        raw_items = shlex.split(raw_v)
+                    except Exception:
+                        raw_items = raw_v.split()
+                else:
+                    raw_items = list(raw_v)
+
+                for item in raw_items:
+                    clean = str(item).strip()
+                    if any(c in clean for c in ("\r", "\n")):
+                        raise ValueError(f"MIME type '{clean}' contains invalid newline characters.")
+
+                validated_updates[canonical_k] = deduplicate_mimetypes(raw_items)
 
             elif spec["type"] is bool:
                 if isinstance(raw_v, bool):

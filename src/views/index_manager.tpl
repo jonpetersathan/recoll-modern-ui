@@ -310,6 +310,75 @@
         </div>
     </div>
 
+    <!-- Parameter 2: excludedmimetypes (Interactive Chip / Tag List with Autocomplete) -->
+    % excluded_mimetypes_list = index_config.get('excludedmimetypes', []) if (defined('index_config') and isinstance(index_config, dict)) else []
+    <div class="settings-section">
+        <div class="settings-section-title">
+            <div style="display: inline-flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                <span>Excluded MIME Types (<code class="field-code">excludedmimetypes</code>)</span>
+            </div>
+            <div class="section-title-actions" style="margin-left: auto;">
+                <span class="chip-count-badge" id="excluded-mimetypes-count">{{len(excluded_mimetypes_list)}} type{{'' if len(excluded_mimetypes_list) == 1 else 's'}}</span>
+            </div>
+        </div>
+        <p class="settings-helper" style="margin-bottom: 0.75rem;">
+            Documents matching these MIME types (e.g. <code>application/octet-stream</code>, <code>audio/*</code>, <code>text/x-log</code>) will not have their content indexed. If <strong>Index All Filenames</strong> is enabled, their file names and metadata will still be indexed. Click any tag to edit inline, click <strong>&times;</strong> to remove, or start typing below for suggestions. Duplicate types are automatically rejected.
+        </p>
+
+        <!-- Interactive MIME Chips List -->
+        <div class="chip-tag-container" id="excluded-mimetypes-chip-list">
+            % if not excluded_mimetypes_list:
+            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 6px 0;">
+                No excluded MIME types configured. All supported file contents will be indexed.
+            </div>
+            % else:
+            % for m_idx, m_type in enumerate(excluded_mimetypes_list):
+            <div class="config-chip mime-chip" data-index="{{m_idx}}" data-pattern="{{m_type}}">
+                <span class="chip-text" title="Click to edit MIME type">{{m_type}}</span>
+                <button type="button" class="chip-remove-btn" title="Remove &quot;{{m_type}}&quot;" onclick="removeExcludedMimeType({{m_idx}})">×</button>
+            </div>
+            % end
+            % end
+        </div>
+
+        <!-- Add MIME Type Toolbar with Auto-completion -->
+        <div class="chip-add-toolbar">
+            <div class="chip-input-wrap">
+                <input type="text" id="input-new-mime" class="form-control chip-add-input" placeholder="Enter MIME type (e.g. text/x-log, audio/*, application/octet-stream)... Type for suggestions, press Enter to add" autocomplete="off" spellcheck="false">
+                <div id="mime-autocomplete-dropdown" class="mime-autocomplete-dropdown" style="display: none;"></div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-add-mime" onclick="handleAddExcludedMimeType()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Add MIME Type</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-sort-mimes" onclick="sortExcludedMimeTypes()" title="Sort alphabetically">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="7 15 12 20 17 15"></polyline>
+                    <polyline points="7 9 12 4 17 9"></polyline>
+                </svg>
+                <span>Sort A-Z</span>
+            </button>
+        </div>
+
+        <!-- Inline Duplicate Prevention / Validation Feedback -->
+        <div id="mime-feedback-msg" class="pattern-feedback-msg" style="display: none;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span id="mime-feedback-text"></span>
+        </div>
+    </div>
+
     <!-- Parameters 2, 3, 4, 5: Indexing Directives & PDF OCR -->
     % conf_idxall = index_config.get('indexallfilenames', True) if (defined('index_config') and isinstance(index_config, dict)) else True
     % conf_noaspell = index_config.get('noaspell', False) if (defined('index_config') and isinstance(index_config, dict)) else False
@@ -553,13 +622,21 @@
 
 <script>
 let currentRulesData = {{!rules_json}};
+let originalRulesData = JSON.parse(JSON.stringify(currentRulesData));
 let initialIndexConfig = {{!index_config_json}};
 if (initialIndexConfig) window.INITIAL_INDEX_CONFIG = initialIndexConfig;
 let editingRuleId = null;
 let statusPollInterval = null;
 window.isRulesDirty = false;
+
+function updateRulesDirtyState() {
+    window.isRulesDirty = JSON.stringify(currentRulesData) !== JSON.stringify(originalRulesData);
+    return window.isRulesDirty;
+}
+window.updateRulesDirtyState = updateRulesDirtyState;
+
 function markRulesDirty() {
-    window.isRulesDirty = true;
+    updateRulesDirtyState();
 }
 
 function safeSessionGet(key) {
@@ -908,13 +985,12 @@ function toggleRawView() {
 
 async function saveUnifiedConfig() {
     const btnSave = document.getElementById('btn-save-index-config');
-    const statusMsg = document.getElementById('save-status-msg') || document.getElementById('config-save-status');
+    const statusMsg = document.getElementById('save-status-msg');
+    const configStatus = document.getElementById('config-save-status');
 
     if (btnSave) btnSave.disabled = true;
-    if (statusMsg) {
-        statusMsg.innerText = 'Saving configuration and rules...';
-        statusMsg.className = 'status-msg';
-    }
+    if (statusMsg) statusMsg.innerText = '';
+    if (configStatus) configStatus.innerText = '';
 
     try {
         // 1. Save metadata rules
@@ -927,6 +1003,7 @@ async function saveUnifiedConfig() {
         if (!rulesData.success) {
             throw new Error(rulesData.error || 'Failed to save rules');
         }
+        originalRulesData = JSON.parse(JSON.stringify(currentRulesData));
         window.isRulesDirty = false;
         if (typeof window.initMetadataFields === 'function') {
             window.initMetadataFields();
@@ -934,19 +1011,13 @@ async function saveUnifiedConfig() {
 
         // 2. Save index configuration
         if (typeof window.saveIndexConfig === 'function') {
-            await window.saveIndexConfig();
+            await window.saveIndexConfig({ silent: true });
         }
 
-        if (statusMsg) {
-            statusMsg.innerText = 'Configuration and rules saved successfully!';
-            statusMsg.className = 'status-msg status-msg-success';
-            setTimeout(() => { statusMsg.innerText = ''; }, 4500);
+        if (typeof window.showToast === 'function') {
+            window.showToast('Configuration and rules saved successfully!', 'success', 3500);
         }
     } catch (err) {
-        if (statusMsg) {
-            statusMsg.innerText = 'Error saving: ' + err.message;
-            statusMsg.className = 'status-msg status-msg-error';
-        }
         if (typeof window.showToast === 'function') {
             window.showToast('Error saving: ' + err.message, 'error');
         }

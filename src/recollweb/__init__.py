@@ -34,6 +34,7 @@ from recollweb.logging import (
 from recollweb.utils import (
     extract_common_prefix,
     format_mimetype_label,
+    format_size_human,
     format_timestamp,
     json_error,
     json_response,
@@ -67,6 +68,18 @@ try:
     )
     from recollweb.indexer import IndexManager
     from recollweb.browser import BrowserManager
+    from recollweb.auth import (
+        get_current_username,
+        get_current_user,
+        is_admin_user,
+        get_user_role,
+        is_auth_proxy_enabled,
+        get_auth_proxy_header_name,
+        get_auth_proxy_header_property,
+        get_auth_proxy_whitelist,
+        is_ip_whitelisted,
+        extract_user_from_header_value,
+    )
 except ImportError:
     pass
 

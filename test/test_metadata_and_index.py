@@ -209,6 +209,7 @@ class TestIndexManager(unittest.TestCase):
             f.write(
                 "topdirs = /data\n"
                 "skippedNames = *.bak *.log\n"
+                "excludedmimetypes = text/x-log application/octet-stream\n"
                 "idxthreads = 3\n"
                 "pdfocrmode = auto\n"
                 "idxflushmb = 80\n"
@@ -216,6 +217,7 @@ class TestIndexManager(unittest.TestCase):
 
         conf = IndexManager.get_index_config(self.temp_dir)
         self.assertEqual(conf["skippedNames"], ["*.bak", "*.log"])
+        self.assertEqual(conf["excludedmimetypes"], ["text/x-log", "application/octet-stream"])
         self.assertEqual(conf["idxthreads"], 3)
         self.assertEqual(conf["pdfocrmode"], "auto")
         self.assertEqual(conf["idxflushmb"], 80)
@@ -224,6 +226,7 @@ class TestIndexManager(unittest.TestCase):
         # Update config
         updates = {
             "skippedNames": ["*.bak", "*.iso", "*.tmp"],
+            "excludedmimetypes": ["text/x-log", "application/pdf", "text/x-log", "image/*"],
             "idxthreads": 6,
             "pdfocrmode": "always",
             "noaspell": True,
@@ -232,6 +235,8 @@ class TestIndexManager(unittest.TestCase):
         }
         updated = IndexManager.update_index_config(self.temp_dir, updates)
         self.assertEqual(updated["skippedNames"], ["*.bak", "*.iso", "*.tmp"])
+        # Deduplication should preserve insertion order and keep slashes
+        self.assertEqual(updated["excludedmimetypes"], ["text/x-log", "application/pdf", "image/*"])
         self.assertEqual(updated["idxthreads"], 6)
         self.assertEqual(updated["pdfocrmode"], "always")
         self.assertTrue(updated["noaspell"])
@@ -241,9 +246,14 @@ class TestIndexManager(unittest.TestCase):
         # Re-read to confirm persistence
         persisted = IndexManager.get_index_config(self.temp_dir)
         self.assertEqual(persisted["skippedNames"], ["*.bak", "*.iso", "*.tmp"])
+        self.assertEqual(persisted["excludedmimetypes"], ["text/x-log", "application/pdf", "image/*"])
         self.assertEqual(persisted["idxthreads"], 6)
         self.assertEqual(persisted["pdfocrmode"], "always")
         self.assertTrue(persisted["noaspell"])
+
+        # Test invalid excludedmimetypes error
+        with self.assertRaises(ValueError):
+            IndexManager.update_index_config(self.temp_dir, {"excludedmimetypes": ["text/plain\nmalicious = true"]})
 
 
 class TestExtractorCLI(unittest.TestCase):

@@ -15,9 +15,18 @@ window._isNavigating = false;
 window.isPageDirty = function() {
     const path = window.location.pathname;
     if (path.includes('index-manager')) {
+        if (typeof window.checkIndexConfigDirty === 'function') {
+            window.checkIndexConfigDirty();
+        }
+        if (typeof window.updateRulesDirtyState === 'function') {
+            window.updateRulesDirtyState();
+        }
         return !!(window.isConfigDirty || window.isRulesDirty);
     }
     if (path.includes('settings')) {
+        if (typeof window.checkSettingsDirty === 'function') {
+            window.checkSettingsDirty();
+        }
         return !!(window.isSettingsDirty || window.isFormsDirty);
     }
     return false;
@@ -46,15 +55,45 @@ function initUnsavedChangesGuard() {
             e.preventDefault();
             e.stopPropagation();
 
-            const confirmed = await window.showConfirmModal({
+            const action = await window.showConfirmModal({
                 title: 'Unsaved Changes',
-                message: 'You have unsaved changes that will be lost if you leave this page. Are you sure you want to discard your changes?',
+                message: 'You have unsaved changes that will be lost if you leave this page. Would you like to save before leaving?',
                 confirmText: 'Discard & Leave',
                 cancelText: 'Stay on Page',
+                saveText: 'Save & Leave',
+                showSaveButton: true,
                 isDanger: true
             });
 
-            if (confirmed) {
+            if (action === 'save') {
+                const path = window.location.pathname;
+                let saveOk = false;
+                if (path.includes('index-manager')) {
+                    if (typeof window.saveUnifiedConfig === 'function') {
+                        try {
+                            await window.saveUnifiedConfig();
+                            saveOk = true;
+                        } catch (err) {
+                            console.error('Save before leave failed:', err);
+                        }
+                    }
+                } else if (path.includes('settings')) {
+                    if (typeof window.saveSettingsPreferences === 'function') {
+                        try {
+                            saveOk = await window.saveSettingsPreferences();
+                        } catch (err) {
+                            console.error('Save before leave failed:', err);
+                        }
+                    }
+                }
+                if (saveOk) {
+                    window._isNavigating = true;
+                    if (typeof window.clearAllDirtyState === 'function') {
+                        window.clearAllDirtyState();
+                    }
+                    window.location.href = link.href;
+                }
+            } else if (action === true) {
                 window._isNavigating = true;
                 if (typeof window.clearAllDirtyState === 'function') {
                     window.clearAllDirtyState();
@@ -211,6 +250,7 @@ function initAppDialogs() {
     const btnConfirm = document.getElementById('btn-confirm-app-dialog');
     const btnCancel = document.getElementById('btn-cancel-app-dialog');
     const btnClose = document.getElementById('btn-close-app-dialog');
+    const btnSave = document.getElementById('btn-save-app-dialog');
 
     function closeDialog(result) {
         overlay.style.display = 'none';
@@ -221,6 +261,9 @@ function initAppDialogs() {
         }
     }
 
+    if (btnSave) {
+        btnSave.onclick = () => closeDialog('save');
+    }
     if (btnConfirm) {
         btnConfirm.onclick = () => closeDialog(true);
     }
@@ -261,6 +304,7 @@ window.showConfirmModal = function(options = {}) {
     const iconEl = document.getElementById('app-dialog-icon');
     const btnConfirm = document.getElementById('btn-confirm-app-dialog');
     const btnCancel = document.getElementById('btn-cancel-app-dialog');
+    const btnSave = document.getElementById('btn-save-app-dialog');
 
     if (titleEl) titleEl.textContent = options.title || 'Confirm Action';
     if (messageEl) messageEl.textContent = options.message || '';
@@ -272,6 +316,14 @@ window.showConfirmModal = function(options = {}) {
         btnConfirm.textContent = options.confirmText || 'Confirm';
         btnConfirm.className = options.isDanger ? 'btn btn-danger' : 'btn btn-primary';
     }
+    if (btnSave) {
+        if (options.showSaveButton) {
+            btnSave.style.display = 'inline-flex';
+            btnSave.textContent = options.saveText || 'Save & Leave';
+        } else {
+            btnSave.style.display = 'none';
+        }
+    }
 
     if (iconEl) {
         if (options.isDanger) {
@@ -282,7 +334,11 @@ window.showConfirmModal = function(options = {}) {
     }
 
     overlay.style.display = 'flex';
-    if (btnConfirm) btnConfirm.focus();
+    if (btnSave && options.showSaveButton) {
+        btnSave.focus();
+    } else if (btnConfirm) {
+        btnConfirm.focus();
+    }
 
     return new Promise((resolve) => {
         _appDialogResolve = resolve;
@@ -1036,7 +1092,8 @@ const TOP_LEVEL_KEYWORDS = [
     { prefix: '+', placeholder: 'term', desc: 'Inclusion prefix to require term', insertPrefix: '+', isOp: true },
     { prefix: '(', placeholder: 'clause', suffix: ')', desc: 'Parenthesize sub-conditions', insertPrefix: '(', isOp: true },
     { prefix: '"', placeholder: 'phrase', suffix: '"', desc: 'Exact phrase search', insertPrefix: '""', isOp: true },
-    { prefix: 'pN', placeholder: 'N', desc: 'Proximity slack operator (within N words)', insertPrefix: 'pN', isOp: true }
+    { prefix: 'pN', placeholder: 'N', desc: 'Proximity slack operator (within N words)', insertPrefix: 'pN', isOp: true },
+    { prefix: 'oN', placeholder: 'N', desc: 'Ordered proximity slack operator (within N words in order)', insertPrefix: 'oN', isOp: true }
 ];
 
 // Text Input field specific patterns (using {value} as user input placeholder)
@@ -1045,6 +1102,7 @@ const TEXT_SNIPPET_PATTERNS = [
     { prefix: '*{value}*', placeholder: '', desc: 'Wildcard partial match with user input', insertPrefix: '*{value}*' },
     { prefix: '"{value}"', placeholder: '', desc: 'Match terms in exact order', insertPrefix: '"{value}"' },
     { prefix: '"{value}"pN', placeholder: '', desc: 'Match terms within N words (proximity)', insertPrefix: '"{value}"pN' },
+    { prefix: '"{value}"oN', placeholder: '', desc: 'Match terms within N words in order (proximity)', insertPrefix: '"{value}"oN' },
 
     // Filename & Containers
     { prefix: 'filename:{value}', placeholder: '', desc: 'Filename exact match with user input', insertPrefix: 'filename:{value}', aliases: ['fn'] },
@@ -1172,18 +1230,18 @@ function highlightQuerySyntax(raw) {
         .replace(/>/g, '&gt;');
 
     // 1: {value} placeholder
-    // 2: proximity parameter pN with placeholder N: \bp[Nn]\b
+    // 2: proximity parameter pN or oN with placeholder N: \b[po][Nn]\b
     // 3: boolean operators: AND, OR, NOT, XOR
     // 4: keywords: all canonical fields & aliases, or any custom field name preceding a colon (or size with </>/colons)
-    // 5: operators: * , / : ( ) " - + ? &gt; &lt; or p\d+
+    // 5: operators: * , / : ( ) " - + ? &gt; &lt; or [po]\d+
     // 6: literal strings / words
-    const tokenRegex = /(\{value\})|(\bp[Nn]\b)|(\b(?:AND|OR|NOT|XOR)\b)|(\bsize(?=[:<>]|&gt;|&lt;)|(?:\b(?:filename|fn|containerfilename|cfn|title|subject|caption|author|creator|from|recipient|to|mime|mimetype|contenttype|mtype|filetype|ext|fileextension|dir|date|keyword|keywords|tag|tags|abstract|summary|description|annotation|annot|pa|pdfannot|[a-zA-Z_][a-zA-Z0-9_-]*)(?=:)))|([*:,/()"\-+?]|&gt;|&lt;|\bp\d+\b)|([^\s*:,/()"\-+?&{}]+)/g;
+    const tokenRegex = /(\{value\})|(\b[po][Nn]\b)|(\b(?:AND|OR|NOT|XOR)\b)|(\bsize(?=[:<>]|&gt;|&lt;)|(?:\b(?:filename|fn|containerfilename|cfn|title|subject|caption|author|creator|from|recipient|to|mime|mimetype|contenttype|mtype|filetype|ext|fileextension|dir|date|keyword|keywords|tag|tags|abstract|summary|description|annotation|annot|pa|pdfannot|[a-zA-Z_][a-zA-Z0-9_-]*)(?=:)))|([*:,/()"\-+?]|&gt;|&lt;|\b[po]\d+\b)|([^\s*:,/()"\-+?&{}]+)/g;
 
     return escaped.replace(tokenRegex, (match, valPh, proxN, boolOp, kw, op, word) => {
         if (valPh) {
             return `<span class="tok-val">${valPh}</span>`;
         } else if (proxN) {
-            return `<span class="tok-op">p</span><span class="param-placeholder">${proxN.slice(1)}</span>`;
+            return `<span class="tok-op">${proxN[0]}</span><span class="param-placeholder">${proxN.slice(1)}</span>`;
         } else if (boolOp) {
             return `<span class="tok-bool">${boolOp}</span>`;
         } else if (kw) {
@@ -1224,7 +1282,7 @@ function scoreKeywordItem(item, q, contextType = 'general') {
     }
 
     // Tier 0: exact keyword match (e.g. 'or' === 'or', 'and' === 'and', 'mime' === 'mime')
-    if (rawPrefix === 'pn' && (/^p\d+$/i.test(q) || q === 'p' || q === 'pn')) {
+    if ((rawPrefix === 'pn' || rawPrefix === 'on') && (/^[po]\d+$/i.test(q) || q === rawPrefix[0] || q === rawPrefix)) {
         return 0.1;
     }
     if (prefixClean === q || rawPrefix === q || rawPrefix === q + ':') {
@@ -1528,6 +1586,13 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
                     badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span>`;
                 }
                 snippetClass = 'snippet-op';
+            } else if (item.prefix === 'oN' || (item.prefix.startsWith('o') && /^\bo[0-9N]+\b$/i.test(item.prefix))) {
+                if (item.prefix.toLowerCase() === 'on' || item.placeholder === 'N') {
+                    badgeHtml = `<span class="tok-op">o</span><span class="param-placeholder">N</span>`;
+                } else {
+                    badgeHtml = `<span class="tok-op">${escapeHtml(item.prefix)}</span>`;
+                }
+                snippetClass = 'snippet-op';
             } else if (item.placeholder) {
                 const kw = item.prefix.replace(/[:(]/, '');
                 const op = item.prefix.slice(kw.length);
@@ -1544,7 +1609,7 @@ function setupQueryFieldEditor(inputEl, contextType = 'general') {
             return {
                 badgeHtml,
                 snippetClass,
-                snippetText: (item.prefix === 'pN' ? 'pN' : (item.prefix + (item.placeholder || '') + (item.suffix || ''))),
+                snippetText: ((item.prefix === 'pN' || item.prefix === 'oN') ? item.prefix : (item.prefix + (item.placeholder || '') + (item.suffix || ''))),
                 desc: item.desc,
                 hasSub: !!item.hasSub,
                 insertPrefix: item.insertPrefix,
@@ -1770,6 +1835,59 @@ function initSettingsFormManager() {
     if (!listContainer) return;
 
     let forms = getStoredForms();
+    let originalFormsData = JSON.stringify(forms);
+    let originalSettingsState = null;
+
+    function captureSettingsState() {
+        const form = document.getElementById('settings-form');
+        if (!form) return {};
+        const state = {};
+        const elements = form.elements;
+        for (let i = 0; i < elements.length; i++) {
+            const el = elements[i];
+            if (!el.name || el.name === 'forms_json' || el.type === 'submit' || el.type === 'button') continue;
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                state[el.name] = el.checked;
+            } else {
+                state[el.name] = el.value;
+            }
+        }
+        return state;
+    }
+
+    function checkSettingsDirty() {
+        if (!originalSettingsState) {
+            originalSettingsState = captureSettingsState();
+            return false;
+        }
+        const currentState = captureSettingsState();
+        let isSettingsDiff = false;
+        const origKeys = Object.keys(originalSettingsState);
+        const currKeys = Object.keys(currentState);
+
+        if (origKeys.length !== currKeys.length) {
+            isSettingsDiff = true;
+        } else {
+            for (const k of origKeys) {
+                const origVal = typeof originalSettingsState[k] === 'string' ? originalSettingsState[k].trim() : originalSettingsState[k];
+                const currVal = typeof currentState[k] === 'string' ? currentState[k].trim() : currentState[k];
+                if (origVal !== currVal) {
+                    isSettingsDiff = true;
+                    break;
+                }
+            }
+        }
+
+        const currentFormsData = JSON.stringify(forms);
+        const isFormsDiff = (currentFormsData !== originalFormsData);
+
+        window.isSettingsDirty = isSettingsDiff;
+        window.isFormsDirty = isFormsDiff;
+        return isSettingsDiff || isFormsDiff;
+    }
+    window.checkSettingsDirty = checkSettingsDirty;
+    window.captureSettingsState = captureSettingsState;
+
     const builderOverlay = document.getElementById('form-builder-overlay');
     const schemaOverlay = document.getElementById('schema-viewer-overlay');
     const btnCreate = document.getElementById('btn-create-form');
@@ -1794,8 +1912,8 @@ function initSettingsFormManager() {
     }
 
     function markFormsDirty() {
-        window.isFormsDirty = true;
         syncFormsData();
+        checkSettingsDirty();
     }
 
     function renderCards() {
@@ -2349,7 +2467,7 @@ function initSettingsFormManager() {
                 input.value = input.dataset.userValue;
             }
         }
-        window.isSettingsDirty = true;
+        checkSettingsDirty();
     };
 
     window.restoreDefaultSetting = async function(key) {
@@ -2373,8 +2491,77 @@ function initSettingsFormManager() {
         } catch (e) {
             console.warn('API restore setting error:', e);
         }
-        window.isSettingsDirty = true;
+        checkSettingsDirty();
     };
+
+    async function saveSettingsPreferences() {
+        const form = document.getElementById('settings-form');
+        if (!form) return false;
+
+        syncFormsData();
+
+        const saveBtn = form.querySelector('button[type="submit"]') || form.querySelector('.btn-primary');
+        let originalBtnHtml = '';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            originalBtnHtml = saveBtn.innerHTML;
+            saveBtn.innerHTML = `
+                <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                <span>Saving Preferences...</span>
+            `;
+        }
+
+        try {
+            const formData = new FormData(form);
+            formData.append('ajax', '1');
+
+            const res = await fetch(form.action || '/set', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            if (!res.ok) {
+                throw new Error(`Server returned HTTP ${res.status}`);
+            }
+
+            if (Array.isArray(forms)) {
+                try {
+                    await fetch('/api/forms', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ forms: forms })
+                    });
+                } catch (err) {
+                    console.warn('Batch forms save fallback:', err);
+                }
+            }
+
+            originalSettingsState = captureSettingsState();
+            originalFormsData = JSON.stringify(forms);
+            window.isSettingsDirty = false;
+            window.isFormsDirty = false;
+
+            if (typeof window.showToast === 'function') {
+                window.showToast('Preferences saved successfully!', 'success', 3500);
+            }
+            return true;
+        } catch (err) {
+            console.error('Failed to save preferences:', err);
+            if (typeof window.showToast === 'function') {
+                window.showToast('Failed to save preferences: ' + err.message, 'error');
+            }
+            return false;
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnHtml;
+            }
+        }
+    }
+    window.saveSettingsPreferences = saveSettingsPreferences;
 
     // Settings form input dirty tracking and bottom Save button enforcement
     const settingsForm = document.getElementById('settings-form');
@@ -2395,32 +2582,24 @@ function initSettingsFormManager() {
         });
 
         settingsForm.addEventListener('input', () => {
-            window.isSettingsDirty = true;
+            checkSettingsDirty();
         });
         settingsForm.addEventListener('change', () => {
-            window.isSettingsDirty = true;
+            checkSettingsDirty();
         });
 
         settingsForm.addEventListener('submit', async (e) => {
-            syncFormsData();
-            window._isNavigating = true;
-            window.clearAllDirtyState();
-            if (window.isFormsDirty) {
-                try {
-                    await fetch('/api/forms', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ forms: forms })
-                    });
-                } catch (err) {
-                    console.warn('Batch forms save fallback:', err);
-                }
-            }
+            e.preventDefault();
+            await saveSettingsPreferences();
         });
     }
 
     syncFormsData();
     renderCards();
+    originalSettingsState = captureSettingsState();
+    originalFormsData = JSON.stringify(forms);
+    window.isSettingsDirty = false;
+    window.isFormsDirty = false;
 }
 
 /**
@@ -2708,6 +2887,43 @@ function initSearchSelection() {
             selected.add(docId);
         } else {
             selected.delete(docId);
+        }
+        saveSelectedResults(selected);
+        updateSelectionUI();
+    });
+
+    resultsContainer.addEventListener('click', (e) => {
+        // If the user has highlighted text (dragging to select/copy), do not toggle
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim().length > 0) {
+            return;
+        }
+
+        // Ignore interactive elements so their native behavior is preserved
+        if (e.target.closest('a, button, input, select, textarea, label, [role="button"]')) {
+            return;
+        }
+
+        // Ignore clicks directly inside the text snippet preview
+        if (e.target.closest('.search-result-snippet')) {
+            return;
+        }
+
+        // Locate parent result card
+        const card = e.target.closest('.search-result');
+        if (!card) return;
+
+        const cb = card.querySelector('.result-select-checkbox');
+        if (!cb) return;
+
+        const docId = cb.dataset.id || cb.dataset.url || card.dataset.id;
+        if (!docId) return;
+
+        const selected = getSelectedResults();
+        if (selected.has(docId)) {
+            selected.delete(docId);
+        } else {
+            selected.add(docId);
         }
         saveSelectedResults(selected);
         updateSelectionUI();
@@ -4137,6 +4353,7 @@ window.showToast = function(message, type = 'info', duration = 4000) {
 
 var currentConfigData = {
     skippedNames: [],
+    excludedmimetypes: [],
     indexallfilenames: true,
     noaspell: false,
     indexstemmingpositions: true,
@@ -4154,12 +4371,13 @@ window.isIndexConfigDirty = function() {
 };
 
 function initIndexConfig() {
-    const hasConfig = document.getElementById('skipped-names-chip-list') || document.getElementById('conf-indexallfilenames');
+    const hasConfig = document.getElementById('skipped-names-chip-list') || document.getElementById('excluded-mimetypes-chip-list') || document.getElementById('conf-indexallfilenames');
     if (!hasConfig) return;
 
     if (!currentConfigData) {
         currentConfigData = {
             skippedNames: [],
+            excludedmimetypes: [],
             indexallfilenames: true,
             noaspell: false,
             indexstemmingpositions: true,
@@ -4183,11 +4401,15 @@ function initIndexConfig() {
         });
     }
 
+    // Setup auto-completion and enter key handler for excluded MIME types
+    setupMimeAutocomplete();
+
     // If server rendered initial config in template, populate immediately
     if (window.INITIAL_INDEX_CONFIG && typeof window.INITIAL_INDEX_CONFIG === 'object') {
         const initData = window.INITIAL_INDEX_CONFIG;
         currentConfigData = {
             skippedNames: Array.isArray(initData.skippedNames) ? [...initData.skippedNames] : [],
+            excludedmimetypes: Array.isArray(initData.excludedmimetypes) ? [...initData.excludedmimetypes] : [],
             indexallfilenames: Boolean(initData.indexallfilenames),
             noaspell: Boolean(initData.noaspell),
             indexstemmingpositions: Boolean(initData.indexstemmingpositions),
@@ -4200,6 +4422,16 @@ function initIndexConfig() {
         originalConfigData = JSON.parse(JSON.stringify(currentConfigData));
         renderConfigFields();
     }
+
+    // Bind input and change listeners for accurate dirty tracking
+    ['conf-indexallfilenames', 'conf-noaspell', 'conf-indexstemmingpositions', 'conf-pdfocrmode', 'conf-idxthreads', 'conf-thrQSlices', 'conf-idxflushmb', 'conf-idxabsml'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.dataset.dirtyBound) {
+            el.dataset.dirtyBound = 'true';
+            el.addEventListener('input', () => checkIndexConfigDirty());
+            el.addEventListener('change', () => checkIndexConfigDirty());
+        }
+    });
 
     // Always fetch latest configuration from backend
     loadIndexConfig();
@@ -4218,6 +4450,7 @@ async function loadIndexConfig(isReset = false) {
         if (data.success && data.config) {
             currentConfigData = {
                 skippedNames: Array.isArray(data.config.skippedNames) ? [...data.config.skippedNames] : [],
+                excludedmimetypes: Array.isArray(data.config.excludedmimetypes) ? [...data.config.excludedmimetypes] : [],
                 indexallfilenames: Boolean(data.config.indexallfilenames),
                 noaspell: Boolean(data.config.noaspell),
                 indexstemmingpositions: Boolean(data.config.indexstemmingpositions),
@@ -4257,6 +4490,7 @@ async function loadIndexConfig(isReset = false) {
 
 function renderConfigFields() {
     renderSkippedNamesChips();
+    renderExcludedMimeTypesChips();
 
     const elAllNames = document.getElementById('conf-indexallfilenames');
     if (elAllNames) elAllNames.checked = currentConfigData.indexallfilenames;
@@ -4491,10 +4725,466 @@ function clearPatternFeedback() {
     if (alertEl) alertEl.style.display = 'none';
 }
 
-function markConfigDirty() {
-    isConfigDirty = true;
-    window.isConfigDirty = true;
+/* ==========================================================================
+   Excluded MIME Types Management & Autocomplete
+   ========================================================================== */
+
+const KNOWN_MIME_TYPES = [
+    // Wildcards
+    { value: 'image/*', desc: 'All image formats' },
+    { value: 'audio/*', desc: 'All audio formats' },
+    { value: 'video/*', desc: 'All video formats' },
+    { value: 'text/*', desc: 'All text formats' },
+    // Documents & Office
+    { value: 'application/pdf', desc: 'PDF Document (*.pdf)' },
+    { value: 'application/msword', desc: 'Word Document (*.doc)' },
+    { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', desc: 'Word Document (*.docx)' },
+    { value: 'application/vnd.ms-excel', desc: 'Excel Spreadsheet (*.xls)' },
+    { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', desc: 'Excel Spreadsheet (*.xlsx)' },
+    { value: 'application/vnd.ms-powerpoint', desc: 'PowerPoint (*.ppt)' },
+    { value: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', desc: 'PowerPoint (*.pptx)' },
+    { value: 'application/vnd.oasis.opendocument.text', desc: 'OpenDocument Text (*.odt)' },
+    { value: 'application/vnd.oasis.opendocument.spreadsheet', desc: 'OpenDocument Spreadsheet (*.ods)' },
+    { value: 'application/rtf', desc: 'Rich Text Format (*.rtf)' },
+    { value: 'application/epub+zip', desc: 'EPUB E-Book (*.epub)' },
+    // Text & Code
+    { value: 'text/plain', desc: 'Plain Text (*.txt)' },
+    { value: 'text/x-log', desc: 'Log File (*.log)' },
+    { value: 'text/csv', desc: 'CSV Data (*.csv)' },
+    { value: 'text/html', desc: 'HTML Document (*.html, *.htm)' },
+    { value: 'text/css', desc: 'Cascading Style Sheet (*.css)' },
+    { value: 'text/markdown', desc: 'Markdown (*.md, *.markdown)' },
+    { value: 'text/xml', desc: 'XML Document (*.xml)' },
+    { value: 'application/xml', desc: 'XML Application Data' },
+    { value: 'application/json', desc: 'JSON Data (*.json)' },
+    { value: 'application/yaml', desc: 'YAML Configuration (*.yaml, *.yml)' },
+    { value: 'text/x-python', desc: 'Python Script (*.py)' },
+    { value: 'text/x-c', desc: 'C Source Code (*.c)' },
+    { value: 'text/x-c++', desc: 'C++ Source Code (*.cpp, *.cc)' },
+    { value: 'text/javascript', desc: 'JavaScript Code (*.js)' },
+    { value: 'application/javascript', desc: 'JavaScript (*.js)' },
+    // Email & Messages
+    { value: 'message/rfc822', desc: 'Email Message (*.eml)' },
+    { value: 'application/vnd.ms-outlook', desc: 'Outlook Message / Store (*.msg, *.pst)' },
+    // Images
+    { value: 'image/jpeg', desc: 'JPEG Image (*.jpg, *.jpeg)' },
+    { value: 'image/png', desc: 'PNG Image (*.png)' },
+    { value: 'image/gif', desc: 'GIF Image (*.gif)' },
+    { value: 'image/webp', desc: 'WebP Image (*.webp)' },
+    { value: 'image/svg+xml', desc: 'SVG Vector Graphic (*.svg)' },
+    { value: 'image/tiff', desc: 'TIFF Image (*.tif, *.tiff)' },
+    // Audio
+    { value: 'audio/mpeg', desc: 'MP3 Audio (*.mp3)' },
+    { value: 'audio/ogg', desc: 'OGG Audio (*.ogg)' },
+    { value: 'audio/wav', desc: 'WAV Audio (*.wav)' },
+    { value: 'audio/flac', desc: 'FLAC Audio (*.flac)' },
+    { value: 'audio/aac', desc: 'AAC Audio (*.aac)' },
+    // Video
+    { value: 'video/mp4', desc: 'MP4 Video (*.mp4)' },
+    { value: 'video/x-matroska', desc: 'Matroska Video (*.mkv)' },
+    { value: 'video/quicktime', desc: 'QuickTime Video (*.mov)' },
+    { value: 'video/x-msvideo', desc: 'AVI Video (*.avi)' },
+    { value: 'video/webm', desc: 'WebM Video (*.webm)' },
+    // Archives & Binaries
+    { value: 'application/zip', desc: 'ZIP Archive (*.zip)' },
+    { value: 'application/x-tar', desc: 'TAR Archive (*.tar)' },
+    { value: 'application/gzip', desc: 'GZIP Compressed (*.gz)' },
+    { value: 'application/x-bzip2', desc: 'BZIP2 Compressed (*.bz2)' },
+    { value: 'application/x-7z-compressed', desc: '7-Zip Archive (*.7z)' },
+    { value: 'application/x-rar-compressed', desc: 'RAR Archive (*.rar)' },
+    { value: 'application/octet-stream', desc: 'Binary / Generic Data (*.bin, *.iso)' },
+    { value: 'application/x-executable', desc: 'Executable Binary (*.exe, ELF)' }
+];
+
+function renderExcludedMimeTypesChips() {
+    const container = document.getElementById('excluded-mimetypes-chip-list');
+    const countEl = document.getElementById('excluded-mimetypes-count');
+    if (!container) return;
+
+    const list = Array.isArray(currentConfigData.excludedmimetypes) ? currentConfigData.excludedmimetypes : [];
+
+    if (countEl) {
+        countEl.textContent = `${list.length} type${list.length === 1 ? '' : 's'}`;
+    }
+
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 6px 0;">
+                No excluded MIME types configured. All supported file contents will be indexed.
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    list.forEach((mtype, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'config-chip mime-chip';
+        chip.dataset.index = index;
+        chip.dataset.pattern = mtype;
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'chip-text';
+        textSpan.textContent = mtype;
+        textSpan.title = 'Click to edit MIME type';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'chip-remove-btn';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = `Remove "${mtype}"`;
+
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeExcludedMimeType(index);
+        });
+
+        textSpan.addEventListener('click', () => {
+            enableMimeChipInlineEdit(chip, textSpan, index);
+        });
+
+        chip.appendChild(textSpan);
+        chip.appendChild(removeBtn);
+        container.appendChild(chip);
+    });
+}
+
+function enableMimeChipInlineEdit(chip, textSpan, index) {
+    if (chip.classList.contains('is-editing')) return;
+    chip.classList.add('is-editing');
+
+    const currentVal = currentConfigData.excludedmimetypes[index];
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chip-edit-input';
+    input.value = currentVal;
+    input.spellcheck = false;
+
+    chip.replaceChild(input, textSpan);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    function commitEdit() {
+        if (finished) return;
+        finished = true;
+
+        const newVal = input.value.trim();
+        if (!newVal || newVal === currentVal) {
+            chip.classList.remove('is-editing');
+            chip.replaceChild(textSpan, input);
+            return;
+        }
+
+        // Check for duplicate with other entries
+        const duplicateIndex = currentConfigData.excludedmimetypes.findIndex((m, i) => i !== index && m.toLowerCase() === newVal.toLowerCase());
+        if (duplicateIndex !== -1) {
+            showMimeFeedback(`MIME type "${newVal}" already exists in excludedmimetypes list`, true);
+            highlightDuplicateMimeChip(duplicateIndex);
+            showToast(`Duplicate MIME type "${newVal}" rejected`, 'warning');
+            chip.classList.remove('is-editing');
+            chip.replaceChild(textSpan, input);
+            return;
+        }
+
+        currentConfigData.excludedmimetypes[index] = newVal;
+        markConfigDirty();
+        renderExcludedMimeTypesChips();
+        showToast(`MIME type updated to "${newVal}"`, 'info', 2000);
+    }
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            commitEdit();
+        } else if (e.key === 'Escape') {
+            finished = true;
+            chip.classList.remove('is-editing');
+            chip.replaceChild(textSpan, input);
+        }
+    });
+    input.addEventListener('blur', commitEdit);
+}
+
+function removeExcludedMimeType(index) {
+    const removed = currentConfigData.excludedmimetypes.splice(index, 1)[0];
+    markConfigDirty();
+    renderExcludedMimeTypesChips();
+    showToast(`Removed MIME type "${removed}"`, 'info', 2000);
+}
+
+function handleAddExcludedMimeType(specificVal) {
+    const input = document.getElementById('input-new-mime');
+    const raw = (specificVal != null ? String(specificVal) : (input ? input.value : '')).trim();
+    if (!raw) return;
+
+    hideMimeAutocomplete();
+
+    // Support space-separated or comma-separated tokens
+    const tokens = raw.split(/[\s,]+/).filter(Boolean);
+    let addedCount = 0;
+    let duplicateTokens = [];
+
+    if (!Array.isArray(currentConfigData.excludedmimetypes)) {
+        currentConfigData.excludedmimetypes = [];
+    }
+
+    tokens.forEach(token => {
+        const exists = currentConfigData.excludedmimetypes.some(m => m.toLowerCase() === token.toLowerCase());
+        if (exists) {
+            duplicateTokens.push(token);
+        } else {
+            currentConfigData.excludedmimetypes.push(token);
+            addedCount++;
+        }
+    });
+
+    if (duplicateTokens.length > 0) {
+        const firstDup = duplicateTokens[0];
+        showMimeFeedback(`MIME type "${firstDup}" is already in the excluded MIME types list!`, true);
+        const dupIdx = currentConfigData.excludedmimetypes.findIndex(m => m.toLowerCase() === firstDup.toLowerCase());
+        if (dupIdx !== -1) highlightDuplicateMimeChip(dupIdx);
+        showToast(`Duplicate MIME type "${firstDup}" rejected`, 'warning');
+    } else {
+        clearMimeFeedback();
+    }
+
+    if (addedCount > 0) {
+        if (input) input.value = '';
+        markConfigDirty();
+        renderExcludedMimeTypesChips();
+        const container = document.getElementById('excluded-mimetypes-chip-list');
+        if (container) container.scrollTop = container.scrollHeight;
+        showToast(`Added ${addedCount} MIME type${addedCount > 1 ? 's' : ''}`, 'success', 2000);
+    }
+}
+
+function highlightDuplicateMimeChip(index) {
+    const container = document.getElementById('excluded-mimetypes-chip-list');
+    if (!container) return;
+    const chip = container.querySelector(`.config-chip[data-index="${index}"]`);
+    if (chip) {
+        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        chip.classList.remove('chip-duplicate-highlight');
+        void chip.offsetWidth;
+        chip.classList.add('chip-duplicate-highlight');
+        setTimeout(() => { chip.classList.remove('chip-duplicate-highlight'); }, 1400);
+    }
+}
+
+function sortExcludedMimeTypes() {
+    if (!Array.isArray(currentConfigData.excludedmimetypes)) return;
+    currentConfigData.excludedmimetypes.sort((a, b) => a.localeCompare(b));
+    markConfigDirty();
+    renderExcludedMimeTypesChips();
+    showToast('MIME types sorted alphabetically', 'info', 2000);
+}
+
+function showMimeFeedback(msg, isError = false) {
+    const alertEl = document.getElementById('mime-feedback-msg');
+    const textEl = document.getElementById('mime-feedback-text');
+    if (alertEl && textEl) {
+        textEl.textContent = msg;
+        alertEl.className = 'pattern-feedback-msg' + (isError ? ' is-error' : '');
+        alertEl.style.display = 'flex';
+        setTimeout(clearMimeFeedback, 4500);
+    }
+}
+
+function clearMimeFeedback() {
+    const alertEl = document.getElementById('mime-feedback-msg');
+    if (alertEl) alertEl.style.display = 'none';
+}
+
+function hideMimeAutocomplete() {
+    const dropdown = document.getElementById('mime-autocomplete-dropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+        dropdown.dataset.selectedIndex = '-1';
+    }
+}
+
+function setupMimeAutocomplete() {
+    const input = document.getElementById('input-new-mime');
+    const dropdown = document.getElementById('mime-autocomplete-dropdown');
+    if (!input || !dropdown || input.dataset.autocompleteBound) return;
+    input.dataset.autocompleteBound = 'true';
+
+    function getFilteredMimeSuggestions(query) {
+        const q = (query || '').trim().toLowerCase();
+        const existing = new Set((currentConfigData.excludedmimetypes || []).map(m => m.toLowerCase()));
+
+        return KNOWN_MIME_TYPES.filter(item => {
+            if (existing.has(item.value.toLowerCase())) return false;
+            if (!q) return true;
+            return item.value.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+        }).slice(0, 10);
+    }
+
+    function renderMimeSuggestions(suggestions) {
+        if (!suggestions || suggestions.length === 0) {
+            hideMimeAutocomplete();
+            return;
+        }
+
+        dropdown.innerHTML = '';
+        dropdown.dataset.selectedIndex = '-1';
+
+        suggestions.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'mime-autocomplete-item';
+            row.dataset.index = idx;
+            row.dataset.value = item.value;
+
+            const valSpan = document.createElement('span');
+            valSpan.className = 'mime-type-val';
+            valSpan.textContent = item.value;
+
+            const descSpan = document.createElement('span');
+            descSpan.className = 'mime-type-desc';
+            descSpan.textContent = item.desc;
+
+            row.appendChild(valSpan);
+            row.appendChild(descSpan);
+
+            row.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // prevent input blur before addition
+                handleAddExcludedMimeType(item.value);
+            });
+
+            dropdown.appendChild(row);
+        });
+
+        dropdown.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => {
+        const query = input.value;
+        const matches = getFilteredMimeSuggestions(query);
+        renderMimeSuggestions(matches);
+    });
+
+    input.addEventListener('focus', () => {
+        const query = input.value;
+        const matches = getFilteredMimeSuggestions(query);
+        renderMimeSuggestions(matches);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('.mime-autocomplete-item');
+        const isOpen = dropdown.style.display !== 'none' && items.length > 0;
+        let selectedIdx = parseInt(dropdown.dataset.selectedIndex || '-1', 10);
+
+        if (e.key === 'ArrowDown') {
+            if (isOpen) {
+                e.preventDefault();
+                selectedIdx = (selectedIdx + 1) % items.length;
+                dropdown.dataset.selectedIndex = selectedIdx;
+                items.forEach((it, idx) => it.classList.toggle('is-selected', idx === selectedIdx));
+                items[selectedIdx].scrollIntoView({ block: 'nearest' });
+            }
+        } else if (e.key === 'ArrowUp') {
+            if (isOpen) {
+                e.preventDefault();
+                selectedIdx = (selectedIdx - 1 + items.length) % items.length;
+                dropdown.dataset.selectedIndex = selectedIdx;
+                items.forEach((it, idx) => it.classList.toggle('is-selected', idx === selectedIdx));
+                items[selectedIdx].scrollIntoView({ block: 'nearest' });
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (isOpen && selectedIdx >= 0 && selectedIdx < items.length) {
+                const selectedVal = items[selectedIdx].dataset.value;
+                handleAddExcludedMimeType(selectedVal);
+            } else {
+                handleAddExcludedMimeType();
+            }
+        } else if (e.key === 'Tab') {
+            if (isOpen && selectedIdx >= 0 && selectedIdx < items.length) {
+                e.preventDefault();
+                const selectedVal = items[selectedIdx].dataset.value;
+                handleAddExcludedMimeType(selectedVal);
+            }
+        } else if (e.key === 'Escape') {
+            if (isOpen) {
+                e.preventDefault();
+                hideMimeAutocomplete();
+            }
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+            hideMimeAutocomplete();
+        }
+    });
+}
+
+function getCurrentDOMIndexConfig() {
+    const elAllNames = document.getElementById('conf-indexallfilenames');
+    const elNoAspell = document.getElementById('conf-noaspell');
+    const elStemPos = document.getElementById('conf-indexstemmingpositions');
+    const elPdfOcr = document.getElementById('conf-pdfocrmode');
+    const elThreads = document.getElementById('conf-idxthreads');
+    const elSlices = document.getElementById('conf-thrQSlices');
+    const elFlush = document.getElementById('conf-idxflushmb');
+    const elAbsml = document.getElementById('conf-idxabsml');
+
+    return {
+        skippedNames: currentConfigData ? (currentConfigData.skippedNames || []) : [],
+        excludedmimetypes: currentConfigData ? (currentConfigData.excludedmimetypes || []) : [],
+        indexallfilenames: elAllNames ? Boolean(elAllNames.checked) : true,
+        noaspell: elNoAspell ? Boolean(elNoAspell.checked) : false,
+        indexstemmingpositions: elStemPos ? Boolean(elStemPos.checked) : true,
+        pdfocrmode: elPdfOcr ? elPdfOcr.value : 'off',
+        idxthreads: elThreads ? parseInt(elThreads.value || '2', 10) : 2,
+        thrQSlices: elSlices ? String(elSlices.value || '1') : "1",
+        idxflushmb: elFlush ? parseInt(elFlush.value || '50', 10) : 50,
+        idxabsml: elAbsml ? parseInt(elAbsml.value || '250', 10) : 250
+    };
+}
+
+function isIndexConfigEqual(a, b) {
+    if (!a || !b) return a === b;
+    if (Boolean(a.indexallfilenames) !== Boolean(b.indexallfilenames)) return false;
+    if (Boolean(a.noaspell) !== Boolean(b.noaspell)) return false;
+    if (Boolean(a.indexstemmingpositions) !== Boolean(b.indexstemmingpositions)) return false;
+    if (String(a.pdfocrmode || 'off') !== String(b.pdfocrmode || 'off')) return false;
+    if (Number(a.idxthreads || 0) !== Number(b.idxthreads || 0)) return false;
+    if (String(a.thrQSlices || '1') !== String(b.thrQSlices || '1')) return false;
+    if (Number(a.idxflushmb || 0) !== Number(b.idxflushmb || 0)) return false;
+    if (Number(a.idxabsml || 0) !== Number(b.idxabsml || 0)) return false;
+
+    const aSkipped = a.skippedNames || [];
+    const bSkipped = b.skippedNames || [];
+    if (aSkipped.length !== bSkipped.length) return false;
+    for (let i = 0; i < aSkipped.length; i++) {
+        if (aSkipped[i] !== bSkipped[i]) return false;
+    }
+
+    const aExcluded = a.excludedmimetypes || [];
+    const bExcluded = b.excludedmimetypes || [];
+    if (aExcluded.length !== bExcluded.length) return false;
+    for (let i = 0; i < aExcluded.length; i++) {
+        if (aExcluded[i] !== bExcluded[i]) return false;
+    }
+
+    return true;
+}
+
+function checkIndexConfigDirty() {
+    if (!originalConfigData) return false;
+    const current = getCurrentDOMIndexConfig();
+    const isDirty = !isIndexConfigEqual(current, originalConfigData);
+    isConfigDirty = isDirty;
+    window.isConfigDirty = isDirty;
     updateConfigBadge();
+    return isDirty;
+}
+window.checkIndexConfigDirty = checkIndexConfigDirty;
+
+function markConfigDirty() {
+    checkIndexConfigDirty();
 }
 
 function updateConfigBadge() {
@@ -4511,7 +5201,8 @@ function updateConfigBadge() {
     }
 }
 
-async function saveIndexConfig() {
+async function saveIndexConfig(options = {}) {
+    const opts = (typeof options === 'object' && options !== null) ? options : {};
     const btnSave = document.getElementById('btn-save-index-config');
     const btnIcon = document.getElementById('btn-save-config-icon');
     const btnText = document.getElementById('btn-save-config-text');
@@ -4555,6 +5246,7 @@ async function saveIndexConfig() {
 
     const payload = {
         skippedNames: currentConfigData.skippedNames,
+        excludedmimetypes: currentConfigData.excludedmimetypes,
         indexallfilenames: elAllNames ? elAllNames.checked : true,
         noaspell: elNoAspell ? elNoAspell.checked : false,
         indexstemmingpositions: elStemPos ? elStemPos.checked : true,
@@ -4572,8 +5264,7 @@ async function saveIndexConfig() {
     }
     if (btnText) btnText.textContent = 'Saving Configuration...';
     if (statusEl) {
-        statusEl.textContent = 'Writing updates to recoll.conf...';
-        statusEl.className = 'status-msg';
+        statusEl.textContent = '';
     }
 
     try {
@@ -4587,6 +5278,7 @@ async function saveIndexConfig() {
         if (data.success) {
             currentConfigData = {
                 skippedNames: data.config.skippedNames || payload.skippedNames,
+                excludedmimetypes: data.config.excludedmimetypes || payload.excludedmimetypes,
                 indexallfilenames: Boolean(data.config.indexallfilenames),
                 noaspell: Boolean(data.config.noaspell),
                 indexstemmingpositions: Boolean(data.config.indexstemmingpositions),
@@ -4602,19 +5294,18 @@ async function saveIndexConfig() {
             updateConfigBadge();
 
             if (statusEl) {
-                statusEl.textContent = 'recoll.conf configuration saved successfully!';
-                statusEl.className = 'status-msg status-msg-success';
-                setTimeout(() => { statusEl.textContent = ''; }, 4500);
+                statusEl.textContent = '';
             }
-            showToast('Index configuration saved successfully!', 'success', 3500);
+            if (!opts.silent) {
+                showToast('Index configuration saved successfully!', 'success', 3500);
+            }
         } else {
             throw new Error(data.error || 'Unknown server error');
         }
     } catch (err) {
         console.error('Failed to save index configuration:', err);
         if (statusEl) {
-            statusEl.textContent = 'Error saving config: ' + err.message;
-            statusEl.className = 'status-msg status-msg-error';
+            statusEl.textContent = '';
         }
         showToast('Failed to save config: ' + err.message, 'error');
     } finally {
@@ -4637,6 +5328,13 @@ window.highlightDuplicateChip = highlightDuplicateChip;
 window.sortSkippedNames = sortSkippedNames;
 window.showPatternFeedback = showPatternFeedback;
 window.clearPatternFeedback = clearPatternFeedback;
+window.renderExcludedMimeTypesChips = renderExcludedMimeTypesChips;
+window.removeExcludedMimeType = removeExcludedMimeType;
+window.handleAddExcludedMimeType = handleAddExcludedMimeType;
+window.highlightDuplicateMimeChip = highlightDuplicateMimeChip;
+window.sortExcludedMimeTypes = sortExcludedMimeTypes;
+window.showMimeFeedback = showMimeFeedback;
+window.clearMimeFeedback = clearMimeFeedback;
 window.markConfigDirty = markConfigDirty;
 window.updateConfigBadge = updateConfigBadge;
 window.saveIndexConfig = saveIndexConfig;

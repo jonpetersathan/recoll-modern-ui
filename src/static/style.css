@@ -1694,6 +1694,14 @@ input.form-control:focus {
     border-radius: 14px;
 }
 
+.results-container.view-simple .card-header-row {
+    align-items: center;
+}
+
+.results-container.view-simple .card-title-group {
+    align-items: center;
+}
+
 .results-container.view-simple .search-result-snippet,
 .results-container.view-simple .result-custom-meta,
 .results-container.view-simple .card-actions-row {
@@ -1704,6 +1712,7 @@ input.form-control:focus {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    justify-content: center;
     gap: 8px;
     margin-left: auto;
     flex-shrink: 0;
@@ -1725,10 +1734,13 @@ input.form-control:focus {
     height: 36px;
     padding: 6px;
     border-radius: 8px;
+    align-self: center;
+    margin: 0;
 }
 
 .results-container.view-simple .result-select-label {
-    margin-top: 9px;
+    margin: 0;
+    align-self: center;
 }
 
 .results-container.view-simple .app-title {
@@ -1741,6 +1753,22 @@ input.form-control:focus {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.app-card.search-result {
+    cursor: pointer;
+}
+
+.app-card.search-result .search-result-snippet {
+    cursor: text;
+}
+
+.app-card.search-result a,
+.app-card.search-result button,
+.app-card.search-result label,
+.app-card.search-result input,
+.app-card.search-result .app-icon {
+    cursor: pointer;
 }
 
 .app-card.search-result.is-selected {
@@ -1835,6 +1863,8 @@ input.form-control:focus {
 }
 
 .result-index {
+    display: inline-flex;
+    align-items: center;
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-muted);
@@ -1842,6 +1872,10 @@ input.form-control:focus {
     border: 1px solid var(--card-border);
     padding: 2px 7px;
     border-radius: 6px;
+    vertical-align: middle;
+    margin-right: 6px;
+    line-height: 1;
+    letter-spacing: normal;
 }
 
 .app-title {
@@ -2022,6 +2056,23 @@ input.form-control:focus {
     background: rgba(139, 92, 246, 0.2);
     border-color: rgba(139, 92, 246, 0.45);
     color: #f3e8ff;
+}
+
+/* Document Size Label */
+.result-label-size {
+    background: rgba(56, 189, 248, 0.09);
+    border: 1px solid rgba(56, 189, 248, 0.26);
+    color: #7dd3fc;
+}
+
+.result-label-size svg {
+    color: #38bdf8;
+}
+
+.result-label-size:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.42);
+    color: #e0f2fe;
 }
 
 /* Snippet */
@@ -5002,9 +5053,10 @@ input.form-control-query:active {
 .chip-tag-container {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
     padding: 12px 14px;
-    min-height: 86px;
+    min-height: 58px;
     max-height: 240px;
     overflow-y: auto;
     background: rgba(15, 19, 34, 0.65);
@@ -5035,10 +5087,11 @@ input.form-control-query:active {
     padding: 4px 10px;
     background: rgba(139, 92, 246, 0.14);
     border: 1px solid rgba(139, 92, 246, 0.28);
-    border-radius: 8px;
+    border-radius: 6px;
     color: #e2e8f0;
     font-family: var(--font-mono);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+    line-height: 1.3;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
 }
@@ -5047,6 +5100,19 @@ input.form-control-query:active {
     background: rgba(139, 92, 246, 0.24);
     border-color: var(--accent);
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+    color: #ffffff;
+}
+
+.config-chip.mime-chip {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.28);
+    color: #bae6fd;
+}
+
+.config-chip.mime-chip:hover {
+    background: rgba(56, 189, 248, 0.22);
+    border-color: #38bdf8;
+    box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
     color: #ffffff;
 }
 
@@ -5064,7 +5130,7 @@ input.form-control-query:active {
     border: none;
     color: #94a3b8;
     cursor: pointer;
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     line-height: 1;
     padding: 0 2px;
     margin-left: 2px;
@@ -5081,7 +5147,7 @@ input.form-control-query:active {
 }
 
 .config-chip.is-editing {
-    padding: 2px 6px;
+    padding: 1px 5px;
     background: rgba(15, 19, 34, 0.9);
     border-color: var(--accent);
     box-shadow: 0 0 10px var(--glow-color);
@@ -5089,13 +5155,14 @@ input.form-control-query:active {
 
 .config-chip .chip-edit-input {
     font-family: var(--font-mono);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    line-height: 1.25;
     background: transparent;
     border: none;
     color: #ffffff;
     outline: none;
     min-width: 70px;
-    padding: 2px 4px;
+    padding: 1px 2px;
 }
 
 /* Duplicate Highlight Pulse Animation */
@@ -5133,11 +5200,76 @@ input.form-control-query:active {
 
 .chip-input-wrap {
     flex: 1;
+    position: relative;
 }
 
 .chip-add-input {
     font-family: var(--font-mono) !important;
     font-size: 0.86rem !important;
+}
+
+/* MIME Type Autocomplete Dropdown */
+.mime-autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 230px;
+    overflow-y: auto;
+    background: rgba(15, 19, 34, 0.98);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 12px rgba(139, 92, 246, 0.15);
+    z-index: 1100;
+    padding: 4px;
+}
+
+.mime-autocomplete-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mime-autocomplete-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.mime-autocomplete-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mime-autocomplete-item:hover,
+.mime-autocomplete-item.is-selected {
+    background: rgba(139, 92, 246, 0.22);
+    color: #ffffff;
+}
+
+.mime-autocomplete-item .mime-type-val {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #38bdf8;
+}
+
+.mime-autocomplete-item:hover .mime-type-val,
+.mime-autocomplete-item.is-selected .mime-type-val {
+    color: #7dd3fc;
+}
+
+.mime-autocomplete-item .mime-type-desc {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .chip-count-badge {

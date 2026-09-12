@@ -14,6 +14,7 @@ import bottle
 from recoll import rclextract
 
 from recollweb.archive import ArchiveManager, _run_archive_worker
+from recollweb.auth import is_auth_proxy_enabled, validate_auth_proxy_request
 from recollweb.browser import BrowserManager
 from recollweb.config import ConfigManager, find_custom_logo
 from recollweb.constants import (
@@ -63,6 +64,39 @@ def register_routes(app: bottle.Bottle):
     """
     Register all HTTP endpoints on the provided Bottle application instance.
     """
+
+    # ------------------------------------------------------------------------
+    # Reverse Auth Proxy Guard
+    # ------------------------------------------------------------------------
+
+    @app.hook('before_request')
+    def enforce_auth_proxy():
+        if is_auth_proxy_enabled():
+            is_valid, status_code, err_msg = validate_auth_proxy_request(bottle.request)
+            if not is_valid:
+                is_json = (
+                    bottle.request.path.startswith('/api/')
+                    or bottle.request.path.startswith('/json')
+                    or bottle.request.params.get('ajax') == '1'
+                    or 'application/json' in bottle.request.headers.get('Accept', '')
+                    or bottle.request.is_xhr
+                )
+                if is_json:
+                    raise bottle.HTTPResponse(
+                        status=status_code,
+                        body=json.dumps({"error": err_msg, "status": status_code}),
+                        headers={"Content-Type": "application/json"}
+                    )
+                raise bottle.HTTPError(
+                    status_code,
+                    body=render_error_page(
+                        code=status_code,
+                        title="Access Forbidden",
+                        desc="Direct connections bypassing reverse proxy authentication are not permitted.",
+                        details=err_msg,
+                        is_warning=True,
+                    )
+                )
 
     # ------------------------------------------------------------------------
     # Static Assets & Logos
@@ -633,7 +667,7 @@ def register_routes(app: bottle.Bottle):
     @app.route('/api/index/config', method=['GET'])
     def api_get_index_config():
         """
-        Return the 9 managed index configuration parameters as JSON.
+        Return the 10 managed index configuration parameters as JSON.
         """
         config = ConfigManager.get_config()
         if not config.get('is_admin', False):
@@ -925,6 +959,10 @@ def register_routes(app: bottle.Bottle):
                     set_global_setting(conf_dir, mount_key, mount_val)
                 else:
                     set_user_setting(conf_dir, current_user, mount_key, mount_val)
+
+        is_ajax = bottle.request.params.get('ajax') == '1' or 'application/json' in bottle.request.headers.get('Accept', '') or bottle.request.is_xhr
+        if is_ajax:
+            return json_response({'success': True})
 
         redirect_target = bottle.request.params.get('redirect', './settings')
         bottle.redirect(redirect_target)
