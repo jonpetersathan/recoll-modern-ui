@@ -2855,107 +2855,178 @@ select.form-preset-select:focus {
 .user-profile-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-md);
-    padding: 0.35rem 0.75rem;
-    font-size: 0.82rem;
-    margin-left: 0.5rem;
+    justify-content: center;
+    gap: 8px;
+    background: var(--tab-bg);
+    border: 1px solid var(--tab-border);
+    color: var(--text-secondary);
+    padding: 12px 18px;
+    min-height: 46px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    border-radius: 12px;
+    transition: all 0.25s ease;
     user-select: none;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    white-space: nowrap;
+    margin-left: 0.5rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.user-profile-badge:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.user-avatar-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .user-avatar-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 17px;
+    height: 17px;
     color: var(--text-secondary);
-    vertical-align: -2px;
 }
 
 .user-name {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-primary);
-    font-family: var(--font-mono);
+    font-family: inherit;
+    font-size: 0.92rem;
 }
 
 .user-role-pill {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+}
+
+.user-role-pill.badge-admin {
+    background: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.user-role-pill.badge-user {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .setting-input-group {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    align-items: stretch;
     width: 100%;
+    position: relative;
+    border-radius: 10px;
+    background: rgba(15, 19, 34, 0.75);
+    border: 1px solid var(--card-border);
+    transition: all 0.25s ease;
+    overflow: hidden;
+}
+
+.setting-input-group:focus-within {
+    border-color: var(--accent);
+    background: rgba(15, 19, 34, 0.95);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
 .setting-input-group .form-control {
     flex: 1;
+    min-width: 0;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 10px 14px;
+    min-height: 42px;
+    color: var(--text-primary);
+}
+
+.setting-input-group select.form-control {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+}
+
+.setting-input-group .form-control:focus {
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
 }
 
 .setting-action-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.72rem;
-    font-weight: 600;
-    border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-secondary);
+    justify-content: center;
+    width: 42px;
+    min-width: 42px;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s ease;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    padding: 0;
+    margin: 0;
+    outline: none;
+}
+
+.setting-action-btn svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .setting-action-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.07);
     color: var(--text-primary);
-    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .setting-action-btn:disabled {
-    opacity: 0.35;
+    opacity: 0.25;
     cursor: not-allowed;
-    border-color: transparent;
+    pointer-events: none;
 }
 
 .setting-action-btn.scope-global {
-    background: rgba(234, 179, 8, 0.12);
-    color: #fde047;
-    border-color: rgba(234, 179, 8, 0.3);
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border-left-color: rgba(245, 158, 11, 0.25);
 }
 
 .setting-action-btn.scope-global:hover:not(:disabled) {
-    background: rgba(234, 179, 8, 0.2);
-    border-color: rgba(234, 179, 8, 0.5);
+    background: rgba(245, 158, 11, 0.22);
+    color: #fef08a;
+    box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.15);
 }
 
 .setting-action-btn.scope-user {
-    background: rgba(59, 130, 246, 0.12);
-    color: #93c5fd;
-    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-muted);
 }
 
 .setting-action-btn.scope-user:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--accent-hover);
 }
 
 .setting-action-btn.btn-restore-default {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-muted);
 }
 
 .setting-action-btn.btn-restore-default:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
-    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    border-left-color: rgba(239, 68, 68, 0.3);
 }
 
 
@@ -5397,13 +5468,14 @@ input.form-control-query:active {
 }
 
 .browser-table td {
-    padding: 4px 16px;
+    padding: 3px 14px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
+    height: 28px !important;
 }
 
 .browser-row {
-    transition: background 0.15s ease, transform 0.15s ease;
+    transition: background 0.15s ease;
 }
 
 .browser-row:hover {
@@ -5416,7 +5488,7 @@ input.form-control-query:active {
 
 /* Columns */
 .col-icon {
-    width: 40px;
+    width: 32px !important;
     padding-right: 0 !important;
     text-align: center;
 }
@@ -5428,25 +5500,25 @@ input.form-control-query:active {
 }
 
 .col-mimetype {
-    width: 180px;
+    width: 160px;
 }
 
 .col-size {
-    width: 110px;
+    width: 100px;
     text-align: right;
-    padding-right: 24px !important;
+    padding-right: 20px !important;
 }
 
 .col-mtime {
-    width: 160px;
+    width: 150px;
     color: var(--text-muted);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
 }
 
 .col-action {
-    width: 110px;
+    width: 95px !important;
     text-align: right;
-    padding-right: 16px !important;
+    padding-right: 14px !important;
 }
 
 /* Item Icons */
@@ -5454,15 +5526,15 @@ input.form-control-query:active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 4px;
     transition: transform 0.2s ease;
 }
 
 .browser-item-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 12px !important;
+    height: 12px !important;
 }
 
 .folder-icon {
@@ -5580,16 +5652,26 @@ input.form-control-query:active {
 
 /* Small Action Buttons */
 .btn-xs {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 7px;
-    font-size: 0.74rem;
-    font-weight: 500;
-    line-height: 1.2;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: all 0.2s ease;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-height: 0 !important;
+    height: 22px !important;
+    max-height: 22px !important;
+    padding: 1px 8px !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    border-radius: 5px !important;
+    text-decoration: none !important;
+    transition: all 0.15s ease !important;
+    box-sizing: border-box !important;
+}
+
+.btn-xs svg {
+    width: 11px !important;
+    height: 11px !important;
 }
 
 /* Remove number input spinner buttons under Performance & Memory Allocation */

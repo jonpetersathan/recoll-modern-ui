@@ -2329,15 +2329,13 @@ function initSettingsFormManager() {
         if (!btn || !scopeInput || !input) return;
 
         const currentScope = scopeInput.value;
-        const scopeText = btn.querySelector('.scope-text');
 
         if (currentScope === 'user') {
             input.dataset.userValue = input.value;
             scopeInput.value = 'global';
             btn.classList.remove('scope-user');
             btn.classList.add('scope-global');
-            if (scopeText) scopeText.textContent = 'Global';
-            btn.title = 'Configuring Global Default setting. Click to switch to User-Specific setting.';
+            btn.title = 'Global Default Setting active (Click to switch to User-Specific)';
             if (input.dataset.globalValue !== undefined) {
                 input.value = input.dataset.globalValue;
             }
@@ -2346,8 +2344,7 @@ function initSettingsFormManager() {
             scopeInput.value = 'user';
             btn.classList.remove('scope-global');
             btn.classList.add('scope-user');
-            if (scopeText) scopeText.textContent = 'User';
-            btn.title = 'Configuring User-Specific setting. Click to switch to Global Default setting.';
+            btn.title = 'User-Specific Setting active (Click to switch to Global Default)';
             if (input.dataset.userValue !== undefined) {
                 input.value = input.dataset.userValue;
             }

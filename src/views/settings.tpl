@@ -39,14 +39,12 @@
                         <input name="stem" id="setting-stem" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_stem" id="scope-stem" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-stem" data-key="stem" onclick="window.toggleAdminScope('stem')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-stem" data-key="stem" onclick="window.toggleAdminScope('stem')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-stem" data-key="stem" onclick="window.restoreDefaultSetting('stem')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -64,14 +62,12 @@
                         <input name="collapsedups" id="setting-collapsedups" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_collapsedups" id="scope-collapsedups" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-collapsedups" data-key="collapsedups" onclick="window.toggleAdminScope('collapsedups')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-collapsedups" data-key="collapsedups" onclick="window.toggleAdminScope('collapsedups')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-collapsedups" data-key="collapsedups" onclick="window.restoreDefaultSetting('collapsedups')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -89,14 +85,12 @@
                         <input name="maxresults" id="setting-maxresults" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_maxresults" id="scope-maxresults" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-maxresults" data-key="maxresults" onclick="window.toggleAdminScope('maxresults')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-maxresults" data-key="maxresults" onclick="window.toggleAdminScope('maxresults')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-maxresults" data-key="maxresults" onclick="window.restoreDefaultSetting('maxresults')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -114,14 +108,12 @@
                         <input name="perpage" id="setting-perpage" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_perpage" id="scope-perpage" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-perpage" data-key="perpage" onclick="window.toggleAdminScope('perpage')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-perpage" data-key="perpage" onclick="window.toggleAdminScope('perpage')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-perpage" data-key="perpage" onclick="window.restoreDefaultSetting('perpage')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -148,14 +140,12 @@
                         <input name="context" id="setting-context" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_context" id="scope-context" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-context" data-key="context" onclick="window.toggleAdminScope('context')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-context" data-key="context" onclick="window.toggleAdminScope('context')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-context" data-key="context" onclick="window.restoreDefaultSetting('context')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -173,14 +163,12 @@
                         <input name="maxchars" id="setting-maxchars" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_maxchars" id="scope-maxchars" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-maxchars" data-key="maxchars" onclick="window.toggleAdminScope('maxchars')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-maxchars" data-key="maxchars" onclick="window.toggleAdminScope('maxchars')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-maxchars" data-key="maxchars" onclick="window.restoreDefaultSetting('maxchars')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -198,14 +186,12 @@
                         <input name="timefmt" id="setting-timefmt" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_timefmt" id="scope-timefmt" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-timefmt" data-key="timefmt" onclick="window.toggleAdminScope('timefmt')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-timefmt" data-key="timefmt" onclick="window.toggleAdminScope('timefmt')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-timefmt" data-key="timefmt" onclick="window.restoreDefaultSetting('timefmt')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -223,14 +209,12 @@
                         <input name="dirdepth" id="setting-dirdepth" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_dirdepth" id="scope-dirdepth" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-dirdepth" data-key="dirdepth" onclick="window.toggleAdminScope('dirdepth')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-dirdepth" data-key="dirdepth" onclick="window.toggleAdminScope('dirdepth')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-dirdepth" data-key="dirdepth" onclick="window.restoreDefaultSetting('dirdepth')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -252,14 +236,12 @@
                         </select>
                         <input type="hidden" name="scope_title_link" id="scope-title_link" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-title_link" data-key="title_link" onclick="window.toggleAdminScope('title_link')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-title_link" data-key="title_link" onclick="window.toggleAdminScope('title_link')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-title_link" data-key="title_link" onclick="window.restoreDefaultSetting('title_link')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -288,14 +270,12 @@
                         <input name="{{mk}}" id="setting-{{mk}}" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_{{mk}}" id="scope-{{mk}}" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-{{mk}}" data-key="{{mk}}" onclick="window.toggleAdminScope('{{mk}}')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-{{mk}}" data-key="{{mk}}" onclick="window.toggleAdminScope('{{mk}}')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-{{mk}}" data-key="{{mk}}" onclick="window.restoreDefaultSetting('{{mk}}')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
@@ -324,14 +304,12 @@
                         <input name="csvfields" id="setting-csvfields" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_csvfields" id="scope-csvfields" value="user">
                         % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-csvfields" data-key="csvfields" onclick="window.toggleAdminScope('csvfields')" title="Switch between user specific and global default setting">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="scope-text">User</span>
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-csvfields" data-key="csvfields" onclick="window.toggleAdminScope('csvfields')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                         </button>
                         % else:
                         <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-csvfields" data-key="csvfields" onclick="window.restoreDefaultSetting('csvfields')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                            <span>Restore</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                         </button>
                         % end
                     </div>
