@@ -8,7 +8,7 @@ import json
 import os
 import threading
 import uuid
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import quote as urlquote
 import bottle
 from recoll import rclextract
@@ -328,33 +328,95 @@ def register_routes(app: bottle.Bottle):
         bottle.response.headers['Vary'] = 'Cookie'
         return extracted_doc.text
 
+    def _parse_selected_param() -> Set[str]:
+        """Extract selected document identifiers from GET query or POST form/JSON body."""
+        selected_ids: Set[str] = set()
+        raw: List[Any] = []
+        if bottle.request.method == 'POST':
+            if bottle.request.json and isinstance(bottle.request.json, dict):
+                sel = bottle.request.json.get('selected')
+                if isinstance(sel, list):
+                    raw.extend(sel)
+                elif isinstance(sel, str):
+                    raw.append(sel)
+            forms_sel = bottle.request.forms.getall('selected')
+            if forms_sel:
+                raw.extend(forms_sel)
+        query_sel = bottle.request.query.getall('selected')
+        if query_sel:
+            raw.extend(query_sel)
+
+        for item in raw:
+            if not item:
+                continue
+            if isinstance(item, list):
+                for sub in item:
+                    if sub and str(sub).strip():
+                        selected_ids.add(str(sub).strip())
+            elif ',' in item and not item.startswith('file://'):
+                for sub in item.split(','):
+                    if sub and sub.strip():
+                        selected_ids.add(sub.strip())
+            else:
+                selected_ids.add(str(item).strip())
+        return selected_ids
+
+    def _is_doc_dict_selected(doc: Dict[str, Any], selected_ids: Set[str]) -> bool:
+        """Check if a result item dict matches selected identifiers."""
+        if not selected_ids:
+            return True
+        rcludi = str(doc.get('rcludi', '') or '')
+        url = str(doc.get('url', '') or '')
+        if rcludi in selected_ids or url in selected_ids:
+            return True
+        if rcludi:
+            if rcludi.rstrip('|') in selected_ids:
+                return True
+            r_stripped = rcludi.replace('/data/', '/').lstrip('/')
+            if r_stripped in selected_ids or r_stripped.rstrip('|') in selected_ids:
+                return True
+        if url:
+            u_stripped = url.replace('file:///data/', 'file:///').replace('/data/', '/')
+            if u_stripped in selected_ids:
+                return True
+            raw_url = url.replace('file://', '')
+            if raw_url in selected_ids or raw_url.replace('/data/', '/') in selected_ids:
+                return True
+        return False
+
     # ------------------------------------------------------------------------
     # Export Endpoints (JSON / CSV / Archive)
     # ------------------------------------------------------------------------
 
-    @app.route('/json')
+    @app.route('/json', method=['GET', 'POST'])
     def export_json():
         config = ConfigManager.get_config()
         query_data = SearchQuery.parse(config)
+        query_data['page'] = 1
+        config['perpage'] = 0  # Export all results, not just one page
         qs = SearchQuery.to_recoll_string(query_data)
         client_ip = get_client_ip()
+        selected_ids = _parse_selected_param()
 
         try:
             res, total_count, _ = RecollSearchEngine.execute_search(query_data, config)
+            if selected_ids:
+                res = [d for d in res if _is_doc_dict_selected(d, selected_ids)]
+                total_count = len(res)
         except Exception as exc:
             logger.warning("EXPORT_JSON_WARNING: Search index unavailable or query error: %s (Client: %s)", exc, client_ip)
             bottle.response.headers['Content-Type'] = 'application/json'
             bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.json"'
             return json.dumps({'query': query_data, 'results': [], 'total': 0})
 
-        logger.info("EXPORT_JSON: query='%s' (terms='%s') -> %d records exported to %s", qs, query_data.get('query', ''), total_count, client_ip)
+        logger.info("EXPORT_JSON: query='%s' (terms='%s', selected=%d) -> %d records exported to %s", qs, query_data.get('query', ''), len(selected_ids), total_count, client_ip)
 
         bottle.response.headers['Content-Type'] = 'application/json'
         bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.json"'
 
         return json.dumps({'query': query_data, 'results': res, 'total': total_count})
 
-    @app.route('/csv')
+    @app.route('/csv', method=['GET', 'POST'])
     def export_csv():
         config = ConfigManager.get_config()
         query_data = SearchQuery.parse(config)
@@ -363,13 +425,16 @@ def register_routes(app: bottle.Bottle):
         config['perpage'] = 0  # Export all results, not just one page
         qs = SearchQuery.to_recoll_string(query_data)
         client_ip = get_client_ip()
+        selected_ids = _parse_selected_param()
 
         try:
             res, _, _ = RecollSearchEngine.execute_search(query_data, config)
+            if selected_ids:
+                res = [d for d in res if _is_doc_dict_selected(d, selected_ids)]
         except Exception as exc:
             logger.warning("EXPORT_CSV_WARNING: Search index unavailable or query error: %s (Client: %s)", exc, client_ip)
             res = []
-        logger.info("EXPORT_CSV: query='%s' (terms='%s') -> %d records exported to %s", qs, query_data.get('query', ''), len(res), client_ip)
+        logger.info("EXPORT_CSV: query='%s' (terms='%s', selected=%d) -> %d records exported to %s", qs, query_data.get('query', ''), len(selected_ids), len(res), client_ip)
 
         bottle.response.headers['Content-Type'] = 'text/csv'
         bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.csv"'
@@ -390,12 +455,13 @@ def register_routes(app: bottle.Bottle):
     # Archiving API Endpoints
     # ------------------------------------------------------------------------
 
-    @app.route('/api/archive/start')
+    @app.route('/api/archive/start', method=['GET', 'POST'])
     def api_archive_start():
         config = ConfigManager.get_config()
         query_data = SearchQuery.parse(config)
         query_data['page'] = 0
         query_data['snippets'] = 0
+        selected_ids = _parse_selected_param()
 
         bottle.response.content_type = 'application/json'
         try:
@@ -405,23 +471,25 @@ def register_routes(app: bottle.Bottle):
             logger.error("ARCHIVE_START_ERROR: %s", exc)
             return json_error(f"Failed to initialize search: {exc}", status=500)
 
-        if total_count <= 0:
+        effective_total = len(selected_ids) if selected_ids else total_count
+
+        if effective_total <= 0:
             return json_response({"single_file": False, "total": 0, "error": "No matching files found."})
 
-        if total_count == 1:
+        if not selected_ids and total_count == 1:
             return json_response({
                 "single_file": True,
                 "total": 1,
                 "download_url": f"./download/0?{bottle.request.query_string}"
             })
 
-        job_id = ArchiveManager.create_job(total=total_count)
-        thread = threading.Thread(target=_run_archive_worker, args=(job_id, query_data, config), daemon=True)
+        job_id = ArchiveManager.create_job(total=effective_total)
+        thread = threading.Thread(target=_run_archive_worker, args=(job_id, query_data, config, selected_ids), daemon=True)
         thread.start()
 
         return json_response({
             "single_file": False,
-            "total": total_count,
+            "total": effective_total,
             "job_id": job_id
         })
 

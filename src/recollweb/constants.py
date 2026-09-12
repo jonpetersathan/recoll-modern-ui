@@ -61,7 +61,7 @@ SORT_OPTIONS: List[Tuple[str, str]] = [
 DOCUMENT_FIELDS: List[str] = [
     'abstract', 'author', 'collapsecount', 'dbytes', 'dmtime',
     'fbytes', 'filename', 'fmtime', 'ipath', 'keywords',
-    'mtime', 'mtype', 'mtype_label', 'origcharset', 'relevancyrating', 'sig',
+    'mtime', 'mtype', 'mtype_label', 'origcharset', 'rcludi', 'relevancyrating', 'sig',
     'size', 'title', 'url', 'label', 'snippet', 'time',
 ]
 

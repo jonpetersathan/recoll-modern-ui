@@ -181,6 +181,8 @@ function initRecollApp() {
     initAdvancedSearch();
     initSettingsFormManager();
     initFilesDownload();
+    initSearchSelection();
+    initViewModeToggle();
     initCustomSelects();
     initFolderScopePersistence();
     initCustomDatepicker();
@@ -2477,20 +2479,23 @@ function initFilesDownload() {
 
     btnDownloadFiles.addEventListener('click', async (e) => {
         e.preventDefault();
-        const totalCount = parseInt(btnDownloadFiles.dataset.totalCount, 10);
+        const selected = (typeof getSelectedResults === 'function') ? getSelectedResults() : new Set();
+        const selectedList = Array.from(selected);
+        const isSelectedExport = selectedList.length > 0;
+        const totalCount = isSelectedExport ? selectedList.length : parseInt(btnDownloadFiles.dataset.totalCount, 10);
         let queryString = btnDownloadFiles.dataset.queryString || '';
         if (!queryString && window.location.search) {
             queryString = window.location.search.replace(/^\?/, '');
         }
 
-        // Single file: direct download without opening dialog or zipping
-        if (totalCount === 1) {
+        // Single file without selection: direct download without opening dialog or zipping
+        if (!isSelectedExport && totalCount === 1) {
             window.location.href = `./download/0?${queryString}`;
             return;
         }
 
-        // Multiple files: open dialog with animated progress bar
-        statusText.textContent = 'Preparing files for archive...';
+        // Open dialog with animated progress bar
+        statusText.textContent = isSelectedExport ? `Preparing ${totalCount} selected files for archive...` : 'Preparing files for archive...';
         statusText.style.color = '';
         percentText.textContent = '0%';
         progressBar.style.width = '0%';
@@ -2498,7 +2503,16 @@ function initFilesDownload() {
         archiveModal.style.display = 'flex';
 
         try {
-            const res = await fetch(`/api/archive/start?${queryString}`);
+            let res;
+            if (isSelectedExport) {
+                res = await fetch(`/api/archive/start?${queryString}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ selected: selectedList })
+                });
+            } else {
+                res = await fetch(`/api/archive/start?${queryString}`);
+            }
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.error || 'Failed to start archive');
@@ -2563,6 +2577,207 @@ function initFilesDownload() {
             statusText.textContent = `Error: ${startErr.message}`;
             statusText.style.color = '#ef4444';
         }
+    });
+}
+
+// ============================================================================
+// Search Result Selection & Multi-Page Persistence
+// ============================================================================
+function getSearchQueryKey() {
+    const params = new URLSearchParams(window.location.search);
+    params.delete('page');
+    return 'recoll_sel_' + params.toString();
+}
+
+function getSelectedResults() {
+    const key = getSearchQueryKey();
+    try {
+        const raw = sessionStorage.getItem(key);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch (e) {
+        return new Set();
+    }
+}
+
+function saveSelectedResults(selectedSet) {
+    const key = getSearchQueryKey();
+    try {
+        if (selectedSet.size === 0) {
+            sessionStorage.removeItem(key);
+        } else {
+            sessionStorage.setItem(key, JSON.stringify(Array.from(selectedSet)));
+        }
+    } catch (e) {}
+}
+
+function updateSelectionUI() {
+    const selected = getSelectedResults();
+    const count = selected.size;
+    const counterWrap = document.getElementById('selected-counter');
+    const countEl = document.getElementById('selected-count');
+    if (counterWrap && countEl) {
+        if (count > 0) {
+            countEl.textContent = count;
+            counterWrap.style.display = 'inline-flex';
+        } else {
+            counterWrap.style.display = 'none';
+        }
+    }
+
+    const cardCheckboxes = document.querySelectorAll('.result-select-checkbox');
+    let pageCheckedCount = 0;
+    cardCheckboxes.forEach(cb => {
+        const docId = cb.dataset.id || cb.dataset.url;
+        const isChecked = selected.has(docId);
+        cb.checked = isChecked;
+        const card = cb.closest('.search-result');
+        if (card) {
+            card.classList.toggle('is-selected', isChecked);
+        }
+        if (isChecked) pageCheckedCount++;
+    });
+
+    const selectAllPage = document.getElementById('select-all-page');
+    if (selectAllPage && cardCheckboxes.length > 0) {
+        selectAllPage.checked = (pageCheckedCount === cardCheckboxes.length);
+        selectAllPage.indeterminate = (pageCheckedCount > 0 && pageCheckedCount < cardCheckboxes.length);
+    }
+}
+
+function wireExportSelectionButtons() {
+    const btnJson = document.getElementById('btn-download-json');
+    const btnCsv = document.getElementById('btn-download-csv');
+
+    function triggerExportWithSelected(format) {
+        const selected = getSelectedResults();
+        const selectedList = Array.from(selected);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('page');
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `./${format}?${params.toString()}`;
+        form.style.display = 'none';
+
+        selectedList.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected';
+            input.value = id;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        setTimeout(() => {
+            if (form.parentNode) form.parentNode.removeChild(form);
+        }, 1000);
+    }
+
+    if (btnJson) {
+        btnJson.addEventListener('click', (e) => {
+            const selected = getSelectedResults();
+            if (selected.size > 0) {
+                e.preventDefault();
+                triggerExportWithSelected('json');
+            }
+        });
+    }
+
+    if (btnCsv) {
+        btnCsv.addEventListener('click', (e) => {
+            const selected = getSelectedResults();
+            if (selected.size > 0) {
+                e.preventDefault();
+                triggerExportWithSelected('csv');
+            }
+        });
+    }
+}
+
+function initSearchSelection() {
+    const resultsContainer = document.getElementById('results');
+    if (!resultsContainer) return;
+
+    resultsContainer.addEventListener('change', (e) => {
+        const cb = e.target.closest('.result-select-checkbox');
+        if (!cb) return;
+
+        const docId = cb.dataset.id || cb.dataset.url;
+        if (!docId) return;
+
+        const selected = getSelectedResults();
+        if (cb.checked) {
+            selected.add(docId);
+        } else {
+            selected.delete(docId);
+        }
+        saveSelectedResults(selected);
+        updateSelectionUI();
+    });
+
+    const selectAllPage = document.getElementById('select-all-page');
+    if (selectAllPage) {
+        selectAllPage.addEventListener('change', () => {
+            const selected = getSelectedResults();
+            const cardCheckboxes = document.querySelectorAll('.result-select-checkbox');
+            cardCheckboxes.forEach(cb => {
+                const docId = cb.dataset.id || cb.dataset.url;
+                if (!docId) return;
+                if (selectAllPage.checked) {
+                    selected.add(docId);
+                } else {
+                    selected.delete(docId);
+                }
+            });
+            saveSelectedResults(selected);
+            updateSelectionUI();
+        });
+    }
+
+    const btnClearSel = document.getElementById('btn-clear-selection');
+    if (btnClearSel) {
+        btnClearSel.addEventListener('click', () => {
+            const selected = new Set();
+            saveSelectedResults(selected);
+            updateSelectionUI();
+        });
+    }
+
+    updateSelectionUI();
+    wireExportSelectionButtons();
+}
+
+// ============================================================================
+// Search Result View Mode (Detailed vs Simple)
+// ============================================================================
+function initViewModeToggle() {
+    const resultsContainer = document.getElementById('results');
+    const toggleBtn = document.getElementById('btn-view-toggle');
+    const toggleText = document.getElementById('view-toggle-text');
+    if (!resultsContainer || !toggleBtn) return;
+
+    const savedMode = localStorage.getItem('recoll_search_view_mode') || 'detail';
+
+    function setViewMode(mode) {
+        if (mode === 'simple') {
+            resultsContainer.classList.add('view-simple');
+            toggleBtn.dataset.view = 'simple';
+            if (toggleText) toggleText.textContent = 'Simple';
+        } else {
+            resultsContainer.classList.remove('view-simple');
+            toggleBtn.dataset.view = 'detail';
+            if (toggleText) toggleText.textContent = 'Detailed';
+        }
+        localStorage.setItem('recoll_search_view_mode', mode);
+    }
+
+    setViewMode(savedMode);
+
+    toggleBtn.addEventListener('click', () => {
+        const currentMode = toggleBtn.dataset.view || 'detail';
+        const newMode = currentMode === 'detail' ? 'simple' : 'detail';
+        setViewMode(newMode);
     });
 }
 

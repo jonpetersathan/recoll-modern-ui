@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 import zipfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 from recollweb.constants import EXPORT_DIR
 from recollweb.logging import logger
 from recollweb.search import RecollSearchEngine, extract_document_file
@@ -90,10 +90,32 @@ class ArchiveManager:
                 job.update(kwargs)
 
 
-def _run_archive_worker(job_id: str, query_data: Dict[str, Any], config: Dict[str, Any]):
+def is_doc_selected(doc: Any, selected_ids: Optional[Set[str]]) -> bool:
+    """Check if a Recoll document object matches any identifier in selected_ids."""
+    if not selected_ids:
+        return True
+    rcludi = getattr(doc, 'rcludi', '') or ''
+    url = getattr(doc, 'url', '') or ''
+    if rcludi in selected_ids or url in selected_ids:
+        return True
+    if rcludi:
+        if rcludi.rstrip('|') in selected_ids:
+            return True
+        r_stripped = rcludi.replace('/data/', '/').lstrip('/')
+        if r_stripped in selected_ids or r_stripped.rstrip('|') in selected_ids:
+            return True
+    if url:
+        u_stripped = url.replace('file:///data/', 'file:///').replace('/data/', '/')
+        if u_stripped in selected_ids:
+            return True
+    return False
+
+
+def _run_archive_worker(job_id: str, query_data: Dict[str, Any], config: Dict[str, Any], selected_ids: Optional[Set[str]] = None):
     """
     Background worker function executed in a separate thread.
     Fetches each matching document, extracts its content, and writes it into a ZIP archive.
+    If selected_ids is provided, only matching documents are archived.
     """
     job = ArchiveManager.get_job(job_id)
     if not job:
@@ -101,6 +123,7 @@ def _run_archive_worker(job_id: str, query_data: Dict[str, Any], config: Dict[st
 
     zip_path = job['zip_path']
     used_names = set()
+    processed_count = 0
 
     try:
         query_obj, _ = RecollSearchEngine._init_query(query_data, config)
@@ -121,11 +144,14 @@ def _run_archive_worker(job_id: str, query_data: Dict[str, Any], config: Dict[st
                 if not doc:
                     break
 
+                if selected_ids and not is_doc_selected(doc, selected_ids):
+                    continue
+
                 extracted_path, fname, is_temp = extract_document_file(doc)
 
                 if extracted_path and os.path.isfile(extracted_path):
                     if not fname:
-                        fname = f"document_{i+1}"
+                        fname = f"document_{processed_count + 1}"
 
                     # Deduplicate filename if multiple files in the search results have the same name
                     arcname = fname
@@ -147,7 +173,11 @@ def _run_archive_worker(job_id: str, query_data: Dict[str, Any], config: Dict[st
                         except Exception:
                             pass
 
-                ArchiveManager.update_job(job_id, processed=i + 1, current_file=fname or f"file_{i+1}")
+                processed_count += 1
+                ArchiveManager.update_job(job_id, processed=processed_count, current_file=fname or f"file_{processed_count}")
+
+                if selected_ids and processed_count >= len(selected_ids):
+                    break
 
         final_job = ArchiveManager.get_job(job_id)
         if final_job and not final_job.get('cancelled'):

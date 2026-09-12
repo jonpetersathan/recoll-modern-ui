@@ -6,32 +6,61 @@
         <span>Found <strong class="highlight-count">{{nres}}</strong> results for <strong class="query-term">{{qs}}</strong></span>
         <span class="time-badge">{{"%.3f" % time.total_seconds()}}s</span>
     </div>
-    %if len(res) > 0 and not config.get('rclc_nojsoncsv', False):
-    <div id="downloads" class="download-chips">
-        <a href="./json?{{query_string}}&page=0" class="chip-btn" title="Download Results as JSON">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>JSON</span>
-        </a>
-        <a href="./csv?{{query_string}}&page=0" class="chip-btn" title="Download Results as CSV">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>CSV</span>
-        </a>
-        <button type="button" id="btn-download-files" class="chip-btn" title="Download matching files" data-total-count="{{nres}}" data-query-string="{{query_string}}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                <polyline points="12 11 12 17 9 14"></polyline>
-                <polyline points="12 17 15 14"></polyline>
-            </svg>
-            <span>FILES</span>
-        </button>
+    %if len(res) > 0:
+    <div class="results-actions-bar">
+        <div class="selection-controls">
+            <label class="select-all-label" title="Select / deselect all results on this page">
+                <input type="checkbox" id="select-all-page" class="select-all-checkbox">
+                <span>Select Page</span>
+            </label>
+            <span id="selected-counter" class="selected-counter-badge" style="display: none;">
+                <span id="selected-count">0</span> selected
+                <button type="button" id="btn-clear-selection" class="btn-clear-sel" title="Clear all selections">&times;</button>
+            </span>
+        </div>
+
+        <div class="view-controls">
+            <button type="button" id="btn-view-toggle" class="chip-btn view-toggle-btn" title="Toggle Detail / Simple View" data-view="detail">
+                <svg class="icon-view-detail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                <span id="view-toggle-text">Detailed</span>
+            </button>
+        </div>
+
+        %if not config.get('rclc_nojsoncsv', False):
+        <div id="downloads" class="download-chips">
+            <a href="./json?{{query_string}}&page=0" id="btn-download-json" class="chip-btn" title="Download Results as JSON">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>JSON</span>
+            </a>
+            <a href="./csv?{{query_string}}&page=0" id="btn-download-csv" class="chip-btn" title="Download Results as CSV">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>CSV</span>
+            </a>
+            <button type="button" id="btn-download-files" class="chip-btn" title="Download matching files" data-total-count="{{nres}}" data-query-string="{{query_string}}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    <polyline points="12 11 12 17 9 14"></polyline>
+                    <polyline points="12 17 15 14"></polyline>
+                </svg>
+                <span>FILES</span>
+            </button>
+        </div>
+        %end
     </div>
     %end
 </div>
