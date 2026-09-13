@@ -51,10 +51,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
 # Available filename formatting modes for exports
 EXPORT_FILENAME_MODES: List[Tuple[str, str]] = [
-    ('timestamp', 'Timestamp (recoll_YYYYMMDD_hhmmss)'),
+    ('timestamp', 'Timestamp'),
     ('ask', 'Ask every time'),
-    ('query_hash', 'Query hash (first 16 characters)'),
-    ('custom', 'Custom pattern'),
+    ('query_hash', 'Query hash'),
+    ('custom', 'Custom'),
 ]
 
 # Available sort criteria for Recoll query execution
@@ -165,7 +165,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "All of these words",
             "type": "text",
             "placeholder": "e.g. system performance index",
-            "helper": "Matches documents containing all specified terms",
+            "helper": "Matches documents containing all terms",
             "query_format": "{value}",
         },
         {
@@ -173,7 +173,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "This exact phrase",
             "type": "text",
             "placeholder": "e.g. neural network architectures",
-            "helper": "Matches the exact phrase enclosed in quotes",
+            "helper": "Matches the exact phrase in order",
             "query_format": '"{value}"',
         },
         {
@@ -181,7 +181,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Any of these words",
             "type": "text",
             "placeholder": "e.g. machine artificial synthetic",
-            "helper": "Matches documents containing one or more of these terms",
+            "helper": "Matches documents containing any of these terms",
             "query_format": "or_terms",
         },
         {
@@ -189,15 +189,15 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "None of these words",
             "type": "text",
             "placeholder": "e.g. deprecated draft temp",
-            "helper": "Excludes documents containing any of these terms",
+            "helper": "Excludes documents containing these terms",
             "query_format": "not_terms",
         },
         {
             "id": "proximity_terms",
-            "label": "Proximity search",
+            "label": "Proximity Search",
             "type": "text",
             "placeholder": "e.g. database query",
-            "helper": "Matches terms appearing within 4 words of each other",
+            "helper": "Matches terms within 4 words of each other",
             "query_format": "proximity",
             "slack": 4,
         },
@@ -206,7 +206,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "File Name",
             "type": "text",
             "placeholder": "e.g. *.pdf, 000.*, recoll_*",
-            "helper": "Matches document filename with wildcard pattern support",
+            "helper": "Matches filename with wildcard support",
             "query_format": "filename:{value}",
         },
         {
@@ -214,7 +214,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Document Title",
             "type": "text",
             "placeholder": "e.g. Specification, Analysis",
-            "helper": "Searches document title metadata",
+            "helper": "Matches document title metadata",
             "query_format": "title:{value}",
         },
         {
@@ -222,7 +222,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Author",
             "type": "text",
             "placeholder": "e.g. Alice Smith",
-            "helper": "Searches author or creator field",
+            "helper": "Matches author or creator metadata",
             "query_format": "author:{value}",
         },
         {
@@ -248,7 +248,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Minimum Size",
             "type": "text",
             "placeholder": "e.g. 10k, 1m",
-            "helper": "Only files larger than specified size (k, m, g)",
+            "helper": "Minimum file size (k, m, g)",
             "query_format": "size>{value}",
         },
         {
@@ -256,7 +256,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Maximum Size",
             "type": "text",
             "placeholder": "e.g. 50m",
-            "helper": "Only files smaller than specified size (k, m, g)",
+            "helper": "Maximum file size (k, m, g)",
             "query_format": "size<{value}",
         },
         {
@@ -264,7 +264,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "label": "Directory",
             "type": "text",
             "placeholder": "e.g. /data",
-            "helper": "Restrict search to files inside this directory tree",
+            "helper": "Restrict search to this directory tree",
             "query_format": 'dir:"{value}"',
         },
     ],

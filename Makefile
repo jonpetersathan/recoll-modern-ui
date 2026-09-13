@@ -1,6 +1,6 @@
 NAME := recoll-modern-ui
 IMAGE := tenasi/$(NAME)
-VERSION := 0.9.5
+VERSION := 0.9.8
 BUILD_PATH := ./build
 CONTAINER_NAME := recoll
 PORT := 8180

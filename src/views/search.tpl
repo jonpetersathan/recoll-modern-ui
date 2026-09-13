@@ -46,7 +46,7 @@
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                             <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
-                        <span>Form Preset:</span>
+                        <span>Form Preset</span>
                     </label>
                     <select id="active-form-selector" class="form-control form-preset-select">
                         %for f in forms:
@@ -118,12 +118,11 @@
                         <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
                     <span>Date Range</span>
-                    <span class="gray">YYYY[-MM][-DD]</span>
                 </label>
                 <div class="date-range">
-                    <input name="after" value="{{query['after']}}" class="form-control" placeholder="From" autocomplete="off">
+                    <input name="after" value="{{query['after']}}" class="form-control" placeholder="From (YYYY-MM-DD)" autocomplete="off">
                     <span class="date-sep">&mdash;</span>
-                    <input name="before" value="{{query['before']}}" class="form-control" placeholder="To" autocomplete="off">
+                    <input name="before" value="{{query['before']}}" class="form-control" placeholder="To (YYYY-MM-DD)" autocomplete="off">
                 </div>
             </div>
 

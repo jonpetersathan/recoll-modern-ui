@@ -698,6 +698,11 @@ input.form-control:focus {
 }
 
 /* Tree indentation in folder scope */
+.custom-select-indent {
+    display: inline-block;
+    flex-shrink: 0;
+}
+
 .custom-select-option .tree-indent {
     display: inline-block;
     color: rgba(255, 255, 255, 0.25);
@@ -2291,6 +2296,12 @@ input.form-control:focus {
     margin-bottom: 0.5rem;
 }
 
+.export-settings-grid .csvfields-container-field .settings-helper {
+    min-height: unset;
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
 .export-settings-grid .setting-input-group {
     margin-top: 0 !important;
     margin-bottom: 0;
@@ -3686,6 +3697,7 @@ select.form-preset-select:focus {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    padding-bottom: 1.25rem;
 }
 
 .builder-empty-state {
@@ -4261,6 +4273,7 @@ input.form-control-query:active {
     border-radius: 4px;
     border: 1px solid var(--card-border);
     color: #93c5fd;
+    white-space: nowrap;
 }
 
 #schema-fields-table td .schema-field-helper,
@@ -5274,11 +5287,45 @@ input.form-control-query:active {
     color: #bae6fd;
 }
 
-.config-chip.mime-chip:hover {
-    background: rgba(56, 189, 248, 0.22);
-    border-color: #38bdf8;
-    box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+.config-chip.field-chip {
+    background: rgba(168, 85, 247, 0.14);
+    border-color: rgba(168, 85, 247, 0.3);
+    color: #e9d5ff;
+}
+
+.config-chip.field-chip:hover {
+    background: rgba(168, 85, 247, 0.24);
+    border-color: #a855f7;
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.25);
     color: #ffffff;
+}
+
+/* Drag and Drop styling for all config chips */
+.config-chip[draggable="true"] {
+    cursor: grab;
+}
+
+.config-chip[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.config-chip.is-dragging {
+    opacity: 0.35;
+    transform: scale(0.96);
+    box-shadow: 0 0 0 2px var(--accent-primary, #8b5cf6);
+    cursor: grabbing !important;
+}
+
+.config-chip.drag-over-before {
+    position: relative;
+    border-left: 3px solid #8b5cf6 !important;
+    padding-left: 9px !important;
+}
+
+.config-chip.drag-over-after {
+    position: relative;
+    border-right: 3px solid #8b5cf6 !important;
+    padding-right: 9px !important;
 }
 
 .config-chip .chip-text {

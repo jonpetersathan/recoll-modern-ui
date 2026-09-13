@@ -156,7 +156,7 @@ def generate_export_filename(
             safe_base = f"recoll_{now.strftime('%Y%m%d_%H%M%S')}"
         return f"{safe_base}.{clean_ext}"
 
-    # Default / 'timestamp' / 'ask' fallback
+    # Default / 'timestamp' fallback
     ts = now.strftime("%Y%m%d_%H%M%S")
     return f"recoll_{ts}.{clean_ext}"
 

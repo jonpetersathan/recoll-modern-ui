@@ -34,7 +34,7 @@
                 % cur_val = get('stem', glob_val)
                 <div class="settings-field" data-setting-key="stem">
                     <label class="settings-label">Find Similar (Stemming)</label>
-                    <span class="settings-helper">1 (enabled) or 0 (disabled), expands words e.g. "run" to "running"</span>
+                    <span class="settings-helper">1 to expand word stems (e.g. run to running)</span>
                     <div class="setting-input-group">
                         <input name="stem" id="setting-stem" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_stem" id="scope-stem" value="user">
@@ -57,7 +57,7 @@
                 % cur_val = get('collapsedups', glob_val)
                 <div class="settings-field" data-setting-key="collapsedups">
                     <label class="settings-label">Collapse Duplicate Results</label>
-                    <span class="settings-helper">1 or 0, only show one result for identical content</span>
+                    <span class="settings-helper">1 to show only one result for duplicate files</span>
                     <div class="setting-input-group">
                         <input name="collapsedups" id="setting-collapsedups" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_collapsedups" id="scope-collapsedups" value="user">
@@ -80,7 +80,7 @@
                 % cur_val = get('maxresults', glob_val)
                 <div class="settings-field" data-setting-key="maxresults">
                     <label class="settings-label">Maximum Total Results</label>
-                    <span class="settings-helper">0 for unlimited, or specify hard cap</span>
+                    <span class="settings-helper">0 for unlimited, or specify limit</span>
                     <div class="setting-input-group">
                         <input name="maxresults" id="setting-maxresults" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_maxresults" id="scope-maxresults" value="user">
@@ -103,7 +103,7 @@
                 % cur_val = get('perpage', glob_val)
                 <div class="settings-field" data-setting-key="perpage">
                     <label class="settings-label">Results Per Page</label>
-                    <span class="settings-helper">Number of results per page (0 for single page)</span>
+                    <span class="settings-helper">0 for single page</span>
                     <div class="setting-input-group">
                         <input name="perpage" id="setting-perpage" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_perpage" id="scope-perpage" value="user">
@@ -135,7 +135,7 @@
                 % cur_val = get('context', glob_val)
                 <div class="settings-field" data-setting-key="context">
                     <label class="settings-label">Context Words</label>
-                    <span class="settings-helper">Number of surrounding words in snippet</span>
+                    <span class="settings-helper">Surrounding words in snippet</span>
                     <div class="setting-input-group">
                         <input name="context" id="setting-context" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_context" id="scope-context" value="user">
@@ -158,7 +158,7 @@
                 % cur_val = get('maxchars', glob_val)
                 <div class="settings-field" data-setting-key="maxchars">
                     <label class="settings-label">Context Characters</label>
-                    <span class="settings-helper">Maximum characters displayed in snippet</span>
+                    <span class="settings-helper">Maximum characters in snippet</span>
                     <div class="setting-input-group">
                         <input name="maxchars" id="setting-maxchars" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_maxchars" id="scope-maxchars" value="user">
@@ -181,7 +181,7 @@
                 % cur_val = get('timefmt', glob_val)
                 <div class="settings-field" data-setting-key="timefmt">
                     <label class="settings-label">Date Format String</label>
-                    <span class="settings-helper">Standard strftime format (e.g. %c or %Y-%m-%d %H:%M)</span>
+                    <span class="settings-helper">strftime format (e.g. %c, %Y-%m-%d %H:%M)</span>
                     <div class="setting-input-group">
                         <input name="timefmt" id="setting-timefmt" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_timefmt" id="scope-timefmt" value="user">
@@ -204,7 +204,7 @@
                 % cur_val = get('dirdepth', glob_val)
                 <div class="settings-field" data-setting-key="dirdepth">
                     <label class="settings-label">Folder Dropdown Depth</label>
-                    <span class="settings-helper">Hierarchy levels shown in folder selector</span>
+                    <span class="settings-helper">Directory levels in folder selector</span>
                     <div class="setting-input-group">
                         <input name="dirdepth" id="setting-dirdepth" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
                         <input type="hidden" name="scope_dirdepth" id="scope-dirdepth" value="user">
@@ -272,7 +272,7 @@
                 % cur_val_efm = get('export_filename_mode', glob_val_efm)
                 <div class="settings-field" data-setting-key="export_filename_mode">
                     <label class="settings-label">Export Filename Format</label>
-                    <span class="settings-helper" id="export-filename-mode-helper">Configures export naming. &ldquo;Ask every time&rdquo; prompts for a filename on download (the configured format will only be the default value).</span>
+                    <span class="settings-helper" id="export-filename-mode-helper">Configures export naming. Configured format serves as default value when prompted.</span>
                     <div class="setting-input-group">
                         <select name="export_filename_mode" id="setting-export_filename_mode" class="form-control" data-global-value="{{glob_val_efm}}" data-user-value="{{cur_val_efm}}" onchange="if(window.updateExportFilenamePreview) window.updateExportFilenamePreview()">
                             <option value="timestamp" {{'selected' if cur_val_efm == 'timestamp' else ''}}>Timestamp</option>
@@ -320,37 +320,84 @@
                     </div>
                 </div>
 
-                <!-- ROW 2, COL 1: csvfields (JSON/CSV Fields) -->
+                <!-- ROW 2: csvfields (JSON/CSV Export Fields Interactive Chips) -->
                 % st = st_map.get('csvfields', {})
                 % is_cust = st.get('is_custom', False)
                 % glob_val = st.get('global_value', DEFAULT_CONFIG.get('csvfields', ''))
                 % cur_val = get('csvfields', glob_val)
-                <div class="settings-field" data-setting-key="csvfields">
-                    <label class="settings-label">JSON/CSV Fields</label>
-                    <span class="settings-helper">Available keywords: {{fields}}</span>
-                    <div class="setting-input-group">
-                        <input name="csvfields" id="setting-csvfields" class="form-control" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
-                        <input type="hidden" name="scope_csvfields" id="scope-csvfields" value="user">
-                        % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-csvfields" data-key="csvfields" onclick="window.toggleAdminScope('csvfields')" title="User-Specific Setting (Click to switch to Global Default)">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                        </button>
+                % csv_fields_list = [f for f in cur_val.split() if f] if cur_val else []
+                <div class="settings-field csvfields-container-field" data-setting-key="csvfields" style="grid-column: 1 / -1; margin-top: 0.5rem;" data-available-fields="{{fields}}">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <label class="settings-label" style="margin-bottom: 0;">JSON/CSV Export Fields (<code class="field-code">csvfields</code>)</label>
+                        </div>
+                        <div class="section-title-actions" style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px;">
+                            <span class="chip-count-badge" id="csvfields-count">{{len(csv_fields_list)}} field{{'' if len(csv_fields_list) == 1 else 's'}}</span>
+                            % if is_admin_val:
+                            <button type="button" class="setting-action-btn scope-user" id="btn-scope-csvfields" data-key="csvfields" onclick="window.toggleAdminScope('csvfields')" title="User-Specific Setting (Click to switch to Global Default)">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                            </button>
+                            % else:
+                            <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-csvfields" data-key="csvfields" onclick="window.restoreDefaultCsvFields()" {{'' if is_cust else 'disabled'}} title="Restore global default value">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            </button>
+                            % end
+                        </div>
+                    </div>
+                    <p class="settings-helper" style="margin-bottom: 0.75rem;">
+                        Columns exported in JSON and CSV results. Drag to reorder, click to edit inline.
+                    </p>
+
+                    <input type="hidden" name="csvfields" id="setting-csvfields" value="{{cur_val}}" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
+                    <input type="hidden" name="scope_csvfields" id="scope-csvfields" value="user">
+
+                    <!-- Interactive Chips List -->
+                    <div class="chip-tag-container" id="csvfields-chip-list">
+                        % if not csv_fields_list:
+                        <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 6px 0;">
+                            No export fields configured.
+                        </div>
                         % else:
-                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-csvfields" data-key="csvfields" onclick="window.restoreDefaultSetting('csvfields')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                        </button>
+                        % for f_idx, f_name in enumerate(csv_fields_list):
+                        <div class="config-chip field-chip" data-index="{{f_idx}}" data-pattern="{{f_name}}" draggable="true">
+                            <span class="chip-text" title="Click to edit field">{{f_name}}</span>
+                            <button type="button" class="chip-remove-btn" title="Remove &quot;{{f_name}}&quot;" onclick="removeCsvField({{f_idx}})">×</button>
+                        </div>
+                        % end
                         % end
                     </div>
-                </div>
 
-                <!-- ROW 2, COL 2: Browser Search Plugin -->
-                <div class="settings-field">
-                    <label class="settings-label">Browser Search Plugin</label>
-                    <span class="settings-helper">Register Recoll into browser search bar</span>
-                    <a href="#" class="btn btn-secondary" style="margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px;" onClick="addOpenSearch();return false">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <span>Add OpenSearch Provider</span>
-                    </a>
+                    <!-- Add Field Toolbar with Autocomplete -->
+                    <div class="chip-add-toolbar">
+                        <div class="chip-input-wrap">
+                            <input type="text" id="input-new-csvfield" class="form-control chip-add-input" placeholder="Enter field name (e.g. filename, title, author)..." autocomplete="off" spellcheck="false">
+                            <div id="csvfield-autocomplete-dropdown" class="mime-autocomplete-dropdown" style="display: none;"></div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-add-csvfield" onclick="handleAddCsvField()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Add Field</span>
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-sort-csvfields" onclick="sortCsvFields()" title="Sort alphabetically">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="7 15 12 20 17 15"></polyline>
+                                <polyline points="7 9 12 4 17 9"></polyline>
+                            </svg>
+                            <span>Sort A-Z</span>
+                        </button>
+                    </div>
+
+                    <!-- Duplicate Prevention / Validation Feedback -->
+                    <div id="csvfield-feedback-msg" class="pattern-feedback-msg" style="display: none;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span id="csvfield-feedback-text"></span>
+                    </div>
                 </div>
             </div>
         </div>

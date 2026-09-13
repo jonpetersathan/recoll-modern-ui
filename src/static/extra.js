@@ -219,6 +219,7 @@ function initRecollApp() {
     // Initialize Advanced Search Panel, Settings Form Manager, Files Download, Custom Selects, & Datepicker
     initAdvancedSearch();
     initSettingsFormManager();
+    initCsvFieldsManager();
     initFilesDownload();
     initSearchSelection();
     initViewModeToggle();
@@ -467,22 +468,6 @@ function updateGlow(event, card) {
     const y = event.clientY - rect.top;
     card.style.setProperty('--x', `${x}px`);
     card.style.setProperty('--y', `${y}px`);
-}
-
-/**
- * Add OpenSearch Provider to Browser
- */
-function addOpenSearch() {
-    if (window.external && 'AddSearchProvider' in window.external) {
-        const url = window.location.origin + '/osd.xml';
-        window.external.AddSearchProvider(url);
-    } else {
-        window.showAlertModal({
-            title: 'OpenSearch Provider',
-            message: 'OpenSearch plugins can be added automatically from your browser address bar.',
-            type: 'info'
-        });
-    }
 }
 
 // ============================================================================
@@ -2306,6 +2291,10 @@ function initSettingsFormManager() {
                 type: 'text',
                 query_format: '{value}'
             });
+            const lastCard = builderFieldsContainer.lastElementChild;
+            if (lastCard) {
+                lastCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         });
     }
 
@@ -2650,13 +2639,13 @@ function initSettingsFormManager() {
         // Update helper text to explain how the selected mode works
         if (helperEl) {
             if (mode === 'ask') {
-                helperEl.textContent = 'Prompts with an input dialog on download (the configured format will only be the default value).';
+                helperEl.textContent = 'Prompts on download (configured format serves as default value).';
             } else if (mode === 'timestamp') {
-                helperEl.textContent = 'Generates a timestamped filename (recoll_YYYYMMDD_hhmmss).';
+                helperEl.textContent = 'Generates timestamped filename (recoll_YYYYMMDD_hhmmss).';
             } else if (mode === 'query_hash') {
-                helperEl.textContent = 'Generates a deterministic 16-character hash from search query string and selected records.';
+                helperEl.textContent = 'Generates 16-character hash from query and selected records.';
             } else if (mode === 'custom') {
-                helperEl.textContent = 'Uses the custom pattern configured on the right with @HASH, @YYYY, @MM, @DD, @hh, @mm, @ss keywords.';
+                helperEl.textContent = 'Uses pattern with @HASH, @YYYY, @MM, @DD, @hh, @mm, @ss keywords.';
             }
         }
 
@@ -2716,6 +2705,8 @@ function initSettingsFormManager() {
         patternInputEl.addEventListener('change', handleExportPatternInput);
     }
 
+    initCsvFieldsManager();
+
     syncFormsData();
     renderCards();
     originalSettingsState = captureSettingsState();
@@ -2723,6 +2714,543 @@ function initSettingsFormManager() {
     window.isSettingsDirty = false;
     window.isFormsDirty = false;
 }
+
+/* ==========================================================================
+   Shared Chip Drag-and-Drop Reordering Engine
+   ========================================================================== */
+
+function setupChipDragAndDrop(containerId, getArray, setArray, onUpdate) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (container.dataset.dndInitialized === 'true') return;
+    container.dataset.dndInitialized = 'true';
+
+    let draggedIndex = null;
+
+    container.addEventListener('dragstart', (e) => {
+        const chip = e.target.closest('.config-chip');
+        if (!chip || chip.classList.contains('is-editing')) {
+            e.preventDefault();
+            return;
+        }
+        draggedIndex = parseInt(chip.dataset.index, 10);
+        chip.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(draggedIndex));
+    });
+
+    container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const targetChip = e.target.closest('.config-chip');
+        if (!targetChip || targetChip.classList.contains('is-dragging')) {
+            return;
+        }
+
+        const rect = targetChip.getBoundingClientRect();
+        const isAfter = (e.clientX - rect.left) > (rect.width / 2);
+
+        container.querySelectorAll('.config-chip').forEach(c => {
+            if (c !== targetChip) {
+                c.classList.remove('drag-over-before', 'drag-over-after');
+            }
+        });
+
+        if (isAfter) {
+            targetChip.classList.remove('drag-over-before');
+            targetChip.classList.add('drag-over-after');
+        } else {
+            targetChip.classList.remove('drag-over-after');
+            targetChip.classList.add('drag-over-before');
+        }
+    });
+
+    container.addEventListener('dragleave', (e) => {
+        const targetChip = e.target.closest('.config-chip');
+        if (targetChip && !targetChip.contains(e.relatedTarget)) {
+            targetChip.classList.remove('drag-over-before', 'drag-over-after');
+        }
+    });
+
+    container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetChip = e.target.closest('.config-chip');
+        container.querySelectorAll('.config-chip').forEach(c => {
+            c.classList.remove('drag-over-before', 'drag-over-after', 'is-dragging');
+        });
+
+        if (!targetChip || draggedIndex === null) return;
+        const targetIndex = parseInt(targetChip.dataset.index, 10);
+        if (isNaN(targetIndex) || isNaN(draggedIndex)) return;
+
+        const rect = targetChip.getBoundingClientRect();
+        const isAfter = (e.clientX - rect.left) > (rect.width / 2);
+        let insertIndex = isAfter ? targetIndex + 1 : targetIndex;
+
+        const arr = getArray();
+        if (!Array.isArray(arr) || draggedIndex >= arr.length) return;
+
+        if (draggedIndex < insertIndex) {
+            insertIndex--;
+        }
+
+        if (draggedIndex !== insertIndex) {
+            const [item] = arr.splice(draggedIndex, 1);
+            arr.splice(insertIndex, 0, item);
+            setArray(arr);
+            onUpdate();
+        }
+        draggedIndex = null;
+    });
+
+    container.addEventListener('dragend', () => {
+        draggedIndex = null;
+        container.querySelectorAll('.config-chip').forEach(c => {
+            c.classList.remove('drag-over-before', 'drag-over-after', 'is-dragging');
+        });
+    });
+}
+window.setupChipDragAndDrop = setupChipDragAndDrop;
+
+/* ==========================================================================
+   JSON/CSV Fields Chip Management & Autocomplete
+   ========================================================================== */
+
+var KNOWN_FIELD_DESCRIPTIONS = {
+    'filename': 'File name',
+    'title': 'Document title',
+    'author': 'Creator or author',
+    'size': 'File size in bytes',
+    'size_human': 'Human-readable file size',
+    'time': 'Modification timestamp',
+    'mtime': 'Modification time epoch',
+    'fmtime': 'File modification timestamp',
+    'dmtime': 'Document modification timestamp',
+    'mtype': 'MIME type (e.g. application/pdf)',
+    'mtype_label': 'Human-readable file type label',
+    'url': 'File URL or location path',
+    'ipath': 'Internal archive path',
+    'snippet': 'Search result snippet with highlights',
+    'abstract': 'Document abstract or summary',
+    'keywords': 'Document keywords metadata',
+    'label': 'Custom document label',
+    'doc_id': 'Document identifier',
+    'doctype': 'Document type category',
+    'project': 'Project metadata',
+    'sig': 'Document signature / hash',
+    'rcludi': 'Unique document identifier',
+    'relevancyrating': 'Search relevance rating score',
+    'collapsecount': 'Duplicate documents collapsed count',
+    'missing': 'Missing document filter flag',
+    'origcharset': 'Original character set',
+    'pcbytes': 'Processed content bytes',
+    'dbytes': 'Document content bytes',
+    'fbytes': 'File content bytes'
+};
+
+function getCsvFieldsList() {
+    const input = document.getElementById('setting-csvfields');
+    if (!input) return [];
+    if (input._cachedFields && Array.isArray(input._cachedFields)) return input._cachedFields;
+    const raw = input.value || '';
+    input._cachedFields = raw ? raw.split(/\s+/).filter(Boolean) : [];
+    return input._cachedFields;
+}
+
+function setCsvFieldsList(arr) {
+    const input = document.getElementById('setting-csvfields');
+    if (input) {
+        input._cachedFields = arr;
+        input.value = arr.join(' ');
+        if (typeof window.checkSettingsDirty === 'function') {
+            window.checkSettingsDirty();
+        }
+    }
+}
+
+function renderCsvFieldsChips() {
+    const container = document.getElementById('csvfields-chip-list');
+    const countEl = document.getElementById('csvfields-count');
+    if (!container) return;
+
+    const list = getCsvFieldsList();
+
+    if (countEl) {
+        countEl.textContent = `${list.length} field${list.length === 1 ? '' : 's'}`;
+    }
+
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 6px 0;">
+                No export fields configured.
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    list.forEach((field, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'config-chip field-chip';
+        chip.dataset.index = index;
+        chip.dataset.pattern = field;
+        chip.draggable = true;
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'chip-text';
+        textSpan.textContent = field;
+        textSpan.title = 'Click to edit field';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'chip-remove-btn';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = `Remove "${field}"`;
+
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeCsvField(index);
+        });
+
+        textSpan.addEventListener('click', () => {
+            enableCsvFieldInlineEdit(chip, textSpan, index);
+        });
+
+        chip.appendChild(textSpan);
+        chip.appendChild(removeBtn);
+        container.appendChild(chip);
+    });
+
+    setupChipDragAndDrop(
+        'csvfields-chip-list',
+        () => getCsvFieldsList(),
+        (newArr) => { setCsvFieldsList(newArr); },
+        () => {
+            renderCsvFieldsChips();
+            showToast('Export fields reordered', 'info', 1500);
+        }
+    );
+}
+
+function enableCsvFieldInlineEdit(chip, textSpan, index) {
+    if (chip.classList.contains('is-editing')) return;
+    chip.classList.add('is-editing');
+    chip.draggable = false;
+
+    const list = getCsvFieldsList();
+    const currentVal = list[index];
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chip-edit-input';
+    input.value = currentVal;
+    input.spellcheck = false;
+
+    chip.replaceChild(input, textSpan);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    function commitEdit() {
+        if (finished) return;
+        finished = true;
+
+        const newVal = input.value.trim().toLowerCase();
+        if (!newVal || newVal === currentVal.toLowerCase()) {
+            chip.classList.remove('is-editing');
+            chip.draggable = true;
+            chip.replaceChild(textSpan, input);
+            return;
+        }
+
+        const duplicateIndex = list.findIndex((f, i) => i !== index && f.toLowerCase() === newVal);
+        if (duplicateIndex !== -1) {
+            showCsvFieldFeedback(`Field "${newVal}" already exists in the export fields list`, true);
+            highlightDuplicateCsvChip(duplicateIndex);
+            showToast(`Duplicate field "${newVal}" rejected`, 'warning');
+            chip.classList.remove('is-editing');
+            chip.draggable = true;
+            chip.replaceChild(textSpan, input);
+            return;
+        }
+
+        list[index] = newVal;
+        setCsvFieldsList(list);
+        renderCsvFieldsChips();
+        showToast(`Field updated to "${newVal}"`, 'info', 2000);
+    }
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            commitEdit();
+        } else if (e.key === 'Escape') {
+            finished = true;
+            chip.classList.remove('is-editing');
+            chip.draggable = true;
+            chip.replaceChild(textSpan, input);
+        }
+    });
+    input.addEventListener('blur', commitEdit);
+}
+
+function removeCsvField(index) {
+    const list = getCsvFieldsList();
+    const removed = list.splice(index, 1)[0];
+    setCsvFieldsList(list);
+    renderCsvFieldsChips();
+    showToast(`Removed field "${removed}"`, 'info', 2000);
+}
+
+function handleAddCsvField(specificVal) {
+    const input = document.getElementById('input-new-csvfield');
+    const raw = (specificVal != null ? String(specificVal) : (input ? input.value : '')).trim();
+    if (!raw) return;
+
+    hideCsvFieldAutocomplete();
+
+    const tokens = raw.split(/[\s,]+/).filter(Boolean);
+    let addedCount = 0;
+    const list = getCsvFieldsList();
+    let duplicateTokens = [];
+
+    tokens.forEach(token => {
+        const clean = token.toLowerCase();
+        const exists = list.some(f => f.toLowerCase() === clean);
+        if (exists) {
+            duplicateTokens.push(clean);
+        } else {
+            list.push(clean);
+            addedCount++;
+        }
+    });
+
+    if (duplicateTokens.length > 0) {
+        const firstDup = duplicateTokens[0];
+        showCsvFieldFeedback(`Field "${firstDup}" is already in the export fields list!`, true);
+        const dupIdx = list.findIndex(f => f.toLowerCase() === firstDup);
+        if (dupIdx !== -1) highlightDuplicateCsvChip(dupIdx);
+        showToast(`Duplicate field "${firstDup}" rejected`, 'warning');
+    } else {
+        clearCsvFieldFeedback();
+    }
+
+    if (addedCount > 0) {
+        if (input) input.value = '';
+        setCsvFieldsList(list);
+        renderCsvFieldsChips();
+        const container = document.getElementById('csvfields-chip-list');
+        if (container) container.scrollTop = container.scrollHeight;
+        showToast(`Added ${addedCount} field${addedCount > 1 ? 's' : ''}`, 'success', 2000);
+    }
+}
+
+function highlightDuplicateCsvChip(index) {
+    const container = document.getElementById('csvfields-chip-list');
+    if (!container) return;
+    const chip = container.querySelector(`.config-chip[data-index="${index}"]`);
+    if (chip) {
+        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        chip.classList.remove('chip-duplicate-highlight');
+        void chip.offsetWidth;
+        chip.classList.add('chip-duplicate-highlight');
+        setTimeout(() => { chip.classList.remove('chip-duplicate-highlight'); }, 1400);
+    }
+}
+
+function sortCsvFields() {
+    const list = getCsvFieldsList();
+    list.sort((a, b) => a.localeCompare(b));
+    setCsvFieldsList(list);
+    renderCsvFieldsChips();
+    showToast('Export fields sorted alphabetically', 'info', 2000);
+}
+
+function showCsvFieldFeedback(msg, isError = false) {
+    const alertEl = document.getElementById('csvfield-feedback-msg');
+    const textEl = document.getElementById('csvfield-feedback-text');
+    if (alertEl && textEl) {
+        textEl.textContent = msg;
+        alertEl.className = 'pattern-feedback-msg' + (isError ? ' is-error' : '');
+        alertEl.style.display = 'flex';
+        setTimeout(clearCsvFieldFeedback, 4500);
+    }
+}
+
+function clearCsvFieldFeedback() {
+    const alertEl = document.getElementById('csvfield-feedback-msg');
+    if (alertEl) alertEl.style.display = 'none';
+}
+
+function hideCsvFieldAutocomplete() {
+    const dropdown = document.getElementById('csvfield-autocomplete-dropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+        dropdown.dataset.selectedIndex = '-1';
+    }
+}
+
+function setupCsvFieldAutocomplete() {
+    const input = document.getElementById('input-new-csvfield');
+    const dropdown = document.getElementById('csvfield-autocomplete-dropdown');
+    const containerField = document.querySelector('.csvfields-container-field');
+    if (!input || !dropdown || input.dataset.autocompleteBound) return;
+    input.dataset.autocompleteBound = 'true';
+
+    let availableKeywords = [];
+    if (containerField && containerField.dataset.availableFields) {
+        availableKeywords = containerField.dataset.availableFields.split(/\s+/).filter(Boolean);
+    }
+    if (availableKeywords.length === 0) {
+        availableKeywords = Object.keys(KNOWN_FIELD_DESCRIPTIONS);
+    }
+
+    function getFilteredFieldSuggestions(query) {
+        const q = (query || '').trim().toLowerCase();
+        const existing = new Set(getCsvFieldsList().map(f => f.toLowerCase()));
+
+        return availableKeywords
+            .filter(name => !existing.has(name.toLowerCase()))
+            .filter(name => {
+                if (!q) return true;
+                const desc = (KNOWN_FIELD_DESCRIPTIONS[name] || '').toLowerCase();
+                return name.toLowerCase().includes(q) || desc.includes(q);
+            })
+            .map(name => ({
+                value: name,
+                desc: KNOWN_FIELD_DESCRIPTIONS[name] || 'Document field'
+            }))
+            .slice(0, 10);
+    }
+
+    function renderFieldSuggestions(suggestions) {
+        if (!suggestions || suggestions.length === 0) {
+            hideCsvFieldAutocomplete();
+            return;
+        }
+
+        dropdown.innerHTML = '';
+        dropdown.dataset.selectedIndex = '-1';
+
+        suggestions.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'mime-autocomplete-item';
+            row.dataset.index = idx;
+            row.dataset.value = item.value;
+
+            const valSpan = document.createElement('span');
+            valSpan.className = 'mime-type-val';
+            valSpan.style.color = 'var(--accent-primary, #a855f7)';
+            valSpan.textContent = item.value;
+
+            const descSpan = document.createElement('span');
+            descSpan.className = 'mime-type-desc';
+            descSpan.textContent = item.desc;
+
+            row.appendChild(valSpan);
+            row.appendChild(descSpan);
+
+            row.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                handleAddCsvField(item.value);
+            });
+
+            dropdown.appendChild(row);
+        });
+
+        dropdown.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => {
+        const query = input.value;
+        const matches = getFilteredFieldSuggestions(query);
+        renderFieldSuggestions(matches);
+    });
+
+    input.addEventListener('focus', () => {
+        const matches = getFilteredFieldSuggestions(input.value);
+        renderFieldSuggestions(matches);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('.mime-autocomplete-item');
+        let selIdx = parseInt(dropdown.dataset.selectedIndex || '-1', 10);
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (items.length === 0) return;
+            selIdx = (selIdx + 1) % items.length;
+            dropdown.dataset.selectedIndex = selIdx;
+            items.forEach((it, i) => it.classList.toggle('is-selected', i === selIdx));
+            items[selIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (items.length === 0) return;
+            selIdx = (selIdx - 1 + items.length) % items.length;
+            dropdown.dataset.selectedIndex = selIdx;
+            items.forEach((it, i) => it.classList.toggle('is-selected', i === selIdx));
+            items[selIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (dropdown.style.display !== 'none' && selIdx >= 0 && selIdx < items.length) {
+                const chosen = items[selIdx].dataset.value;
+                handleAddCsvField(chosen);
+            } else {
+                handleAddCsvField();
+            }
+        } else if (e.key === 'Escape') {
+            hideCsvFieldAutocomplete();
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+            hideCsvFieldAutocomplete();
+        }
+    });
+}
+
+function initCsvFieldsManager() {
+    const container = document.getElementById('csvfields-chip-list');
+    const input = document.getElementById('setting-csvfields');
+    if (!container || !input) return;
+    delete input._cachedFields;
+    if (container.dataset.initialized) {
+        renderCsvFieldsChips();
+        return;
+    }
+    container.dataset.initialized = 'true';
+
+    renderCsvFieldsChips();
+    setupCsvFieldAutocomplete();
+
+    const addInput = document.getElementById('input-new-csvfield');
+    if (addInput && !addInput.dataset.enterBound) {
+        addInput.dataset.enterBound = 'true';
+        addInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const dropdown = document.getElementById('csvfield-autocomplete-dropdown');
+                if (!dropdown || dropdown.style.display === 'none') {
+                    e.preventDefault();
+                    handleAddCsvField();
+                }
+            }
+        });
+    }
+}
+
+window.renderCsvFieldsChips = renderCsvFieldsChips;
+window.handleAddCsvField = handleAddCsvField;
+window.removeCsvField = removeCsvField;
+window.sortCsvFields = sortCsvFields;
+window.restoreDefaultCsvFields = async function() {
+    await window.restoreDefaultSetting('csvfields');
+    const input = document.getElementById('setting-csvfields');
+    if (input) {
+        delete input._cachedFields;
+        renderCsvFieldsChips();
+    }
+};
 
 /**
  * Prompt User for Export Filename (Look & feel matching the progress bar dialog)
@@ -3573,6 +4101,36 @@ function initCustomSelects(root = document) {
                     optEl.classList.add('is-disabled');
                 }
 
+                // Detect hierarchy depth (from data-depth attribute or leading non-breaking spaces)
+                let depth = 0;
+                if (opt.dataset && opt.dataset.depth !== undefined && opt.dataset.depth !== '') {
+                    depth = parseInt(opt.dataset.depth, 10) || 0;
+                } else if (opt.innerHTML) {
+                    const nbspMatch = opt.innerHTML.match(/^((?:&nbsp;|\u00a0)+)/i);
+                    if (nbspMatch) {
+                        const count = (nbspMatch[1].match(/&nbsp;|\u00a0/gi) || []).length;
+                        depth = Math.floor(count / 4) || (count > 0 ? 1 : 0);
+                    }
+                }
+                if (!depth && opt.textContent) {
+                    const spaceMatch = opt.textContent.match(/^([\u00a0\s]+)/);
+                    if (spaceMatch) {
+                        const count = (spaceMatch[1].match(/\u00a0/g) || []).length;
+                        if (count > 0) {
+                            depth = Math.floor(count / 4) || 1;
+                        }
+                    }
+                }
+
+                if (depth > 0) {
+                    optEl.dataset.depth = depth;
+                    const indentSpan = document.createElement('span');
+                    indentSpan.className = 'custom-select-indent';
+                    indentSpan.style.width = `${depth * 20}px`;
+                    indentSpan.style.flexShrink = '0';
+                    optEl.appendChild(indentSpan);
+                }
+
                 if (isMultiple) {
                     const checkbox = document.createElement('span');
                     checkbox.className = 'custom-select-checkbox';
@@ -3583,12 +4141,9 @@ function initCustomSelects(root = document) {
                 const textSpan = document.createElement('span');
                 textSpan.className = 'custom-select-option-text';
 
-                // Preserve folder hierarchy indentation if non-breaking spaces are present
-                if (opt.innerHTML && opt.innerHTML.includes('&nbsp;')) {
-                    textSpan.innerHTML = opt.innerHTML;
-                } else {
-                    textSpan.textContent = opt.textContent.trim();
-                }
+                // Strip leading non-breaking spaces so selectbox sits directly next to text
+                const cleanText = opt.textContent.replace(/^[\u00a0\s]+/, '').trim();
+                textSpan.textContent = cleanText || opt.textContent.trim();
 
                 optEl.appendChild(textSpan);
 
@@ -4842,6 +5397,7 @@ function renderSkippedNamesChips() {
         chip.className = 'config-chip';
         chip.dataset.index = index;
         chip.dataset.pattern = pattern;
+        chip.draggable = true;
 
         const textSpan = document.createElement('span');
         textSpan.className = 'chip-text';
@@ -4867,11 +5423,23 @@ function renderSkippedNamesChips() {
         chip.appendChild(removeBtn);
         container.appendChild(chip);
     });
+
+    setupChipDragAndDrop(
+        'skipped-names-chip-list',
+        () => currentConfigData.skippedNames,
+        (newArr) => { currentConfigData.skippedNames = newArr; },
+        () => {
+            markConfigDirty();
+            renderSkippedNamesChips();
+            showToast('Patterns reordered', 'info', 1500);
+        }
+    );
 }
 
 function enableChipInlineEdit(chip, textSpan, index) {
     if (chip.classList.contains('is-editing')) return;
     chip.classList.add('is-editing');
+    chip.draggable = false;
 
     const currentVal = currentConfigData.skippedNames[index];
     const input = document.createElement('input');
@@ -5106,6 +5674,7 @@ function renderExcludedMimeTypesChips() {
         chip.className = 'config-chip mime-chip';
         chip.dataset.index = index;
         chip.dataset.pattern = mtype;
+        chip.draggable = true;
 
         const textSpan = document.createElement('span');
         textSpan.className = 'chip-text';
@@ -5131,11 +5700,23 @@ function renderExcludedMimeTypesChips() {
         chip.appendChild(removeBtn);
         container.appendChild(chip);
     });
+
+    setupChipDragAndDrop(
+        'excluded-mimetypes-chip-list',
+        () => currentConfigData.excludedmimetypes,
+        (newArr) => { currentConfigData.excludedmimetypes = newArr; },
+        () => {
+            markConfigDirty();
+            renderExcludedMimeTypesChips();
+            showToast('MIME types reordered', 'info', 1500);
+        }
+    );
 }
 
 function enableMimeChipInlineEdit(chip, textSpan, index) {
     if (chip.classList.contains('is-editing')) return;
     chip.classList.add('is-editing');
+    chip.draggable = false;
 
     const currentVal = currentConfigData.excludedmimetypes[index];
     const input = document.createElement('input');
@@ -5794,16 +6375,6 @@ function initFileBrowser() {
     let currentEntries = [];
     let currentBreadcrumbs = [];
     let isLoading = false;
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
 
     function getFileIconClass(mimetype) {
         const mt = (mimetype || '').toLowerCase();

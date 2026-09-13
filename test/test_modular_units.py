@@ -36,10 +36,10 @@ class TestConstants(unittest.TestCase):
         for key in expected_keys:
             self.assertIn(key, constants.DEFAULT_CONFIG)
         self.assertEqual(constants.DEFAULT_CONFIG['export_filename_mode'], 'timestamp')
-        self.assertIn(('timestamp', 'Timestamp (recoll_YYYYMMDD_hhmmss)'), constants.EXPORT_FILENAME_MODES)
+        self.assertIn(('timestamp', 'Timestamp'), constants.EXPORT_FILENAME_MODES)
         self.assertIn(('ask', 'Ask every time'), constants.EXPORT_FILENAME_MODES)
-        self.assertIn(('query_hash', 'Query hash (first 16 characters)'), constants.EXPORT_FILENAME_MODES)
-        self.assertIn(('custom', 'Custom pattern'), constants.EXPORT_FILENAME_MODES)
+        self.assertIn(('query_hash', 'Query hash'), constants.EXPORT_FILENAME_MODES)
+        self.assertIn(('custom', 'Custom'), constants.EXPORT_FILENAME_MODES)
 
     def test_mime_labels(self):
         self.assertEqual(constants.MIME_LABELS['application/pdf'], 'PDF Document')

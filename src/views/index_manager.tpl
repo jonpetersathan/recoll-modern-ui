@@ -160,7 +160,7 @@
                     <button type="button" class="terminal-btn" onclick="copyConsoleLogs()">Copy</button>
                 </div>
             </div>
-            <pre class="terminal-body" id="console-output">{{'\n'.join(logs) if logs else 'Indexer console idle. Click "Run Incremental Index" or "Full Re-index" above to monitor live stdout logs.'}}</pre>
+            <pre class="terminal-body" id="console-output">{{'\n'.join(logs) if logs else 'Indexer console idle. Click "Update Index" or "Purge Index" above to monitor live stdout logs.'}}</pre>
         </div>
     </div>
 
@@ -259,7 +259,7 @@
             </div>
         </div>
         <p class="settings-helper" style="margin-bottom: 0.75rem;">
-            Files and directories matching these wildcard patterns (e.g. <code>*.vmdk</code>, <code>.DS_Store</code>) are completely skipped during indexing. Click any tag to edit inline, click <strong>&times;</strong> to remove, or add new patterns below. Duplicate patterns are automatically rejected.
+            Files and directories matching wildcard patterns are skipped during indexing. Drag to reorder, click to edit inline.
         </p>
 
         <!-- Interactive Chips List -->
@@ -270,7 +270,7 @@
             </div>
             % else:
             % for s_idx, s_pat in enumerate(skipped_names_list):
-            <div class="config-chip" data-index="{{s_idx}}" data-pattern="{{s_pat}}">
+            <div class="config-chip" data-index="{{s_idx}}" data-pattern="{{s_pat}}" draggable="true">
                 <span class="chip-text" title="Click to edit pattern">{{s_pat}}</span>
                 <button type="button" class="chip-remove-btn" title="Remove &quot;{{s_pat}}&quot;" onclick="removeSkippedName({{s_idx}})">×</button>
             </div>
@@ -281,7 +281,7 @@
         <!-- Add Pattern Toolbar -->
         <div class="chip-add-toolbar">
             <div class="chip-input-wrap">
-                <input type="text" id="input-new-pattern" class="form-control chip-add-input" placeholder="Enter pattern (e.g. *.iso, .git, ~*)... Press Enter to add" autocomplete="off" spellcheck="false">
+                <input type="text" id="input-new-pattern" class="form-control chip-add-input" placeholder="Enter wildcard pattern (e.g. *.iso, .git, ~*)..." autocomplete="off" spellcheck="false">
             </div>
             <button type="button" class="btn btn-primary btn-sm" id="btn-add-pattern" onclick="handleAddSkippedName()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -327,7 +327,7 @@
             </div>
         </div>
         <p class="settings-helper" style="margin-bottom: 0.75rem;">
-            Documents matching these MIME types (e.g. <code>application/octet-stream</code>, <code>audio/*</code>, <code>text/x-log</code>) will not have their content indexed. If <strong>Index All Filenames</strong> is enabled, their file names and metadata will still be indexed. Click any tag to edit inline, click <strong>&times;</strong> to remove, or start typing below for suggestions. Duplicate types are automatically rejected.
+            Documents matching these MIME types will not have their contents indexed. Drag to reorder, click to edit inline.
         </p>
 
         <!-- Interactive MIME Chips List -->
@@ -338,7 +338,7 @@
             </div>
             % else:
             % for m_idx, m_type in enumerate(excluded_mimetypes_list):
-            <div class="config-chip mime-chip" data-index="{{m_idx}}" data-pattern="{{m_type}}">
+            <div class="config-chip mime-chip" data-index="{{m_idx}}" data-pattern="{{m_type}}" draggable="true">
                 <span class="chip-text" title="Click to edit MIME type">{{m_type}}</span>
                 <button type="button" class="chip-remove-btn" title="Remove &quot;{{m_type}}&quot;" onclick="removeExcludedMimeType({{m_idx}})">×</button>
             </div>
@@ -349,7 +349,7 @@
         <!-- Add MIME Type Toolbar with Auto-completion -->
         <div class="chip-add-toolbar">
             <div class="chip-input-wrap">
-                <input type="text" id="input-new-mime" class="form-control chip-add-input" placeholder="Enter MIME type (e.g. text/x-log, audio/*, application/octet-stream)... Type for suggestions, press Enter to add" autocomplete="off" spellcheck="false">
+                <input type="text" id="input-new-mime" class="form-control chip-add-input" placeholder="Enter MIME type (e.g. audio/*, text/x-log, application/octet-stream)..." autocomplete="off" spellcheck="false">
                 <div id="mime-autocomplete-dropdown" class="mime-autocomplete-dropdown" style="display: none;"></div>
             </div>
             <button type="button" class="btn btn-primary btn-sm" id="btn-add-mime" onclick="handleAddExcludedMimeType()">
@@ -556,8 +556,8 @@
 
             <div class="settings-field" style="margin-bottom: 1rem;">
                 <label class="settings-label" for="modal-rule-glob">Path Filter (Glob Pattern)</label>
-                <span class="settings-helper">Optional fast-path filter (e.g. <code>*.pdf</code> or <code>/data/projects/**</code>).</span>
-                <input type="text" id="modal-rule-glob" class="form-control font-mono rule-mono-input" placeholder="e.g. *.pdf, /data/projects/** (leave empty for all files)">
+                <span class="settings-helper">Optional glob pattern to restrict matching files</span>
+                <input type="text" id="modal-rule-glob" class="form-control font-mono rule-mono-input" placeholder="e.g. *.pdf, /data/projects/**">
             </div>
 
             <!-- Regex Configuration -->
@@ -605,7 +605,7 @@
                 </div>
                 <div class="settings-field" style="margin-top: 0.75rem;">
                     <label class="settings-label" for="modal-rule-delim-mappings">Token Mappings *</label>
-                    <span class="settings-helper">Map 0-based token indices to field names: <code>0:doctype, 1:date@YYYYMMDD, 2:invoice_id</code></span>
+                    <span class="settings-helper">Map 0-based token indices to target field names</span>
                     <input type="text" id="modal-rule-delim-mappings" class="form-control font-mono rule-mono-input" placeholder="e.g. 0:doctype, 1:date@YYYYMMDD, 2:invoice_id">
                 </div>
             </div>
