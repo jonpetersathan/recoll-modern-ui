@@ -564,8 +564,8 @@
             <div id="rule-fields-regex" class="rule-type-fields">
                 <div class="settings-field">
                     <label class="settings-label" for="modal-rule-pattern">Regex Pattern with Named Capture Groups *</label>
-                    <span class="settings-helper">Use <code>(?P&lt;fieldname&gt;pattern)</code> syntax. Each capture group automatically creates a stored Recoll field.</span>
-                    <input type="text" id="modal-rule-pattern" class="form-control font-mono rule-pattern-input" placeholder="e.g. .*/projects/(?P<project>[^/]+)/(?P<year>\d{4})/(?P<title>[^.]+)\.pdf">
+                    <span class="settings-helper">Use <code>(?P&lt;fieldname&gt;pattern)</code> syntax. Use <code>(?P&lt;date_yyyymmdd&gt;...)</code> to set document modification date.</span>
+                    <input type="text" id="modal-rule-pattern" class="form-control font-mono rule-pattern-input" placeholder="e.g. .*/projects/(?P<project>[^/]+)/(?P<date_yyyymmdd>\d{8})/(?P<title>[^.]+)\.pdf">
                 </div>
             </div>
 
@@ -579,7 +579,7 @@
                     </div>
                     <div class="settings-field col-half">
                         <label class="settings-label" for="modal-rule-depth-field">Target Field Name *</label>
-                        <span class="settings-helper">Recoll field to store (e.g. <code>project</code> or <code>department</code>).</span>
+                        <span class="settings-helper">Recoll field to store (e.g. <code>project</code>, <code>department</code>, or <code>date@YYYYMMDD</code>).</span>
                         <input type="text" id="modal-rule-depth-field" class="form-control font-mono rule-mono-input" placeholder="e.g. project">
                     </div>
                 </div>
@@ -605,8 +605,8 @@
                 </div>
                 <div class="settings-field" style="margin-top: 0.75rem;">
                     <label class="settings-label" for="modal-rule-delim-mappings">Token Mappings *</label>
-                    <span class="settings-helper">Map 0-based token indices to field names: <code>0:doctype, 1:year, 2:invoice_id</code></span>
-                    <input type="text" id="modal-rule-delim-mappings" class="form-control font-mono rule-mono-input" placeholder="e.g. 0:doctype, 1:year, 2:invoice_id">
+                    <span class="settings-helper">Map 0-based token indices to field names: <code>0:doctype, 1:date@YYYYMMDD, 2:invoice_id</code></span>
+                    <input type="text" id="modal-rule-delim-mappings" class="form-control font-mono rule-mono-input" placeholder="e.g. 0:doctype, 1:date@YYYYMMDD, 2:invoice_id">
                 </div>
             </div>
         </div>

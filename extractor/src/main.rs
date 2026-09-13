@@ -125,16 +125,16 @@ pub fn matches_glob(pattern: &str, path_str: &str) -> bool {
     Regex::new(&regex_str).map(|re| re.is_match(path_str)).unwrap_or(false)
 }
 
-/// Sanitize field names to alphanumeric + underscores for Recoll compatibility, preserving dmtime@ directives
+/// Sanitize field names to alphanumeric + underscores for Recoll compatibility, preserving date@ directives
 fn sanitize_field_name(name: &str) -> String {
     let trimmed = name.trim();
     let lower = trimmed.to_lowercase();
-    if lower.starts_with("dmtime@") {
-        let suffix: String = trimmed[7..]
+    if lower.starts_with("date@") {
+        let suffix: String = trimmed[5..]
             .chars()
             .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
             .collect();
-        return format!("dmtime@{}", suffix);
+        return format!("date@{}", suffix);
     }
     trimmed
         .chars()
@@ -292,17 +292,17 @@ fn process_date_directives(results: &mut BTreeMap<String, String>) {
 
     for (k, v) in results.iter() {
         let lower = k.to_lowercase();
-        if lower == "dmtime@yyyymmdd" || lower == "dmtime_yyyymmdd" {
+        if lower == "date@yyyymmdd" || lower == "date_yyyymmdd" {
             keys_to_delete.push(k.clone());
             if let Some(ts) = parse_formatted_date(v, "yyyymmdd") {
                 extracted_timestamp = Some(ts);
             }
-        } else if lower == "dmtime@ddmmyyyy" || lower == "dmtime_ddmmyyyy" {
+        } else if lower == "date@ddmmyyyy" || lower == "date_ddmmyyyy" {
             keys_to_delete.push(k.clone());
             if let Some(ts) = parse_formatted_date(v, "ddmmyyyy") {
                 extracted_timestamp = Some(ts);
             }
-        } else if lower == "dmtime@mmddyyyy" || lower == "dmtime_mmddyyyy" {
+        } else if lower == "date@mmddyyyy" || lower == "date_mmddyyyy" {
             keys_to_delete.push(k.clone());
             if let Some(ts) = parse_formatted_date(v, "mmddyyyy") {
                 extracted_timestamp = Some(ts);
@@ -316,13 +316,13 @@ fn process_date_directives(results: &mut BTreeMap<String, String>) {
 
     for (k, v) in results.iter() {
         let lower = k.to_lowercase();
-        if lower == "dmtime@year" || lower == "dmtime_year" {
+        if lower == "date@year" || lower == "date_year" {
             keys_to_delete.push(k.clone());
             year_val = Some(v.clone());
-        } else if lower == "dmtime@month" || lower == "dmtime_month" {
+        } else if lower == "date@month" || lower == "date_month" {
             keys_to_delete.push(k.clone());
             month_val = Some(v.clone());
-        } else if lower == "dmtime@day" || lower == "dmtime_day" {
+        } else if lower == "date@day" || lower == "date_day" {
             keys_to_delete.push(k.clone());
             day_val = Some(v.clone());
         }
@@ -341,7 +341,7 @@ fn process_date_directives(results: &mut BTreeMap<String, String>) {
     }
 
     for k in results.keys() {
-        if k.to_lowercase().starts_with("dmtime@") {
+        if k.to_lowercase().starts_with("date@") {
             keys_to_delete.push(k.clone());
         }
     }
@@ -351,7 +351,7 @@ fn process_date_directives(results: &mut BTreeMap<String, String>) {
     }
 
     if let Some(ts) = extracted_timestamp {
-        results.insert("dmtime".to_string(), ts.to_string());
+        results.insert("modificationdate".to_string(), ts.to_string());
     }
 }
 
@@ -666,7 +666,7 @@ mod tests {
                     target: "stem".into(),
                     mappings: vec![
                         DelimiterMapping { index: 0, field: "doctype".into() },
-                        DelimiterMapping { index: 1, field: "dmtime@YYYYMMDD".into() },
+                        DelimiterMapping { index: 1, field: "date@YYYYMMDD".into() },
                         DelimiterMapping { index: 2, field: "title".into() },
                     ],
                 },
@@ -675,8 +675,8 @@ mod tests {
         let res = evaluate_rules(&config, "/data/invoices/INV_20230514_AnnualReport.pdf");
         assert_eq!(res.get("doctype"), Some(&"INV".to_string()));
         assert_eq!(res.get("title"), Some(&"AnnualReport".to_string()));
-        assert_eq!(res.get("dmtime"), Some(&"1684022400".to_string()));
-        assert!(!res.contains_key("dmtime@YYYYMMDD"));
+        assert_eq!(res.get("modificationdate"), Some(&"1684022400".to_string()));
+        assert!(!res.contains_key("date@YYYYMMDD"));
     }
 
     #[test]
@@ -690,13 +690,13 @@ mod tests {
                 rule_type: RuleType::Delimiter {
                     delimiter: "_".into(),
                     target: "stem".into(),
-                    mappings: vec![DelimiterMapping { index: 0, field: "dmtime@DDMMYYYY".into() }],
+                    mappings: vec![DelimiterMapping { index: 0, field: "date@DDMMYYYY".into() }],
                 },
             }],
         };
         let res_dd = evaluate_rules(&config_dd, "/data/invoices/14052023_file.pdf");
-        assert_eq!(res_dd.get("dmtime"), Some(&"1684022400".to_string()));
-        assert!(!res_dd.contains_key("dmtime@DDMMYYYY"));
+        assert_eq!(res_dd.get("modificationdate"), Some(&"1684022400".to_string()));
+        assert!(!res_dd.contains_key("date@DDMMYYYY"));
 
         let config_mm = RulesConfig {
             rules: vec![MetadataRule {
@@ -707,13 +707,13 @@ mod tests {
                 rule_type: RuleType::Delimiter {
                     delimiter: "_".into(),
                     target: "stem".into(),
-                    mappings: vec![DelimiterMapping { index: 0, field: "dmtime@MMDDYYYY".into() }],
+                    mappings: vec![DelimiterMapping { index: 0, field: "date@MMDDYYYY".into() }],
                 },
             }],
         };
         let res_mm = evaluate_rules(&config_mm, "/data/invoices/05142023_file.pdf");
-        assert_eq!(res_mm.get("dmtime"), Some(&"1684022400".to_string()));
-        assert!(!res_mm.contains_key("dmtime@MMDDYYYY"));
+        assert_eq!(res_mm.get("modificationdate"), Some(&"1684022400".to_string()));
+        assert!(!res_mm.contains_key("date@MMDDYYYY"));
     }
 
     #[test]
@@ -729,19 +729,19 @@ mod tests {
                         delimiter: "_".into(),
                         target: "stem".into(),
                         mappings: vec![
-                            DelimiterMapping { index: 0, field: "dmtime@year".into() },
-                            DelimiterMapping { index: 1, field: "dmtime@month".into() },
-                            DelimiterMapping { index: 2, field: "dmtime@day".into() },
+                            DelimiterMapping { index: 0, field: "date@year".into() },
+                            DelimiterMapping { index: 1, field: "date@month".into() },
+                            DelimiterMapping { index: 2, field: "date@day".into() },
                         ],
                     },
                 }],
             };
             let path = format!("/data/docs/2023_{}_14.pdf", m_str);
             let res = evaluate_rules(&config, &path);
-            assert_eq!(res.get("dmtime"), Some(&"1676332800".to_string()), "Failed for {}", m_str);
-            assert!(!res.contains_key("dmtime@year"));
-            assert!(!res.contains_key("dmtime@month"));
-            assert!(!res.contains_key("dmtime@day"));
+            assert_eq!(res.get("modificationdate"), Some(&"1676332800".to_string()), "Failed for {}", m_str);
+            assert!(!res.contains_key("date@year"));
+            assert!(!res.contains_key("date@month"));
+            assert!(!res.contains_key("date@day"));
         }
     }
 
@@ -757,14 +757,14 @@ mod tests {
                     delimiter: "_".into(),
                     target: "stem".into(),
                     mappings: vec![
-                        DelimiterMapping { index: 0, field: "dmtime@year".into() },
-                        DelimiterMapping { index: 1, field: "dmtime@month".into() },
+                        DelimiterMapping { index: 0, field: "date@year".into() },
+                        DelimiterMapping { index: 1, field: "date@month".into() },
                     ],
                 },
             }],
         };
         let res = evaluate_rules(&config, "/data/docs/2023_02.pdf");
-        assert_eq!(res.get("dmtime"), Some(&"1675209600".to_string()));
+        assert_eq!(res.get("modificationdate"), Some(&"1675209600".to_string()));
     }
 }
 

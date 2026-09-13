@@ -22,6 +22,8 @@ STANDARD_DOCUMENT_FIELDS: Set[str] = {
     "title",
     "dmtime",
     "mtime",
+    "modificationdate",
+    "date",
 }
 
 MONTH_NAMES: Dict[str, int] = {
@@ -41,12 +43,12 @@ MONTH_NAMES: Dict[str, int] = {
 
 
 def sanitize_field_name(name: str) -> str:
-    """Sanitize field name to alphanumeric and underscores for Recoll compatibility, preserving dmtime@ directives."""
+    """Sanitize field name to alphanumeric and underscores for Recoll compatibility, preserving date@ directives."""
     name_stripped = name.strip()
     lower_name = name_stripped.lower()
-    if lower_name.startswith("dmtime@"):
-        suffix = re.sub(r'[^a-zA-Z0-9_]', '', name_stripped[7:])
-        return f"dmtime@{suffix}"
+    if lower_name.startswith("date@"):
+        suffix = re.sub(r'[^a-zA-Z0-9_]', '', name_stripped[5:])
+        return f"date@{suffix}"
     cleaned = re.sub(r'[^a-zA-Z0-9_]', '_', name_stripped)
     return cleaned.lower()
 
@@ -139,44 +141,44 @@ def parse_formatted_date(val: str, fmt: str) -> Optional[int]:
 
 def process_date_directives(results: Dict[str, str]) -> Dict[str, str]:
     """
-    Detect dmtime date directives, convert them to a Unix timestamp at 00:00:00 UTC,
-    set the 'dmtime' field, and purge directive keys from results.
+    Detect date directives, convert them to a Unix timestamp at 00:00:00 UTC,
+    set the 'modificationdate' field for Recoll, and purge directive keys from results.
     """
     keys_to_delete: Set[str] = set()
     extracted_timestamp: Optional[int] = None
 
-    # 1. Formatted dates: dmtime@YYYYMMDD, dmtime@DDMMYYYY, dmtime@MMDDYYYY (and regex equivalents)
+    # 1. Formatted dates: date@YYYYMMDD, date@DDMMYYYY, date@MMDDYYYY (and regex equivalents)
     for k, v in list(results.items()):
         lower_k = k.lower()
-        if lower_k in ('dmtime@yyyymmdd', 'dmtime_yyyymmdd'):
+        if lower_k in ('date@yyyymmdd', 'date_yyyymmdd'):
             keys_to_delete.add(k)
             ts = parse_formatted_date(v, 'yyyymmdd')
             if ts is not None:
                 extracted_timestamp = ts
-        elif lower_k in ('dmtime@ddmmyyyy', 'dmtime_ddmmyyyy'):
+        elif lower_k in ('date@ddmmyyyy', 'date_ddmmyyyy'):
             keys_to_delete.add(k)
             ts = parse_formatted_date(v, 'ddmmyyyy')
             if ts is not None:
                 extracted_timestamp = ts
-        elif lower_k in ('dmtime@mmddyyyy', 'dmtime_mmddyyyy'):
+        elif lower_k in ('date@mmddyyyy', 'date_mmddyyyy'):
             keys_to_delete.add(k)
             ts = parse_formatted_date(v, 'mmddyyyy')
             if ts is not None:
                 extracted_timestamp = ts
 
-    # 2. Split components: dmtime@year, dmtime@month, dmtime@day
+    # 2. Split components: date@year, date@month, date@day
     year_val = None
     month_val = None
     day_val = None
     for k, v in list(results.items()):
         lower_k = k.lower()
-        if lower_k in ('dmtime@year', 'dmtime_year'):
+        if lower_k in ('date@year', 'date_year'):
             keys_to_delete.add(k)
             year_val = v
-        elif lower_k in ('dmtime@month', 'dmtime_month'):
+        elif lower_k in ('date@month', 'date_month'):
             keys_to_delete.add(k)
             month_val = v
-        elif lower_k in ('dmtime@day', 'dmtime_day'):
+        elif lower_k in ('date@day', 'date_day'):
             keys_to_delete.add(k)
             day_val = v
 
@@ -189,16 +191,16 @@ def process_date_directives(results: Dict[str, str]) -> Dict[str, str]:
             if ts is not None:
                 extracted_timestamp = ts
 
-    # Purge any remaining dmtime@ directive keys
+    # Purge any remaining date@ directive keys
     for k in list(results.keys()):
-        if k.lower().startswith('dmtime@'):
+        if k.lower().startswith('date@'):
             keys_to_delete.add(k)
 
     for k in keys_to_delete:
         results.pop(k, None)
 
     if extracted_timestamp is not None:
-        results['dmtime'] = str(extracted_timestamp)
+        results['modificationdate'] = str(extracted_timestamp)
 
     return results
 
@@ -468,13 +470,13 @@ class MetadataRulesManager:
             if not clean:
                 return
             clean_lower = clean.lower()
-            if clean_lower.startswith('dmtime@') or clean_lower in (
-                'dmtime_year', 'dmtime_month', 'dmtime_day',
-                'dmtime_yyyymmdd', 'dmtime_ddmmyyyy', 'dmtime_mmddyyyy'
+            if clean_lower.startswith('date@') or clean_lower in (
+                'date_year', 'date_month', 'date_day',
+                'date_yyyymmdd', 'date_ddmmyyyy', 'date_mmddyyyy'
             ):
-                fields.add('dmtime')
-            else:
-                fields.add(clean)
+                # Date directives set the document modification date; do not expose as a custom query keyword
+                return
+            fields.add(clean)
 
         for rule in data.get('rules', []):
             if not rule.get('enabled', True):

@@ -37,6 +37,42 @@ class TestMetadataRulesManager(unittest.TestCase):
         self.assertEqual(sanitize_field_name("Project-Name"), "project_name")
         self.assertEqual(sanitize_field_name("DocType 123!"), "doctype_123_")
         self.assertEqual(sanitize_field_name("author"), "author")
+        self.assertEqual(sanitize_field_name("date@YYYYMMDD"), "date@YYYYMMDD")
+        self.assertEqual(sanitize_field_name("date@year"), "date@year")
+
+    def test_date_directives_delimiter_and_regex(self):
+        rules = [
+            {
+                "id": "r_date_delim",
+                "name": "Date Delim",
+                "enabled": True,
+                "type": "delimiter",
+                "delimiter": "_",
+                "target": "stem",
+                "mappings": [
+                    {"index": 0, "field": "doctype"},
+                    {"index": 1, "field": "date@YYYYMMDD"},
+                    {"index": 2, "field": "title"},
+                ],
+            }
+        ]
+        res = evaluate_rules_in_memory(rules, "/data/invoices/INV_20230514_AnnualReport.pdf")
+        self.assertEqual(res.get("doctype"), "INV")
+        self.assertEqual(res.get("title"), "AnnualReport")
+        self.assertEqual(res.get("modificationdate"), "1684022400")
+        self.assertNotIn("date@YYYYMMDD", res)
+
+        rules_regex = [
+            {
+                "id": "r_date_regex",
+                "name": "Date Regex",
+                "enabled": True,
+                "type": "regex",
+                "pattern": r".*/invoices/(?P<doctype>[^_]+)_(?P<date_yyyymmdd>\d{8})_(?P<title>[^.]+)\.pdf",
+            }
+        ]
+        res_regex = evaluate_rules_in_memory(rules_regex, "/data/invoices/INV_20230514_AnnualReport.pdf")
+        self.assertEqual(res_regex.get("modificationdate"), "1684022400")
 
     def test_glob_matching(self):
         self.assertTrue(matches_glob("*.pdf", "/data/docs/file.pdf"))

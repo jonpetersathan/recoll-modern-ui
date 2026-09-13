@@ -45,7 +45,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     'shortenpaths': 1,
     'permlinks': 0,
     'res_permlink': 0,
+    'export_filename_mode': 'timestamp',
+    'export_filename_pattern': 'recoll_@YYYY@MM@DD_@hh@mm@ss',
 }
+
+# Available filename formatting modes for exports
+EXPORT_FILENAME_MODES: List[Tuple[str, str]] = [
+    ('timestamp', 'Timestamp (recoll_YYYYMMDD_hhmmss)'),
+    ('ask', 'Ask every time'),
+    ('query_hash', 'Query hash (first 16 characters)'),
+    ('custom', 'Custom pattern'),
+]
 
 # Available sort criteria for Recoll query execution
 SORT_OPTIONS: List[Tuple[str, str]] = [
@@ -195,7 +205,7 @@ DEFAULT_SEARCH_FORM: Dict[str, Any] = {
             "id": "filename",
             "label": "File Name",
             "type": "text",
-            "placeholder": "e.g. *.pdf, 000.*, report_*",
+            "placeholder": "e.g. *.pdf, 000.*, recoll_*",
             "helper": "Matches document filename with wildcard pattern support",
             "query_format": "filename:{value}",
         },

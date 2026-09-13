@@ -120,6 +120,7 @@ class ConfigManager:
             ("title_link", 0), ("collapsedups", 1), ("synonyms", 0),
             ("noresultlinks", 1), ("logquery", 1), ("shortenpaths", 1),
             ("permlinks", 1), ("res_permlink", 1), ("queryfrag", 0),
+            ("export_filename_mode", 0), ("export_filename_pattern", 0),
         ]
         defaults = dict(DEFAULT_CONFIG)
         for key, is_int in fetches:
@@ -153,6 +154,12 @@ class ConfigManager:
                         config[key] = default_val
                 else:
                     config[key] = default_val
+
+        # Normalize export filename settings
+        if config.get('export_filename_mode') not in ('timestamp', 'ask', 'query_hash', 'custom'):
+            config['export_filename_mode'] = DEFAULT_CONFIG['export_filename_mode']
+        if not config.get('export_filename_pattern'):
+            config['export_filename_pattern'] = DEFAULT_CONFIG['export_filename_pattern']
 
         # Filter valid JSON/CSV fields: only support available keywords (including metadata extraction rule tags)
         try:

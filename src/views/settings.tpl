@@ -219,33 +219,6 @@
                         % end
                     </div>
                 </div>
-
-                <!-- title_link -->
-                % st = st_map.get('title_link', {})
-                % is_cust = st.get('is_custom', False)
-                % glob_val = st.get('global_value', 'download')
-                % cur_val = get('title_link', glob_val)
-                <div class="settings-field" data-setting-key="title_link">
-                    <label class="settings-label">Default Title Click Action</label>
-                    <span class="settings-helper">Action triggered when clicking document title</span>
-                    <div class="setting-input-group">
-                        <select name="title_link" id="setting-title_link" class="form-control" data-global-value="{{glob_val}}" data-user-value="{{cur_val}}">
-                            <option value="download" {{'selected' if cur_val == 'download' else ''}}>Download</option>
-                            <option value="preview" {{'selected' if cur_val == 'preview' else ''}}>Preview</option>
-                            <option value="open" {{'selected' if cur_val == 'open' else ''}}>Open</option>
-                        </select>
-                        <input type="hidden" name="scope_title_link" id="scope-title_link" value="user">
-                        % if is_admin_val:
-                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-title_link" data-key="title_link" onclick="window.toggleAdminScope('title_link')" title="User-Specific Setting (Click to switch to Global Default)">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                        </button>
-                        % else:
-                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-title_link" data-key="title_link" onclick="window.restoreDefaultSetting('title_link')" {{'' if is_cust else 'disabled'}} title="Restore global default value">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                        </button>
-                        % end
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -291,8 +264,63 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 <span>Export &amp; Browser Integration</span>
             </div>
-            <div class="settings-grid">
-                <!-- csvfields (renamed to JSON/CSV Fields) -->
+            <div class="settings-grid export-settings-grid">
+                <!-- ROW 1, COL 1: export_filename_mode -->
+                % st_efm = st_map.get('export_filename_mode', {})
+                % is_cust_efm = st_efm.get('is_custom', False)
+                % glob_val_efm = st_efm.get('global_value', DEFAULT_CONFIG.get('export_filename_mode', 'timestamp'))
+                % cur_val_efm = get('export_filename_mode', glob_val_efm)
+                <div class="settings-field" data-setting-key="export_filename_mode">
+                    <label class="settings-label">Export Filename Format</label>
+                    <span class="settings-helper" id="export-filename-mode-helper">Configures export naming. &ldquo;Ask every time&rdquo; prompts for a filename on download (the configured format will only be the default value).</span>
+                    <div class="setting-input-group">
+                        <select name="export_filename_mode" id="setting-export_filename_mode" class="form-control" data-global-value="{{glob_val_efm}}" data-user-value="{{cur_val_efm}}" onchange="if(window.updateExportFilenamePreview) window.updateExportFilenamePreview()">
+                            <option value="timestamp" {{'selected' if cur_val_efm == 'timestamp' else ''}}>Timestamp</option>
+                            <option value="ask" {{'selected' if cur_val_efm == 'ask' else ''}}>Ask every time</option>
+                            <option value="query_hash" {{'selected' if cur_val_efm == 'query_hash' else ''}}>Query hash</option>
+                            <option value="custom" {{'selected' if cur_val_efm == 'custom' else ''}}>Custom</option>
+                        </select>
+                        <input type="hidden" name="scope_export_filename_mode" id="scope-export_filename_mode" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-export_filename_mode" data-key="export_filename_mode" onclick="window.toggleAdminScope('export_filename_mode')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-export_filename_mode" data-key="export_filename_mode" onclick="window.restoreDefaultSetting('export_filename_mode')" {{'' if is_cust_efm else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        </button>
+                        % end
+                    </div>
+                    <div class="export-preview-spacer"></div>
+                </div>
+
+                <!-- ROW 1, COL 2: export_filename_pattern -->
+                % st_efp = st_map.get('export_filename_pattern', {})
+                % is_cust_efp = st_efp.get('is_custom', False)
+                % glob_val_efp = st_efp.get('global_value', DEFAULT_CONFIG.get('export_filename_pattern', 'recoll_@YYYY@MM@DD_@hh@mm@ss'))
+                % cur_val_efp = get('export_filename_pattern', glob_val_efp)
+                <div class="settings-field" data-setting-key="export_filename_pattern" id="field-export-filename-pattern">
+                    <label class="settings-label">Custom Filename Pattern</label>
+                    <span class="settings-helper">Keywords: @HASH, @YYYY, @MM, @DD, @hh, @mm, @ss</span>
+                    <div class="setting-input-group">
+                        <input name="export_filename_pattern" id="setting-export_filename_pattern" class="form-control font-mono" value="{{cur_val_efp}}" data-global-value="{{glob_val_efp}}" data-user-value="{{cur_val_efp}}" placeholder="recoll_@YYYY@MM@DD_@hh@mm@ss" oninput="if(window.handleExportPatternInput) window.handleExportPatternInput(); else if(window.updateExportFilenamePreview) window.updateExportFilenamePreview()">
+                        <input type="hidden" name="scope_export_filename_pattern" id="scope-export_filename_pattern" value="user">
+                        % if is_admin_val:
+                        <button type="button" class="setting-action-btn scope-user" id="btn-scope-export_filename_pattern" data-key="export_filename_pattern" onclick="window.toggleAdminScope('export_filename_pattern')" title="User-Specific Setting (Click to switch to Global Default)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        </button>
+                        % else:
+                        <button type="button" class="setting-action-btn btn-restore-default" id="btn-restore-export_filename_pattern" data-key="export_filename_pattern" onclick="window.restoreDefaultSetting('export_filename_pattern')" {{'' if is_cust_efp else 'disabled'}} title="Restore global default value">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        </button>
+                        % end
+                    </div>
+                    <div class="export-preview-wrap" id="wrap-export-filename-preview">
+                        <span>Preview: </span><code id="export-filename-pattern-preview" style="color: var(--accent-primary, #6366f1); font-weight: 600;"></code>
+                    </div>
+                </div>
+
+                <!-- ROW 2, COL 1: csvfields (JSON/CSV Fields) -->
                 % st = st_map.get('csvfields', {})
                 % is_cust = st.get('is_custom', False)
                 % glob_val = st.get('global_value', DEFAULT_CONFIG.get('csvfields', ''))
@@ -315,10 +343,11 @@
                     </div>
                 </div>
 
+                <!-- ROW 2, COL 2: Browser Search Plugin -->
                 <div class="settings-field">
                     <label class="settings-label">Browser Search Plugin</label>
                     <span class="settings-helper">Register Recoll into browser search bar</span>
-                    <a href="#" class="btn btn-secondary" style="margin-top: 4px; display: inline-flex;" onClick="addOpenSearch();return false">
+                    <a href="#" class="btn btn-secondary" style="margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px;" onClick="addOpenSearch();return false">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         <span>Add OpenSearch Provider</span>
                     </a>

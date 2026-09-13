@@ -568,7 +568,7 @@ class TestContainerEndpoints(unittest.TestCase):
         content_type = dl_headers.get("Content-Type") or dl_headers.get("content-type", "")
         self.assertIn("application/zip", content_type)
         disp = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
-        self.assertIn("search_", disp)
+        self.assertTrue("recoll_" in disp or "search_" in disp)
         self.assertIn(".zip", disp)
 
         # Verify zip validity and contents
@@ -1218,6 +1218,101 @@ class TestContainerEndpoints(unittest.TestCase):
         self.assertNotIn("statusMsg.innerText = 'Configuration and rules saved successfully!'", html_im)
         self.assertIn("showToast('Configuration and rules saved successfully!'", html_im)
         self.assertIn("window.updateRulesDirtyState", html_im)
+
+    def test_export_filename_configuration_and_endpoints(self):
+        """Verify export filename settings, custom override in json/csv/zip, and hash/pattern modes."""
+        import re
+
+        # 1. Verify settings page renders the new export filename settings
+        status, settings_html = self._http_request("/settings")
+        self.assertEqual(status, 200)
+        self.assertIn('name="export_filename_mode"', settings_html)
+        self.assertIn('name="export_filename_pattern"', settings_html)
+        self.assertIn('id="export-filename-pattern-preview"', settings_html)
+
+        # 2. Verify results page renders export-filename-modal dialog and data attributes
+        status, results_html = self._http_request("/results?query=000")
+        self.assertEqual(status, 200)
+        self.assertIn('id="export-filename-modal"', results_html)
+        self.assertIn('id="export-filename-input"', results_html)
+        self.assertIn('data-export-mode=', results_html)
+
+        # 3. Verify /json and /csv default timestamp format (recoll_YYYYMMDD_hhmmss.ext)
+        dl_status, dl_bytes, dl_headers = self._raw_request("/json?query=000")
+        self.assertEqual(dl_status, 200)
+        disp_json = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertTrue(re.search(r'filename="recoll_\d{8}_\d{6}\.json"', disp_json), f"Unexpected json disp: {disp_json}")
+
+        dl_status, dl_bytes, dl_headers = self._raw_request("/csv?query=000")
+        self.assertEqual(dl_status, 200)
+        disp_csv = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertTrue(re.search(r'filename="recoll_\d{8}_\d{6}\.csv"', disp_csv), f"Unexpected csv disp: {disp_csv}")
+
+        # 4. Verify /json and /csv accept custom filename parameter (from Ask every time dialog)
+        dl_status, dl_bytes, dl_headers = self._raw_request("/json?query=000&filename=my_exported_records")
+        self.assertEqual(dl_status, 200)
+        disp = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertIn('filename="my_exported_records.json"', disp)
+
+        dl_status, dl_bytes, dl_headers = self._raw_request("/csv?query=000&filename=my_exported_records")
+        self.assertEqual(dl_status, 200)
+        disp = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertIn('filename="my_exported_records.csv"', disp)
+
+        # 5. Verify /set saves export_filename_mode and export_filename_pattern
+        post_data = urllib.parse.urlencode({
+            "export_filename_mode": "custom",
+            "export_filename_pattern": "recoll_@HASH_@YYYY@MM@DD",
+            "ajax": "1"
+        }).encode("utf-8")
+        req = urllib.request.Request(f"{BASE_URL}/set", data=post_data, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+
+        # Verify custom pattern evaluation on /json
+        dl_status, dl_bytes, dl_headers = self._raw_request("/json?query=000")
+        self.assertEqual(dl_status, 200)
+        disp_custom = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertTrue(re.search(r'filename="recoll_[a-f0-9]{16}_\d{8}\.json"', disp_custom), f"Unexpected custom disp: {disp_custom}")
+
+        # 6. Verify query_hash mode produces 16-char hash filename
+        post_data = urllib.parse.urlencode({
+            "export_filename_mode": "query_hash",
+            "ajax": "1"
+        }).encode("utf-8")
+        req = urllib.request.Request(f"{BASE_URL}/set", data=post_data, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+
+        dl_status, dl_bytes, dl_headers = self._raw_request("/json?query=000")
+        self.assertEqual(dl_status, 200)
+        disp_hash = dl_headers.get("Content-Disposition") or dl_headers.get("content-disposition", "")
+        self.assertTrue(re.search(r'filename="[a-f0-9]{16}\.json"', disp_hash), f"Unexpected hash disp: {disp_hash}")
+
+        # 7. Restore default setting via API
+        restore_data = json.dumps({"key": "export_filename_mode"}).encode("utf-8")
+        restore_req = urllib.request.Request(
+            f"{BASE_URL}/api/settings/restore",
+            data=restore_data,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(restore_req) as resp:
+            self.assertEqual(resp.status, 200)
+            restore_res = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(restore_res.get("success"))
+            self.assertEqual(restore_res.get("global_value"), "timestamp")
+
+        restore_data = json.dumps({"key": "export_filename_pattern"}).encode("utf-8")
+        restore_req = urllib.request.Request(
+            f"{BASE_URL}/api/settings/restore",
+            data=restore_data,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(restore_req) as resp:
+            self.assertEqual(resp.status, 200)
+            restore_res = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(restore_res.get("success"))
+            self.assertEqual(restore_res.get("global_value"), "recoll_@YYYY@MM@DD_@hh@mm@ss")
 
 
 if __name__ == "__main__":

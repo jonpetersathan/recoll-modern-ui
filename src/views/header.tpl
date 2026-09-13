@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.9.5">
-    <script type="text/javascript" src="/static/extra.js?v=0.9.5" defer></script>
+    <link rel="stylesheet" type="text/css" href="/static/style.css?v=0.9.7">
+    <script type="text/javascript" src="/static/extra.js?v=0.9.7" defer></script>
     <link rel="icon" href="/logo">
     <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
     <link rel="icon" type="image/png" href="/static/recoll.png">
@@ -40,8 +40,8 @@
                     <img src="/logo" alt="Recoll Logo" class="header-logo" height="48">
                 </a>
                 <div class="header-title">
-                    <h1><a href="./">Recoll Search</a></h1>
-                    <p>Blazing Fast File Index And Query Solution</p>
+                    <h1><a href="./">Recoll Web</a></h1>
+                    <p>Blazing Fast File Search</p>
                 </div>
             </div>
             <div class="header-actions">

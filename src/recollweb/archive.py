@@ -23,20 +23,20 @@ class ArchiveManager:
     _lock = threading.Lock()
 
     @classmethod
-    def create_job(cls, total: int) -> str:
+    def create_job(cls, total: int, filename: Optional[str] = None) -> str:
         """
         Register a new archiving job and allocate target zip file path in EXPORT_DIR.
         """
         job_id = uuid.uuid4().hex[:12]
-        now_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"search_{now_ts}.zip"
-        zip_path = os.path.join(EXPORT_DIR, filename)
+        if not filename:
+            now_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"recoll_{now_ts}.zip"
 
-        counter = 1
-        while os.path.exists(zip_path):
-            filename = f"search_{now_ts}_{counter}.zip"
-            zip_path = os.path.join(EXPORT_DIR, filename)
-            counter += 1
+        if not filename.lower().endswith('.zip'):
+            filename = f"{filename}.zip"
+
+        disk_filename = f"{job_id}_{filename}"
+        zip_path = os.path.join(EXPORT_DIR, disk_filename)
 
         with cls._lock:
             # Clean up old jobs older than 1 hour (3600 seconds)

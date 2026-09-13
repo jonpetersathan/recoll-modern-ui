@@ -17,7 +17,7 @@
         </div>
 
         %if not config.get('rclc_nojsoncsv', False):
-        <div id="downloads" class="download-chips">
+        <div id="downloads" class="download-chips" data-export-mode="{{config.get('export_filename_mode', 'timestamp')}}" data-export-pattern="{{config.get('export_filename_pattern', 'recoll_@YYYY@MM@DD_@hh@mm@ss')}}">
             <a href="./json?{{query_string}}&page=0" id="btn-download-json" class="chip-btn" title="Download Results as JSON">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -123,6 +123,38 @@
         </div>
         <div class="modal-footer">
             <button type="button" id="btn-cancel-archive" class="btn btn-secondary btn-sm">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dialog for Export Filename Prompt (Ask Every Time) -->
+<div id="export-filename-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog archive-modal-dialog">
+        <div class="modal-header">
+            <div class="modal-title-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <h3 id="export-filename-modal-title">Export Filename</h3>
+            </div>
+            <button type="button" class="modal-close-btn" id="btn-close-export-filename-modal" aria-label="Close dialog">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="archive-status-wrap" style="margin-bottom: 0.75rem;">
+                <span id="export-filename-status-text" class="archive-status-text">Specify a filename for the export:</span>
+            </div>
+            <div class="setting-input-group">
+                <input type="text" id="export-filename-input" class="form-control" autocomplete="off" spellcheck="false" placeholder="recoll_YYYYMMDD_hhmmss">
+            </div>
+            <p id="export-filename-hint" class="archive-file-detail" style="margin-top: 0.5rem; margin-bottom: 0; color: var(--text-secondary);">
+                File will be saved as <code id="export-filename-preview" style="color: var(--accent-primary, #6366f1); font-weight: 600;"></code>
+            </p>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button" id="btn-cancel-export-filename" class="btn btn-secondary btn-sm">Cancel</button>
+            <button type="button" id="btn-confirm-export-filename" class="btn btn-primary btn-sm">Download</button>
         </div>
     </div>
 </div>

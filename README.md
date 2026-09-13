@@ -17,7 +17,7 @@ Modern, production-ready Web UI and REST API for the [Recoll](https://www.lesbon
 - **Advanced Search Forms**: Customizable search form schemas with JSON/DB persistence, static query filters, proximity searches, toggle switches, and metadata fields.
 - **File & Folder Browser**: Secure, read-only file tree browser (`/browser`) with topdirs containment, directory traversal guards, breadcrumbs, and direct downloads.
 - **Index Management & Monitoring**: Administrative control center (`/index-manager`) to inspect document count, database disk size, trigger incremental or full re-indexing (`recollindex`), and purge databases.
-- **Dynamic Metadata Extraction Engine**: High-performance compiled Rust extractor (`recoll-metadata-extractor`) with pure-Python fallback (`extractor_cli.py`) supporting depth, delimiter, regex named captures, and date directive parsing (`dmtime`).
+- **Dynamic Metadata Extraction Engine**: High-performance compiled Rust extractor (`recoll-metadata-extractor`) with pure-Python fallback (`extractor_cli.py`) supporting depth, delimiter, regex named captures, and date directive parsing (`date@` / `modificationdate`).
 - **Bulk File Archiving**: Asynchronous background ZIP packaging and direct downloads of filtered search result document sets.
 - **Reverse Auth Proxy & RBAC**: Header-based authentication (`X-WEBAUTH-USER`), CIDR network whitelisting, and role-based permissions (`permissions.conf`) with administrative delegation.
 - **Multiple Deployment Modes**: Standalone waitress server, WSGI application entrypoint, or containerized daemon.

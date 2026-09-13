@@ -2478,6 +2478,11 @@ function initSettingsFormManager() {
         const globalVal = input.dataset.globalValue;
         if (globalVal !== undefined) {
             input.value = globalVal;
+            if (input._customSelect && typeof input._customSelect.syncFromNative === 'function') {
+                input._customSelect.syncFromNative();
+            }
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
         }
         if (btn) {
             btn.disabled = true;
@@ -2594,12 +2599,235 @@ function initSettingsFormManager() {
         });
     }
 
+    function evaluateExportPattern(pattern, format, sampleHash) {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const YYYY = String(now.getFullYear());
+        const MM = pad(now.getMonth() + 1);
+        const DD = pad(now.getDate());
+        const hh = pad(now.getHours());
+        const mm = pad(now.getMinutes());
+        const ss = pad(now.getSeconds());
+        const hashVal = sampleHash || '3f7a1c89e2b0d456';
+
+        let pat = pattern || 'recoll_@YYYY@MM@DD_@hh@mm@ss';
+        pat = pat.replace(/@HASH/gi, hashVal);
+        pat = pat.replace(/@YYYY/gi, YYYY);
+        pat = pat.replace(/@MM/g, MM);
+        pat = pat.replace(/@DD/gi, DD);
+        pat = pat.replace(/@hh/gi, hh);
+        pat = pat.replace(/@mm/g, mm);
+        pat = pat.replace(/@ss/gi, ss);
+
+        const cleanExt = (format || 'zip').replace(/^\./, '');
+        if (!pat.toLowerCase().endsWith('.' + cleanExt.toLowerCase())) {
+            pat += '.' + cleanExt;
+        }
+        return pat;
+    }
+    window.evaluateExportPattern = evaluateExportPattern;
+
+    function updateExportFilenamePreview() {
+        const modeSelect = document.getElementById('setting-export_filename_mode');
+        const patternInput = document.getElementById('setting-export_filename_pattern');
+        const previewEl = document.getElementById('export-filename-pattern-preview');
+        const previewWrap = document.getElementById('wrap-export-filename-preview');
+        const helperEl = document.getElementById('export-filename-mode-helper');
+        const patternField = document.getElementById('field-export-filename-pattern');
+        if (!modeSelect) return;
+
+        const mode = modeSelect.value || 'timestamp';
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const YYYY = String(now.getFullYear());
+        const MM = pad(now.getMonth() + 1);
+        const DD = pad(now.getDate());
+        const hh = pad(now.getHours());
+        const mm = pad(now.getMinutes());
+        const ss = pad(now.getSeconds());
+        const sampleHash = '3f7a1c89e2b0d456';
+
+        // Update helper text to explain how the selected mode works
+        if (helperEl) {
+            if (mode === 'ask') {
+                helperEl.textContent = 'Prompts with an input dialog on download (the configured format will only be the default value).';
+            } else if (mode === 'timestamp') {
+                helperEl.textContent = 'Generates a timestamped filename (recoll_YYYYMMDD_hhmmss).';
+            } else if (mode === 'query_hash') {
+                helperEl.textContent = 'Generates a deterministic 16-character hash from search query string and selected records.';
+            } else if (mode === 'custom') {
+                helperEl.textContent = 'Uses the custom pattern configured on the right with @HASH, @YYYY, @MM, @DD, @hh, @mm, @ss keywords.';
+            }
+        }
+
+        if (patternField) {
+            if (mode === 'custom' || mode === 'ask') {
+                patternField.style.opacity = '1';
+                patternField.style.filter = '';
+            } else {
+                patternField.style.opacity = '0.65';
+                patternField.style.filter = '';
+            }
+        }
+
+        let preview = '';
+        if (mode === 'timestamp') {
+            preview = `recoll_${YYYY}${MM}${DD}_${hh}${mm}${ss}.zip`;
+        } else if (mode === 'query_hash') {
+            preview = `${sampleHash}.zip`;
+        } else if (mode === 'custom' || mode === 'ask') {
+            const pat = patternInput ? (patternInput.value || 'recoll_@YYYY@MM@DD_@hh@mm@ss') : 'recoll_@YYYY@MM@DD_@hh@mm@ss';
+            preview = evaluateExportPattern(pat, 'zip', sampleHash);
+        }
+
+        if (previewEl) {
+            previewEl.textContent = preview;
+        }
+        if (previewWrap) {
+            if (!preview) {
+                previewWrap.style.visibility = 'hidden';
+            } else {
+                previewWrap.style.visibility = 'visible';
+            }
+        }
+    }
+    window.updateExportFilenamePreview = updateExportFilenamePreview;
+    updateExportFilenamePreview();
+
+    function handleExportPatternInput() {
+        const modeSelect = document.getElementById('setting-export_filename_mode');
+        if (modeSelect && modeSelect.value !== 'custom' && modeSelect.value !== 'ask') {
+            modeSelect.value = 'custom';
+            if (modeSelect._customSelect && typeof modeSelect._customSelect.syncFromNative === 'function') {
+                modeSelect._customSelect.syncFromNative();
+            }
+            modeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        updateExportFilenamePreview();
+        if (typeof window.checkSettingsDirty === 'function') {
+            window.checkSettingsDirty();
+        }
+    }
+    window.handleExportPatternInput = handleExportPatternInput;
+
+    const patternInputEl = document.getElementById('setting-export_filename_pattern');
+    if (patternInputEl) {
+        patternInputEl.addEventListener('input', handleExportPatternInput);
+        patternInputEl.addEventListener('change', handleExportPatternInput);
+    }
+
     syncFormsData();
     renderCards();
     originalSettingsState = captureSettingsState();
     originalFormsData = JSON.stringify(forms);
     window.isSettingsDirty = false;
     window.isFormsDirty = false;
+}
+
+/**
+ * Prompt User for Export Filename (Look & feel matching the progress bar dialog)
+ */
+function promptExportFilename({ title, defaultName, ext }) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('export-filename-modal');
+        if (!modal) {
+            resolve(defaultName || null);
+            return;
+        }
+
+        const titleEl = document.getElementById('export-filename-modal-title');
+        const inputEl = document.getElementById('export-filename-input');
+        const previewEl = document.getElementById('export-filename-preview');
+        const btnClose = document.getElementById('btn-close-export-filename-modal');
+        const btnCancel = document.getElementById('btn-cancel-export-filename');
+        const btnConfirm = document.getElementById('btn-confirm-export-filename');
+
+        const cleanExt = (ext || 'zip').replace(/^\./, '').toLowerCase();
+
+        if (titleEl) titleEl.textContent = title || `Export ${cleanExt.toUpperCase()}`;
+
+        // Compute default timestamp name if not provided
+        let initialName = defaultName || '';
+        if (!initialName) {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+            initialName = `recoll_${ts}.${cleanExt}`;
+        }
+
+        const updatePreview = () => {
+            let val = (inputEl.value || '').trim();
+            if (!val) val = initialName;
+            if (!val.toLowerCase().endsWith(`.${cleanExt}`)) {
+                val = `${val}.${cleanExt}`;
+            }
+            if (previewEl) previewEl.textContent = val;
+            return val;
+        };
+
+        if (inputEl) {
+            inputEl.value = initialName;
+            updatePreview();
+        }
+
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            if (inputEl) {
+                inputEl.focus();
+                const dotIdx = inputEl.value.lastIndexOf('.');
+                if (dotIdx > 0) {
+                    inputEl.setSelectionRange(0, dotIdx);
+                } else {
+                    inputEl.select();
+                }
+            }
+        }, 50);
+
+        function cleanup() {
+            modal.style.display = 'none';
+            if (btnClose) btnClose.removeEventListener('click', onCancel);
+            if (btnCancel) btnCancel.removeEventListener('click', onCancel);
+            if (btnConfirm) btnConfirm.removeEventListener('click', onConfirm);
+            modal.removeEventListener('click', onBackdropClick);
+            document.removeEventListener('keydown', onKeyDown);
+            if (inputEl) inputEl.removeEventListener('input', updatePreview);
+        }
+
+        function onCancel() {
+            cleanup();
+            resolve(null);
+        }
+
+        function onConfirm() {
+            const finalName = updatePreview();
+            cleanup();
+            resolve(finalName);
+        }
+
+        function onBackdropClick(e) {
+            if (e.target === modal) {
+                onCancel();
+            }
+        }
+
+        function onKeyDown(e) {
+            if (modal.style.display === 'none') return;
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onCancel();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                onConfirm();
+            }
+        }
+
+        if (btnClose) btnClose.addEventListener('click', onCancel);
+        if (btnCancel) btnCancel.addEventListener('click', onCancel);
+        if (btnConfirm) btnConfirm.addEventListener('click', onConfirm);
+        modal.addEventListener('click', onBackdropClick);
+        document.addEventListener('keydown', onKeyDown);
+        if (inputEl) inputEl.addEventListener('input', updatePreview);
+    });
 }
 
 /**
@@ -2726,11 +2954,28 @@ function initFilesDownload() {
                     } else if (statusData.status === 'ready') {
                         clearInterval(pollTimer);
                         pollTimer = null;
-                        const dlUrl = statusData.download_url || `/api/archive/download/${activeJobId}`;
+                        const readyJobId = activeJobId;
                         activeJobId = null;
                         // Close modal immediately upon completion; browser proceeds to download
                         archiveModal.style.display = 'none';
-                        window.location.href = dlUrl;
+
+                        const downloadsEl = document.getElementById('downloads');
+                        const exportMode = downloadsEl ? (downloadsEl.dataset.exportMode || 'timestamp') : 'timestamp';
+
+                        if (exportMode === 'ask') {
+                            const chosenFilename = await promptExportFilename({
+                                title: 'Export ZIP Archive',
+                                defaultName: statusData.filename || 'recoll_archive.zip',
+                                ext: 'zip'
+                            });
+                            if (!chosenFilename) {
+                                return;
+                            }
+                            window.location.href = `/api/archive/download/${readyJobId}?filename=${encodeURIComponent(chosenFilename)}`;
+                        } else {
+                            const dlUrl = statusData.download_url || `/api/archive/download/${readyJobId}`;
+                            window.location.href = dlUrl;
+                        }
                     } else if (statusData.status === 'error') {
                         clearInterval(pollTimer);
                         pollTimer = null;
@@ -2824,50 +3069,82 @@ function wireExportSelectionButtons() {
     const btnJson = document.getElementById('btn-download-json');
     const btnCsv = document.getElementById('btn-download-csv');
 
-    function triggerExportWithSelected(format) {
+    function getExportMode() {
+        const downloadsEl = document.getElementById('downloads');
+        return downloadsEl ? (downloadsEl.dataset.exportMode || 'timestamp') : 'timestamp';
+    }
+
+    function triggerExport(format, filename) {
         const selected = getSelectedResults();
         const selectedList = Array.from(selected);
         const params = new URLSearchParams(window.location.search);
         params.delete('page');
+        if (filename) {
+            params.set('filename', filename);
+        }
 
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `./${format}?${params.toString()}`;
-        form.style.display = 'none';
+        if (selectedList.length > 0) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `./${format}?${params.toString()}`;
+            form.style.display = 'none';
 
-        selectedList.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected';
-            input.value = id;
-            form.appendChild(input);
-        });
+            selectedList.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'selected';
+                input.value = id;
+                form.appendChild(input);
+            });
 
-        document.body.appendChild(form);
-        form.submit();
-        setTimeout(() => {
-            if (form.parentNode) form.parentNode.removeChild(form);
-        }, 1000);
+            if (filename) {
+                const fnInput = document.createElement('input');
+                fnInput.type = 'hidden';
+                fnInput.name = 'filename';
+                fnInput.value = filename;
+                form.appendChild(fnInput);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+            setTimeout(() => {
+                if (form.parentNode) form.parentNode.removeChild(form);
+            }, 1000);
+        } else {
+            window.location.href = `./${format}?${params.toString()}`;
+        }
+    }
+
+    async function handleExportClick(e, format) {
+        const mode = getExportMode();
+        if (mode === 'ask') {
+            e.preventDefault();
+            const downloadsEl = document.getElementById('downloads');
+            const pattern = downloadsEl ? (downloadsEl.dataset.exportPattern || 'recoll_@YYYY@MM@DD_@hh@mm@ss') : 'recoll_@YYYY@MM@DD_@hh@mm@ss';
+            const defaultName = evaluateExportPattern(pattern, format);
+
+            const chosen = await promptExportFilename({
+                title: `Export ${format.toUpperCase()}`,
+                defaultName: defaultName,
+                ext: format
+            });
+            if (!chosen) return;
+            triggerExport(format, chosen);
+        } else {
+            const selected = getSelectedResults();
+            if (selected.size > 0) {
+                e.preventDefault();
+                triggerExport(format);
+            }
+        }
     }
 
     if (btnJson) {
-        btnJson.addEventListener('click', (e) => {
-            const selected = getSelectedResults();
-            if (selected.size > 0) {
-                e.preventDefault();
-                triggerExportWithSelected('json');
-            }
-        });
+        btnJson.addEventListener('click', (e) => handleExportClick(e, 'json'));
     }
 
     if (btnCsv) {
-        btnCsv.addEventListener('click', (e) => {
-            const selected = getSelectedResults();
-            if (selected.size > 0) {
-                e.preventDefault();
-                triggerExportWithSelected('csv');
-            }
-        });
+        btnCsv.addEventListener('click', (e) => handleExportClick(e, 'csv'));
     }
 }
 
@@ -3053,10 +3330,10 @@ function initViewModeToggle() {
  */
 function initCustomSelects(root = document) {
     let selects = [];
-    if (root.matches && root.matches('select.form-control:not([data-customized])')) {
+    if (root.matches && root.matches('select.form-control:not([data-customized]):not(.no-custom-select)')) {
         selects = [root];
     } else if (root.querySelectorAll) {
-        selects = Array.from(root.querySelectorAll('select.form-control:not([data-customized])'));
+        selects = Array.from(root.querySelectorAll('select.form-control:not([data-customized]):not(.no-custom-select)'));
     }
 
     selects.forEach(select => {
@@ -3070,6 +3347,10 @@ function initCustomSelects(root = document) {
             wrapper.className = isMultiple ? 'custom-select-wrapper is-multiple' : 'custom-select-wrapper';
             if (select.classList.contains('form-preset-select')) {
                 wrapper.classList.add('form-preset-select');
+            }
+            const parentInputGroup = select.closest('.setting-input-group');
+            if (parentInputGroup) {
+                parentInputGroup.classList.add('has-custom-select');
             }
             select.parentNode.insertBefore(wrapper, select);
             wrapper.appendChild(select);
@@ -3423,6 +3704,8 @@ function initCustomSelects(root = document) {
 
             wrapper.classList.add('is-open');
             trigger.setAttribute('aria-expanded', 'true');
+            const parentInputGroup = wrapper.closest('.setting-input-group');
+            if (parentInputGroup) parentInputGroup.classList.add('custom-select-open');
 
             if (isMultiple && searchInput) {
                 searchInput.value = '';
@@ -3438,6 +3721,8 @@ function initCustomSelects(root = document) {
         function closeMenu() {
             wrapper.classList.remove('is-open', 'drop-up');
             trigger.setAttribute('aria-expanded', 'false');
+            const parentInputGroup = wrapper.closest('.setting-input-group');
+            if (parentInputGroup) parentInputGroup.classList.remove('custom-select-open');
             highlightedIndex = -1;
             clearHighlight();
         }

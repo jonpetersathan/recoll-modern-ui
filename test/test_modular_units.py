@@ -5,6 +5,7 @@ Validates constants, utilities, configuration, search queries,
 archive management, error handling, and webui facade backward compatibility.
 """
 
+import datetime
 import os
 import sys
 import unittest
@@ -29,10 +30,16 @@ class TestConstants(unittest.TestCase):
             'context', 'stem', 'timefmt', 'dirdepth', 'maxchars',
             'maxresults', 'perpage', 'csvfields', 'title_link',
             'collapsedups', 'synonyms', 'mounts', 'noresultlinks',
-            'logquery', 'shortenpaths', 'permlinks', 'res_permlink'
+            'logquery', 'shortenpaths', 'permlinks', 'res_permlink',
+            'export_filename_mode', 'export_filename_pattern',
         ]
         for key in expected_keys:
             self.assertIn(key, constants.DEFAULT_CONFIG)
+        self.assertEqual(constants.DEFAULT_CONFIG['export_filename_mode'], 'timestamp')
+        self.assertIn(('timestamp', 'Timestamp (recoll_YYYYMMDD_hhmmss)'), constants.EXPORT_FILENAME_MODES)
+        self.assertIn(('ask', 'Ask every time'), constants.EXPORT_FILENAME_MODES)
+        self.assertIn(('query_hash', 'Query hash (first 16 characters)'), constants.EXPORT_FILENAME_MODES)
+        self.assertIn(('custom', 'Custom pattern'), constants.EXPORT_FILENAME_MODES)
 
     def test_mime_labels(self):
         self.assertEqual(constants.MIME_LABELS['application/pdf'], 'PDF Document')
@@ -91,6 +98,60 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(utils.extract_common_prefix(["/a/b/c", "/a/b/d"]), "/a/b/")
         self.assertEqual(utils.extract_common_prefix(["/a/b", "/c/d"]), "")
 
+    def test_compute_export_hash(self):
+        h1 = utils.compute_export_hash("search term", ["id1", "id2"])
+        h2 = utils.compute_export_hash("search term", ["id2", "id1"])
+        self.assertEqual(len(h1), 16)
+        # Verify order independence for selected records
+        self.assertEqual(h1, h2)
+        # Verify different query or records produces different hash
+        h3 = utils.compute_export_hash("different term", ["id1", "id2"])
+        self.assertNotEqual(h1, h3)
+
+    def test_generate_export_filename_timestamp(self):
+        fixed_dt = datetime.datetime(2026, 9, 12, 15, 30, 45)
+        config = {'export_filename_mode': 'timestamp'}
+        fn_zip = utils.generate_export_filename(config, ext='zip', now=fixed_dt)
+        self.assertEqual(fn_zip, "recoll_20260912_153045.zip")
+        fn_csv = utils.generate_export_filename(config, ext='csv', now=fixed_dt)
+        self.assertEqual(fn_csv, "recoll_20260912_153045.csv")
+        fn_json = utils.generate_export_filename(config, ext='json', now=fixed_dt)
+        self.assertEqual(fn_json, "recoll_20260912_153045.json")
+
+    def test_generate_export_filename_custom_override(self):
+        config = {'export_filename_mode': 'timestamp'}
+        fn = utils.generate_export_filename(config, ext='zip', custom_filename='my_export_file')
+        self.assertEqual(fn, "my_export_file.zip")
+        # Existing extension should not be duplicated
+        fn2 = utils.generate_export_filename(config, ext='csv', custom_filename='data.csv')
+        self.assertEqual(fn2, "data.csv")
+
+    def test_generate_export_filename_query_hash(self):
+        config = {'export_filename_mode': 'query_hash'}
+        expected_hash = utils.compute_export_hash("myquery", ["doc1"])
+        fn = utils.generate_export_filename(config, query_str="myquery", selected_ids=["doc1"], ext='zip')
+        self.assertEqual(fn, f"{expected_hash}.zip")
+
+    def test_generate_export_filename_custom_pattern(self):
+        fixed_dt = datetime.datetime(2026, 9, 12, 8, 5, 9)
+        expected_hash = utils.compute_export_hash("myquery", None)
+        config = {
+            'export_filename_mode': 'custom',
+            'export_filename_pattern': 'export_@HASH_@YYYY-@MM-@DD_@hh@mm@ss'
+        }
+        fn = utils.generate_export_filename(config, query_str="myquery", ext='json', now=fixed_dt)
+        self.assertEqual(fn, f"export_{expected_hash}_2026-09-12_080509.json")
+
+    def test_generate_export_filename_ask_uses_pattern_default(self):
+        fixed_dt = datetime.datetime(2026, 9, 12, 8, 5, 9)
+        expected_hash = utils.compute_export_hash("myquery", None)
+        config = {
+            'export_filename_mode': 'ask',
+            'export_filename_pattern': 'archive_@HASH_@YYYY@MM@DD'
+        }
+        fn = utils.generate_export_filename(config, query_str="myquery", ext='zip', now=fixed_dt)
+        self.assertEqual(fn, f"archive_{expected_hash}_20260912.zip")
+
 
 class TestSearchQuery(unittest.TestCase):
     """Test search query formatting."""
@@ -143,6 +204,12 @@ class TestArchiveManager(unittest.TestCase):
         cancelled = archive.ArchiveManager.get_job(job_id)
         self.assertTrue(cancelled['cancelled'])
         self.assertEqual(cancelled['status'], 'cancelled')
+
+    def test_create_job_with_custom_filename(self):
+        job_id = archive.ArchiveManager.create_job(total=5, filename="my_custom_archive.zip")
+        job = archive.ArchiveManager.get_job(job_id)
+        self.assertEqual(job['filename'], "my_custom_archive.zip")
+        self.assertTrue(job['zip_path'].endswith("my_custom_archive.zip"))
 
 
 class TestErrorRendering(unittest.TestCase):

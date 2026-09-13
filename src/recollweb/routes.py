@@ -38,6 +38,7 @@ from recollweb.logging import get_client_ip, logger
 from recollweb.metadata import MetadataRulesManager
 from recollweb.search import RecollSearchEngine, SearchQuery, SnippetHighlighter, extract_document_file
 from recollweb.utils import (
+    generate_export_filename,
     json_error,
     json_response,
     parse_json_request,
@@ -436,6 +437,8 @@ def register_routes(app: bottle.Bottle):
         qs = SearchQuery.to_recoll_string(query_data)
         client_ip = get_client_ip()
         selected_ids = _parse_selected_param()
+        custom_fn = bottle.request.params.get('filename')
+        filename = generate_export_filename(config, qs, selected_ids, 'json', custom_fn)
 
         try:
             res, total_count, _ = RecollSearchEngine.execute_search(query_data, config)
@@ -445,13 +448,13 @@ def register_routes(app: bottle.Bottle):
         except Exception as exc:
             logger.warning("EXPORT_JSON_WARNING: Search index unavailable or query error: %s (Client: %s)", exc, client_ip)
             bottle.response.headers['Content-Type'] = 'application/json'
-            bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.json"'
+            bottle.response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
             return json.dumps({'query': query_data, 'results': [], 'total': 0})
 
         logger.info("EXPORT_JSON: query='%s' (terms='%s', selected=%d) -> %d records exported to %s", qs, query_data.get('query', ''), len(selected_ids), total_count, client_ip)
 
         bottle.response.headers['Content-Type'] = 'application/json'
-        bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.json"'
+        bottle.response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
 
         return json.dumps({'query': query_data, 'results': res, 'total': total_count})
 
@@ -465,6 +468,8 @@ def register_routes(app: bottle.Bottle):
         qs = SearchQuery.to_recoll_string(query_data)
         client_ip = get_client_ip()
         selected_ids = _parse_selected_param()
+        custom_fn = bottle.request.params.get('filename')
+        filename = generate_export_filename(config, qs, selected_ids, 'csv', custom_fn)
 
         try:
             res, _, _ = RecollSearchEngine.execute_search(query_data, config)
@@ -476,7 +481,7 @@ def register_routes(app: bottle.Bottle):
         logger.info("EXPORT_CSV: query='%s' (terms='%s', selected=%d) -> %d records exported to %s", qs, query_data.get('query', ''), len(selected_ids), len(res), client_ip)
 
         bottle.response.headers['Content-Type'] = 'text/csv'
-        bottle.response.headers['Content-Disposition'] = f'attachment; filename="recoll-{sanitize_filename(qs)}.csv"'
+        bottle.response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
 
         string_io = io.StringIO()
         writer = csv.writer(string_io)
@@ -522,14 +527,22 @@ def register_routes(app: bottle.Bottle):
                 "download_url": f"./download/0?{bottle.request.query_string}"
             })
 
-        job_id = ArchiveManager.create_job(total=effective_total)
+        qs = SearchQuery.to_recoll_string(query_data)
+        custom_fn = bottle.request.params.get('filename')
+        if not custom_fn:
+            req_data = parse_json_request()
+            custom_fn = req_data.get('filename')
+        filename = generate_export_filename(config, qs, selected_ids, 'zip', custom_fn)
+
+        job_id = ArchiveManager.create_job(total=effective_total, filename=filename)
         thread = threading.Thread(target=_run_archive_worker, args=(job_id, query_data, config, selected_ids), daemon=True)
         thread.start()
 
         return json_response({
             "single_file": False,
             "total": effective_total,
-            "job_id": job_id
+            "job_id": job_id,
+            "filename": filename,
         })
 
     @app.route('/api/archive/status/<job_id>')
@@ -566,7 +579,15 @@ def register_routes(app: bottle.Bottle):
             bottle.response.status = 404
             return "Archive file missing from storage."
 
-        filename = job.get('filename') or os.path.basename(zip_path)
+        config = ConfigManager.get_config()
+        req_fn = bottle.request.params.get('filename')
+        if req_fn:
+            filename = generate_export_filename(config, '', None, 'zip', req_fn)
+        else:
+            filename = job.get('filename') or os.path.basename(zip_path)
+        if not filename.lower().endswith('.zip'):
+            filename = f"{filename}.zip"
+
         file_size = os.path.getsize(zip_path)
 
         bottle.response.content_type = 'application/zip'
