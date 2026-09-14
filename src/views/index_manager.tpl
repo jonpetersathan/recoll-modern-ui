@@ -18,7 +18,9 @@
             </div>
         </div>
         % job_mode = job.get('mode') if defined('job') and isinstance(job, dict) else None
-        % is_running = status == 'running'
+        % job_status = job.get('status') if defined('job') and isinstance(job, dict) else None
+        % is_running = status == 'running' or job_status == 'running'
+        % is_failed = status == 'failed' or job_status == 'failed'
         % has_index = exists if defined('exists') and exists is not None else True
         % if is_running:
             % if job_mode == 'full' or not has_index:
@@ -28,6 +30,9 @@
                 % pill_cls = 'is-updating is-running'
                 % pill_txt = 'Updating Index'
             % end
+        % elif is_failed:
+            % pill_cls = 'is-failed'
+            % pill_txt = 'Indexing Failed'
         % elif not has_index:
             % pill_cls = 'is-no-index'
             % pill_txt = 'No index'
@@ -97,7 +102,7 @@
                     <div class="stat-card-label">Index Files</div>
                 </div>
                 <div class="stat-card-value" id="stat-doc-count">{{doc_count}}</div>
-                <div class="stat-card-sub">Indexed entries in database</div>
+                <div class="stat-card-sub" id="stat-doc-sub">Indexed entries in database</div>
             </div>
 
             <div class="stat-card" onmousemove="updateGlow(event, this)">
@@ -1060,15 +1065,19 @@ function refreshDataSize(event) {
     });
 }
 
-function triggerIndexAction() {
+function triggerIndexAction(isFull) {
     const btnAction = document.getElementById('btn-index-action');
     if (btnAction && btnAction.disabled) return;
     if (btnAction) btnAction.disabled = true;
 
+    const pill = document.getElementById('index-status-pill');
+    const hasNoIndex = pill && pill.classList.contains('is-no-index');
+    const full = isFull !== undefined ? Boolean(isFull) : Boolean(hasNoIndex);
+
     fetch('/api/index/reindex', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full: false })
+        body: JSON.stringify({ full: full })
     })
     .then(res => res.json())
     .then(data => {
@@ -1157,7 +1166,20 @@ function fetchIndexStatus() {
     fetch('/api/index/status')
     .then(res => res.json())
     .then(data => {
+        const job = data.job || {};
+        const isRunning = data.status === 'running' || job.status === 'running';
+        const isFailed = data.status === 'failed' || job.status === 'failed';
+        const exists = data.exists !== false && data.exists !== 0 && data.exists != null;
+
         document.getElementById('stat-doc-count').innerText = data.doc_count !== undefined ? Number(data.doc_count).toLocaleString() : '0';
+        const statDocSub = document.getElementById('stat-doc-sub');
+        if (statDocSub) {
+            if (isRunning && data.files_done) {
+                statDocSub.innerText = `${Number(data.files_done).toLocaleString()} files scanned`;
+            } else {
+                statDocSub.innerText = 'Indexed entries in database';
+            }
+        }
         document.getElementById('stat-last-indexed').innerText = data.last_indexed || 'Never';
         document.getElementById('stat-db-size').innerText = data.size_human || '0 B';
         if (document.getElementById('stat-db-bytes')) {
@@ -1174,9 +1196,6 @@ function fetchIndexStatus() {
             }
         }
 
-        const job = data.job || {};
-        const isRunning = data.status === 'running' || job.status === 'running';
-        const exists = data.exists !== false && data.exists !== 0 && data.exists != null;
         const pill = document.getElementById('index-status-pill');
         const textEl = document.getElementById('index-status-text');
         if (pill && textEl) {
@@ -1188,6 +1207,9 @@ function fetchIndexStatus() {
                     pill.className = 'index-status-pill is-updating is-running';
                     textEl.innerText = 'Updating Index';
                 }
+            } else if (isFailed) {
+                pill.className = 'index-status-pill is-failed';
+                textEl.innerText = 'Indexing Failed';
             } else if (!exists) {
                 pill.className = 'index-status-pill is-no-index';
                 textEl.innerText = 'No index';
@@ -1210,7 +1232,11 @@ function fetchIndexStatus() {
                     btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
                 }
             } else {
-                if (btnText) btnText.innerText = 'Update Index';
+                if (isFailed) {
+                    if (btnText) btnText.innerText = 'Retry Indexing';
+                } else {
+                    if (btnText) btnText.innerText = 'Update Index';
+                }
                 if (btnIcon) {
                     btnIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`;
                 }

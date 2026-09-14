@@ -401,6 +401,7 @@ window.updateFooterIndexBadge = function(statusInfo) {
     const job = statusInfo.job || {};
     const status = statusInfo.status || job.status || 'idle';
     const isRunning = status === 'running';
+    const isFailed = status === 'failed' || job.status === 'failed';
     const exists = statusInfo.exists !== false && statusInfo.exists !== 0 && statusInfo.exists != null;
 
     if (isRunning) {
@@ -413,6 +414,12 @@ window.updateFooterIndexBadge = function(statusInfo) {
             badge.title = 'Incremental search index update in progress';
             badge.classList.add('status-indexing', 'status-updating');
         }
+    } else if (isFailed) {
+        badge.textContent = 'Indexing Failed';
+        const exitInfo = job.exit_code != null ? ` (exit code ${job.exit_code})` : '';
+        const errDetail = job.error ? `: ${job.error}` : '';
+        badge.title = `Indexing failed${exitInfo}${errDetail}`;
+        badge.classList.add('status-error');
     } else if (!exists) {
         badge.textContent = 'No index';
         badge.title = 'No search index found. Indexing required.';

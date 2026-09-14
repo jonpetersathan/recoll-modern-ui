@@ -335,6 +335,70 @@ class TestIndexManager(unittest.TestCase):
         with self.assertRaises(ValueError):
             IndexManager.update_index_config(self.temp_dir, {"excludedmimetypes": ["text/plain\nmalicious = true"]})
 
+    def test_parse_idxstatus(self):
+        idx_status_file = os.path.join(self.temp_dir, "idxstatus.txt")
+        with open(idx_status_file, "w", encoding="utf-8") as f:
+            f.write(
+                "# Recoll index status\n"
+                "phase = 1\n"
+                "docsdone = 15200\n"
+                "filesdone = 28000\n"
+                "dbtotdocs = 1000\n"
+            )
+        parsed = IndexManager._parse_idxstatus(self.temp_dir)
+        self.assertEqual(parsed["phase"], 1)
+        self.assertEqual(parsed["docsdone"], 15200)
+        self.assertEqual(parsed["filesdone"], 28000)
+        self.assertEqual(parsed["dbtotdocs"], 1000)
+
+    def test_get_status_while_running_reads_idxstatus_safely(self):
+        idx_status_file = os.path.join(self.temp_dir, "idxstatus.txt")
+        with open(idx_status_file, "w", encoding="utf-8") as f:
+            f.write(
+                "phase = 1\n"
+                "docsdone = 42000\n"
+                "filesdone = 50000\n"
+                "dbtotdocs = 0\n"
+            )
+
+        with IndexManager._lock:
+            IndexManager._current_job = {
+                "status": "running",
+                "mode": "incremental",
+                "start_time": 1000.0,
+                "exit_code": None,
+                "error": None,
+            }
+
+        try:
+            status = IndexManager.get_status(self.temp_dir)
+            self.assertEqual(status["status"], "running")
+            self.assertEqual(status["doc_count"], 42000)
+            self.assertEqual(status["docs_done"], 42000)
+            self.assertEqual(status["files_done"], 50000)
+        finally:
+            with IndexManager._lock:
+                IndexManager._current_job = None
+
+    def test_get_status_reports_failed_job(self):
+        with IndexManager._lock:
+            IndexManager._current_job = {
+                "status": "failed",
+                "mode": "incremental",
+                "start_time": 1000.0,
+                "exit_code": 1,
+                "error": "recollindex exited with code 1",
+            }
+
+        try:
+            status = IndexManager.get_status(self.temp_dir)
+            self.assertEqual(status["status"], "failed")
+            self.assertEqual(status["job"]["exit_code"], 1)
+            self.assertIn("code 1", status["job"]["error"])
+        finally:
+            with IndexManager._lock:
+                IndexManager._current_job = None
+
 
 class TestExtractorCLI(unittest.TestCase):
     def setUp(self):

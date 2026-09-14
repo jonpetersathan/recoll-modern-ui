@@ -4316,7 +4316,8 @@ input.form-control-query:active {
 }
 
 .index-status-pill.is-no-index,
-.index-status-pill.is-error {
+.index-status-pill.is-error,
+.index-status-pill.is-failed {
     background: rgba(239, 68, 68, 0.12);
     border: 1px solid rgba(239, 68, 68, 0.35);
     color: #f87171;
@@ -4341,7 +4342,8 @@ input.form-control-query:active {
 }
 
 .index-status-pill.is-no-index .status-dot-pulse,
-.index-status-pill.is-error .status-dot-pulse {
+.index-status-pill.is-error .status-dot-pulse,
+.index-status-pill.is-failed .status-dot-pulse {
     background: #ef4444;
     box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
 }
