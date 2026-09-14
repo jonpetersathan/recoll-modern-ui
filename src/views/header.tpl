@@ -103,7 +103,7 @@
                 %     end
                 % end
                 % cur_role = get('user_role', '') if (defined('user_role') and user_role) else ('admin' if is_admin_val else 'user')
-                <div class="user-profile-badge" title="User: {{cur_user}} ({{cur_role.capitalize()}})">
+                <div class="user-profile-badge user-profile-info" title="User: {{cur_user}} ({{cur_role.capitalize()}})">
                     <span class="user-avatar-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
