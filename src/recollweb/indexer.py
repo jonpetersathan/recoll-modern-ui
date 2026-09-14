@@ -11,6 +11,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from recollweb.config import RecollConfManager
+from recollweb.db import get_global_setting, set_global_setting
 from recollweb.logging import logger
 
 
@@ -21,6 +22,15 @@ class IndexManager:
     _current_job: Optional[Dict[str, Any]] = None
     _recent_logs: List[str] = []
     _active_process: Optional[subprocess.Popen] = None
+
+    _data_size_lock = threading.Lock()
+    _data_size_cache: Dict[str, Any] = {
+        "bytes": None,
+        "human": None,
+        "calculating": False,
+        "updated_at": None,
+    }
+    _data_size_thread: Optional[threading.Thread] = None
 
     @classmethod
     def _append_log(cls, line: str):
@@ -36,6 +46,145 @@ class IndexManager:
             return list(cls._recent_logs)
 
     @classmethod
+    def reset_data_size_cache(cls):
+        """Reset in-memory data size cache (primarily for tests)."""
+        with cls._data_size_lock:
+            cls._data_size_cache = {
+                "bytes": None,
+                "human": None,
+                "calculating": False,
+                "updated_at": None,
+            }
+
+    @classmethod
+    def get_cached_data_size(cls, conf_dir: str) -> Dict[str, Any]:
+        """
+        Retrieve cached data size metrics without blocking.
+        If cache is empty, attempts to load from SQLite global_settings.
+        """
+        with cls._data_size_lock:
+            cached_bytes = cls._data_size_cache["bytes"]
+            is_calculating = cls._data_size_cache["calculating"]
+            updated_at = cls._data_size_cache["updated_at"]
+
+        if cached_bytes is None:
+            try:
+                db_val = get_global_setting(conf_dir, "cached_data_size_bytes")
+                db_time = get_global_setting(conf_dir, "cached_data_size_time")
+                if db_val is not None and str(db_val).strip().isdigit():
+                    cached_bytes = int(str(db_val).strip())
+                    updated_at = db_time
+                    with cls._data_size_lock:
+                        cls._data_size_cache["bytes"] = cached_bytes
+                        cls._data_size_cache["human"] = cls._format_bytes(cached_bytes)
+                        cls._data_size_cache["updated_at"] = updated_at
+            except Exception as exc:
+                logger.warning("Failed to load cached data size from DB: %s", exc)
+
+        if is_calculating:
+            size_human = "-"
+        elif cached_bytes is not None:
+            size_human = cls._format_bytes(cached_bytes)
+        else:
+            size_human = "-"
+
+        return {
+            "bytes": cached_bytes if cached_bytes is not None else 0,
+            "human": size_human,
+            "calculating": is_calculating,
+            "updated_at": updated_at,
+        }
+
+    @classmethod
+    def trigger_data_size_calculation(cls, conf_dir: str, force: bool = False) -> bool:
+        """
+        Trigger asynchronous calculation of /data directory size via 'du'.
+        Returns True if a new background task was started, False if already running.
+        """
+        with cls._data_size_lock:
+            if cls._data_size_cache["calculating"] and not force:
+                return False
+            cls._data_size_cache["calculating"] = True
+            cls._data_size_cache["human"] = "-"
+
+        thread = threading.Thread(
+            target=cls._run_data_size_worker,
+            args=(conf_dir,),
+            daemon=True,
+            name="du-data-size-worker",
+        )
+        cls._data_size_thread = thread
+        thread.start()
+        return True
+
+    @classmethod
+    def _run_data_size_worker(cls, conf_dir: str):
+        """
+        Background worker running 'du -s -b' on /data or configured topdirs.
+        Updates in-memory cache and persists to SQLite global_settings.
+        """
+        logger.info("Starting background data size calculation via 'du'...")
+        data_size_bytes = None
+
+        # Resolve target paths to measure
+        data_dir = "/data"
+        target_dirs = []
+        if os.path.exists(data_dir):
+            target_dirs.append(data_dir)
+        else:
+            # Fallback to topdirs from recoll.conf
+            conf_file = os.path.join(conf_dir, "recoll.conf")
+            if os.path.isfile(conf_file):
+                try:
+                    with open(conf_file, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith("topdirs"):
+                                parts = line.split("=", 1)
+                                if len(parts) == 2:
+                                    target_dirs = [d for d in parts[1].strip().split() if os.path.exists(d)]
+                except Exception:
+                    pass
+
+        if target_dirs:
+            total_bytes = 0
+            success = True
+            for td in target_dirs:
+                try:
+                    out = subprocess.check_output(
+                        ["du", "-s", "-b", td],
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                        timeout=600,
+                    )
+                    parts = out.strip().split()
+                    if parts and parts[0].isdigit():
+                        total_bytes += int(parts[0])
+                    else:
+                        success = False
+                except Exception as exc:
+                    logger.warning("Asynchronous 'du -s -b %s' failed: %s", td, exc)
+                    success = False
+            if success:
+                data_size_bytes = total_bytes
+
+        with cls._data_size_lock:
+            cls._data_size_cache["calculating"] = False
+            if data_size_bytes is not None:
+                cls._data_size_cache["bytes"] = data_size_bytes
+                cls._data_size_cache["human"] = cls._format_bytes(data_size_bytes)
+                cls._data_size_cache["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        if data_size_bytes is not None:
+            try:
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                set_global_setting(conf_dir, "cached_data_size_bytes", str(data_size_bytes))
+                set_global_setting(conf_dir, "cached_data_size_time", now_str)
+                logger.info("Data size calculation complete: %d bytes (%s)", data_size_bytes, cls._format_bytes(data_size_bytes))
+            except Exception as exc:
+                logger.warning("Failed to save data size to DB: %s", exc)
+
+    @classmethod
     def get_status(cls, conf_dir: str) -> Dict[str, Any]:
         """
         Inspect the current status of the search index:
@@ -44,6 +193,7 @@ class IndexManager:
         - Database disk size
         - Topdirs from recoll.conf
         - Last indexed timestamp
+        - Asynchronously cached data size
         """
         xapian_dir = os.path.join(conf_dir, "xapiandb")
         db_exists = os.path.isdir(xapian_dir)
@@ -108,42 +258,17 @@ class IndexManager:
             except Exception:
                 pass
 
-        # Calculate total file size of data in /data (or topdirs)
-        data_size_bytes = 0
-        data_dir = "/data"
-        if os.path.exists(data_dir):
-            try:
-                out = subprocess.check_output(
-                    ['du', '-s', '-b', data_dir],
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    timeout=2
-                )
-                data_size_bytes = int(out.split()[0])
-            except Exception:
-                try:
-                    for root, _, files in os.walk(data_dir):
-                        for f in files:
-                            fp = os.path.join(root, f)
-                            try:
-                                data_size_bytes += os.path.getsize(fp)
-                            except OSError:
-                                pass
-                except Exception:
-                    pass
-        elif topdirs:
-            for td in topdirs:
-                if os.path.exists(td):
-                    try:
-                        out = subprocess.check_output(
-                            ['du', '-s', '-b', td],
-                            stderr=subprocess.DEVNULL,
-                            text=True,
-                            timeout=2
-                        )
-                        data_size_bytes += int(out.split()[0])
-                    except Exception:
-                        pass
+        # Asynchronously cached data size (never blocks request thread)
+        size_info = cls.get_cached_data_size(conf_dir)
+        data_size_bytes = size_info["bytes"]
+        data_size_human = size_info["human"]
+        data_size_calculating = size_info["calculating"]
+
+        # If cache is completely empty and no calculation is running, trigger one in background
+        if size_info["updated_at"] is None and not data_size_calculating:
+            cls.trigger_data_size_calculation(conf_dir)
+            data_size_calculating = True
+            data_size_human = "-"
 
         # Determine job status
         with cls._lock:
@@ -171,7 +296,8 @@ class IndexManager:
             "size_bytes": db_size_bytes,
             "size_human": cls._format_bytes(db_size_bytes),
             "data_size_bytes": data_size_bytes,
-            "data_size_human": cls._format_bytes(data_size_bytes),
+            "data_size_human": data_size_human,
+            "data_size_calculating": data_size_calculating,
             "last_indexed": datetime.datetime.fromtimestamp(db_mtime).strftime("%Y-%m-%d %H:%M") if db_mtime else "Never",
             "topdirs": topdirs,
             "conf_dir": conf_dir,
@@ -211,6 +337,9 @@ class IndexManager:
         mode_str = "full re-index" if full else "Incremental update"
         cls._append_log(f"Starting {mode_str} with confdir: {conf_dir}")
 
+        # Trigger asynchronous data size recalculation
+        cls.trigger_data_size_calculation(conf_dir, force=True)
+
         thread = threading.Thread(
             target=cls._run_indexer_worker,
             args=(conf_dir, full),
@@ -231,6 +360,9 @@ class IndexManager:
 
         xapian_dir = os.path.join(conf_dir, "xapiandb")
         cls._append_log(f"Purging search index at {xapian_dir}...")
+
+        # Trigger asynchronous data size recalculation
+        cls.trigger_data_size_calculation(conf_dir, force=True)
 
         try:
             if os.path.exists(xapian_dir):
@@ -293,3 +425,5 @@ class IndexManager:
                     cls._current_job["error"] = str(exc)
         finally:
             cls._active_process = None
+            # Update data size calculation upon indexing completion
+            cls.trigger_data_size_calculation(conf_dir, force=True)

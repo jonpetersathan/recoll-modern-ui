@@ -139,10 +139,20 @@
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                         </svg>
                     </div>
-                    <div class="stat-card-label">Data Size</div>
+                    <div class="stat-card-label" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                        <span>Data Size</span>
+                        <button type="button" class="btn btn-secondary btn-xs" id="btn-refresh-size" onclick="refreshDataSize(event)" title="Recalculate Data Size" style="padding: 2px 6px; font-size: 0.75rem; line-height: 1;">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-                <div class="stat-card-value" id="stat-data-size">{{data_size_human}}</div>
-                <div class="stat-card-sub" id="stat-data-bytes">{{data_size_bytes}} bytes in /data</div>
+                % is_calc = data_size_calculating if defined('data_size_calculating') else False
+                <div class="stat-card-value" id="stat-data-size">{{'-' if is_calc else data_size_human}}</div>
+                <div class="stat-card-sub" id="stat-data-bytes">{{'Calculating...' if is_calc else f"{data_size_bytes} bytes in /data"}}</div>
             </div>
         </div>
 
@@ -1031,6 +1041,25 @@ function saveAllRules() {
     return saveUnifiedConfig();
 }
 
+function refreshDataSize(event) {
+    if (event) event.stopPropagation();
+    const btn = document.getElementById('btn-refresh-size');
+    if (btn) btn.disabled = true;
+    document.getElementById('stat-data-size').innerText = '-';
+    if (document.getElementById('stat-data-bytes')) {
+        document.getElementById('stat-data-bytes').innerText = 'Calculating...';
+    }
+    fetch('/api/index/refresh-size', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+        fetchIndexStatus();
+    })
+    .catch(err => console.error('Failed to recalculate data size:', err))
+    .finally(() => {
+        setTimeout(() => { if (btn) btn.disabled = false; }, 2000);
+    });
+}
+
 function triggerIndexAction() {
     const btnAction = document.getElementById('btn-index-action');
     if (btnAction && btnAction.disabled) return;
@@ -1044,6 +1073,10 @@ function triggerIndexAction() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            document.getElementById('stat-data-size').innerText = '-';
+            if (document.getElementById('stat-data-bytes')) {
+                document.getElementById('stat-data-bytes').innerText = 'Calculating...';
+            }
             fetchIndexStatus();
         } else {
             if (btnAction) btnAction.disabled = false;
@@ -1078,6 +1111,10 @@ async function confirmPurgeIndex() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            document.getElementById('stat-data-size').innerText = '-';
+            if (document.getElementById('stat-data-bytes')) {
+                document.getElementById('stat-data-bytes').innerText = 'Calculating...';
+            }
             window.showAlertModal({
                 title: "Database Purged",
                 message: "Index database successfully purged.",
@@ -1127,10 +1164,14 @@ function fetchIndexStatus() {
             document.getElementById('stat-db-bytes').innerText = (data.size_bytes || 0).toLocaleString() + ' bytes on disk';
         }
         if (document.getElementById('stat-data-size')) {
-            document.getElementById('stat-data-size').innerText = data.data_size_human || '0 B';
+            document.getElementById('stat-data-size').innerText = data.data_size_calculating ? '-' : (data.data_size_human || '0 B');
         }
         if (document.getElementById('stat-data-bytes')) {
-            document.getElementById('stat-data-bytes').innerText = (data.data_size_bytes || 0).toLocaleString() + ' bytes in /data';
+            if (data.data_size_calculating) {
+                document.getElementById('stat-data-bytes').innerText = 'Calculating...';
+            } else {
+                document.getElementById('stat-data-bytes').innerText = (data.data_size_bytes || 0).toLocaleString() + ' bytes in /data';
+            }
         }
 
         const job = data.job || {};

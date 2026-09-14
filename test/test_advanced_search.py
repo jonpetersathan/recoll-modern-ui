@@ -873,6 +873,30 @@ class TestContainerEndpoints(unittest.TestCase):
         # Clean up
         self._http_request("/api/forms/delete", method="POST", data={"id": created_id})
 
+    def test_builder_multi_choice_toggle_and_dropdown_options_label(self):
+        """Verify Allow Multi-Choice uses glass-switch toggle below Helper Description and Dropdown Options is renamed."""
+        status_js, content_js = self._http_request("/static/extra.js")
+        self.assertEqual(status_js, 200)
+        # Verify glass-switch toggle wrapper for multi-choice exists
+        self.assertIn("field-select-multi-wrap", content_js)
+        self.assertIn("field-multiple-toggle", content_js)
+        # Verify Dropdown Options header is just 'Dropdown Options'
+        self.assertIn('<span class="settings-label">Dropdown Options</span>', content_js)
+        self.assertNotIn("Dropdown Options (Label &rarr; Recoll Query)", content_js)
+        self.assertNotIn("Dropdown Options (Label -> Recoll Query)", content_js)
+
+        # Verify multi-choice toggle appears after Helper Description and before Dropdown Options in template
+        helper_idx = content_js.index("Helper Description")
+        multi_wrap_idx = content_js.index("field-select-multi-wrap")
+        dropdown_opts_idx = content_js.index('<span class="settings-label">Dropdown Options</span>')
+        self.assertLess(helper_idx, multi_wrap_idx)
+        self.assertLess(multi_wrap_idx, dropdown_opts_idx)
+
+        # Verify CSS styling
+        status_css, content_css = self._http_request("/static/style.css")
+        self.assertEqual(status_css, 200)
+        self.assertIn(".glass-switch-label", content_css)
+
     def test_keyword_aliases_and_removed_keywords_suggestions(self):
         """Verify fn, cfn, and fileextension are removed from TOP_LEVEL_KEYWORDS but their canonical keywords match aliases."""
         status_js, content_js = self._http_request("/static/extra.js")

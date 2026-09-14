@@ -4771,6 +4771,19 @@ input.form-control-query:active {
     box-shadow: 0 0 8px var(--accent);
 }
 
+.glass-switch-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.glass-switch-label .settings-label {
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
 /* Rule Card Scope Bar */
 .rule-card-scope {
     display: flex;

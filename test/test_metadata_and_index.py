@@ -204,8 +204,10 @@ class TestMetadataRulesManager(unittest.TestCase):
 class TestIndexManager(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp(prefix="recoll_test_idx_")
+        IndexManager.reset_data_size_cache()
 
     def tearDown(self):
+        IndexManager.reset_data_size_cache()
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_format_bytes(self):
@@ -224,6 +226,7 @@ class TestIndexManager(unittest.TestCase):
         self.assertIn("topdirs", status)
         self.assertIn("data_size_human", status)
         self.assertIn("data_size_bytes", status)
+        self.assertIn("data_size_calculating", status)
         self.assertEqual(status["topdirs"], ["/data", "/custom_docs"])
         self.assertFalse(status["exists"])
 
@@ -238,6 +241,47 @@ class TestIndexManager(unittest.TestCase):
         res = IndexManager.purge_index(self.temp_dir)
         self.assertTrue(res["success"])
         self.assertFalse(os.path.isdir(xapian_dir))
+
+    def test_cached_data_size_sqlite_persistence(self):
+        from recollweb.db import set_global_setting
+        set_global_setting(self.temp_dir, "cached_data_size_bytes", "10485760")
+        set_global_setting(self.temp_dir, "cached_data_size_time", "2026-09-14 12:00")
+
+        size_info = IndexManager.get_cached_data_size(self.temp_dir)
+        self.assertEqual(size_info["bytes"], 10485760)
+        self.assertEqual(size_info["human"], "10.0 MB")
+        self.assertEqual(size_info["updated_at"], "2026-09-14 12:00")
+        self.assertFalse(size_info["calculating"])
+
+    def test_async_data_size_calculation_and_caching(self):
+        sample_dir = os.path.join(self.temp_dir, "data_sample")
+        os.makedirs(sample_dir, exist_ok=True)
+        with open(os.path.join(sample_dir, "test.txt"), "wb") as f:
+            f.write(b"0" * 4096)
+
+        recoll_conf = os.path.join(self.temp_dir, "recoll.conf")
+        with open(recoll_conf, "w", encoding="utf-8") as f:
+            f.write(f"topdirs = {sample_dir}\n")
+
+        # Trigger calculation
+        started = IndexManager.trigger_data_size_calculation(self.temp_dir, force=True)
+        self.assertTrue(started)
+
+        # Worker runs in thread - wait briefly for completion
+        import time
+        for _ in range(50):
+            time.sleep(0.05)
+            size_info = IndexManager.get_cached_data_size(self.temp_dir)
+            if not size_info["calculating"] and size_info["bytes"] > 0:
+                break
+
+        if IndexManager._data_size_thread and IndexManager._data_size_thread.is_alive():
+            IndexManager._data_size_thread.join(timeout=2.0)
+
+        size_info = IndexManager.get_cached_data_size(self.temp_dir)
+        self.assertGreaterEqual(size_info["bytes"], 4096)
+        self.assertFalse(size_info["calculating"])
+        self.assertIsNotNone(size_info["updated_at"])
 
     def test_get_and_update_index_config(self):
         recoll_conf = os.path.join(self.temp_dir, "recoll.conf")

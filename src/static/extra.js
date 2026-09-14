@@ -2140,6 +2140,17 @@ function initSettingsFormManager() {
                 </div>
             </div>
 
+            <!-- Dropdown Multi-Choice Toggle -->
+            <div class="field-select-multi-wrap" style="${fType === 'select' ? '' : 'display: none;'} margin-top: 0.75rem;">
+                <label class="glass-switch-label" title="Allow Multi-Choice (Select Multiple Entries)">
+                    <span class="glass-switch">
+                        <input type="checkbox" class="field-multiple-toggle" ${fieldData.multiple ? 'checked' : ''}>
+                        <span class="glass-slider"></span>
+                    </span>
+                    <span class="settings-label">Allow Multi-Choice (Select Multiple Entries)</span>
+                </label>
+            </div>
+
             <!-- Text Config: Query Snippet -->
             <div class="field-text-config" style="${fType === 'text' ? '' : 'display: none;'} margin-top: 0.5rem;">
                 <div class="settings-field">
@@ -2168,14 +2179,8 @@ function initSettingsFormManager() {
 
             <!-- Select Options Config -->
             <div class="field-select-config" style="${fType === 'select' ? '' : 'display: none;'}">
-                <div class="settings-field" style="margin-bottom: 0.75rem;">
-                    <label class="glass-switch-label" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" class="field-multiple-toggle" ${fieldData.multiple ? 'checked' : ''}>
-                        <span class="settings-label" style="margin-bottom: 0;">Allow Multi-Choice (Select Multiple Entries)</span>
-                    </label>
-                </div>
                 <div class="options-header">
-                    <span class="settings-label">Dropdown Options (Label &rarr; Recoll Query)</span>
+                    <span class="settings-label">Dropdown Options</span>
                     <button type="button" class="btn btn-secondary btn-sm btn-add-option">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         <span>Add Option</span>
@@ -2200,6 +2205,7 @@ function initSettingsFormManager() {
         const placeholderWrap = card.querySelector('.field-placeholder-wrap');
         const toggleConfig = card.querySelector('.field-toggle-config') || card.querySelector('.field-checkbox-config');
         const selectConfig = card.querySelector('.field-select-config');
+        const selectMultiWrap = card.querySelector('.field-select-multi-wrap');
         const staticConfig = card.querySelector('.field-static-config');
         const optionsTbody = card.querySelector('.options-tbody');
 
@@ -2231,6 +2237,7 @@ function initSettingsFormManager() {
             placeholderWrap.style.display = selectedType === 'text' ? 'block' : 'none';
             if (toggleConfig) toggleConfig.style.display = isToggle ? 'block' : 'none';
             selectConfig.style.display = selectedType === 'select' ? 'block' : 'none';
+            if (selectMultiWrap) selectMultiWrap.style.display = selectedType === 'select' ? 'block' : 'none';
             staticConfig.style.display = isStatic ? 'block' : 'none';
         });
 

@@ -751,6 +751,14 @@ def register_routes(app: bottle.Bottle):
             return json_error(res.get('error', 'Failed to purge index'), status=500)
         return json_response(res)
 
+    @app.route('/api/index/refresh-size', method=['POST', 'GET'])
+    def api_index_refresh_size():
+        config = ConfigManager.get_config()
+        if not config.get('is_admin', False):
+            return json_error("Forbidden: Administrator privileges required.", status=403)
+        started = IndexManager.trigger_data_size_calculation(config['confdir'], force=True)
+        return json_response({"success": True, "calculating": True, "started": started})
+
     @app.route('/api/metadata/rules', method=['GET'])
     def api_get_metadata_rules():
         config = ConfigManager.get_config()
